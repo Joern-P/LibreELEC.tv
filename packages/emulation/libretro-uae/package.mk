@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-uae"
-PKG_VERSION="d38f5176ad76eb62010e3ca2e51632e116e860f4"
-PKG_SHA256="c7358d95d6dd7c89d50cf154f16e901e3b4d5524b510cba6b2e351dbec89f01d"
+PKG_VERSION="d973ea99fdbdaece44ff82f26b7c840e622aa299"
+PKG_SHA256="dcc6990e0b2ec57b235145294429e4f9fcaa33cc060052be4e03a3755087a614"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/libretro/libretro-uae"
 PKG_URL="https://github.com/libretro/libretro-uae/archive/$PKG_VERSION.tar.gz"
@@ -22,7 +22,6 @@ pre_configure_target() {
 }
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
-  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
+  mkdir -p ${INSTALL}/usr/lib/libretro
+  cp -v ${PKG_LIBPATH} ${INSTALL}/usr/lib/libretro/
 }

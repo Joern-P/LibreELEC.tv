@@ -14,4 +14,14 @@ PKG_TOOLCHAIN="manual"
 makeinstall_target() {
   mkdir -p $INSTALL/usr/share/kodi/addons/
     cp -a $(get_build_dir kodi)/.$TARGET_NAME/addons/skin.estuary $INSTALL/usr/share/kodi/addons/
+
+
+  # Add Emulationstation shortcut to menu 
+    echo "### Adding Emulationstation to Estuary menu ###"
+    patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.02-emulationstation-menu.patch
+
+  # Add Retroarch shortcut to menu 
+    echo "### Adding Retroarch to Estuary menu ###"
+    patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.03-retroarch-menu.patch
+
 }

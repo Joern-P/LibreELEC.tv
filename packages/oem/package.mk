@@ -6,6 +6,16 @@ PKG_VERSION=""
 PKG_LICENSE="various"
 PKG_SITE="http://www.libreelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain $PROJECT"
-PKG_SECTION="virtual"
+PKG_DEPENDS_TARGET="toolchain emulationstation retroarch flycast mame2003-plus pcsx_rearmed snes9x2010 mupen64plus-nx vice-libretro rr-config-tool gstreamer-rockchip libretro-uae amiberry"
 PKG_LONGDESC="OEM: Metapackage for various OEM packages"
+PKG_TOOLCHAIN="manual"
+
+
+makeinstall_target() {
+  # Create directories
+  mkdir -p ${INSTALL}
+
+  # Install OEM config files & scripts
+  cp -PRv ${PKG_DIR}/common/*     ${INSTALL}
+  cp -PRv ${PKG_DIR}/${PROJECT}/* ${INSTALL}
+}

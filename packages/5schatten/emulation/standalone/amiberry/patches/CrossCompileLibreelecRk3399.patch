@@ -1,0 +1,23 @@
+From 4660d9248702082be441e138ef966e9f05c0b6d5 Mon Sep 17 00:00:00 2001
+From: joern-p <ahap1@web.de>
+Date: Thu, 16 Apr 2020 16:20:45 +0200
+Subject: [PATCH] CrossComp Libreelec Rk3399
+
+---
+ Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index a4af6ede..22765593 100644
+--- a/Makefile
++++ b/Makefile
+@@ -445,7 +445,7 @@ src/osdep/arm_helper.o: src/osdep/arm_helper.s
+ else
+ OBJS += src/osdep/neon_helper.o
+ src/osdep/neon_helper.o: src/osdep/neon_helper.s
+-	$(AS) $(ASFLAGS) -o src/osdep/neon_helper.o -c src/osdep/neon_helper.s
++	$(CXX) $(CXXFLAGS) -o src/osdep/neon_helper.o -c src/osdep/neon_helper.s
+ endif
+ 
+ OBJS += src/newcpu.o \
+
