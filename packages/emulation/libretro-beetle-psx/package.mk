@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-psx"
-PKG_VERSION="55ced791707f1b1d861719e8eef547e5773c343c"
-PKG_SHA256="f605094fa14d214d63943e99e0bc3bbfb666b86de504577a1e62c741be26062b"
+PKG_VERSION="dfab19acea003e8647a6dc3329795d714576dc98"
+PKG_SHA256="9e22e5520e88ef3192ba7dfe1311d9ec26b89170963b5f0ba6b471c845edb220"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-psx-libretro"
 PKG_URL="https://github.com/libretro/beetle-psx-libretro/archive/$PKG_VERSION.tar.gz"
@@ -15,7 +15,6 @@ PKG_LIBPATH="$PKG_LIBNAME"
 PKG_LIBVAR="BEETLE-PSX_LIB"
 
 makeinstall_target() {
-  mkdir -p $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME
-  cp $PKG_LIBPATH $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME
-  echo "set($PKG_LIBVAR $SYSROOT_PREFIX/usr/lib/$PKG_LIBNAME)" > $SYSROOT_PREFIX/usr/lib/cmake/$PKG_NAME/$PKG_NAME-config.cmake
+  mkdir -p ${INSTALL}/usr/lib/libretro
+  cp ${PKG_LIBPATH} ${INSTALL}/usr/lib/libretro/
 }

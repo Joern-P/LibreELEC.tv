@@ -23,13 +23,15 @@ index ba49e623..eb5b1754 100644
     GL_LIB := -lGLESv2
     HAVE_NEON = 1
     WITH_DYNAREC=arm
-@@ -283,7 +283,8 @@
+@@ -283,7 +283,10 @@
        CPUFLAGS += -march=armv8-a+crc -mfloat-abi=hard -mfpu=neon-fp-armv8
        ifneq (,$(findstring RK3399,$(platform)))
           CPUFLAGS += -mtune=cortex-a72.cortex-a53
 -         GLES3 = 1
 +         GLES = 1
 +	  HAVE_PARALLEL_RSP = 1
++         HAVE_THR_AL = 1
++         LLE = 1
        else ifneq (,$(findstring RK3328,$(platform)))
           CPUFLAGS += -mtune=cortex-a53
           GLES = 1

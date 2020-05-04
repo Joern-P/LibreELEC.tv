@@ -1,0 +1,1837 @@
+From 137c262cfbafa44a7de8b1525b66cd1cd00ecdf7 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Fri, 12 Apr 2019 10:22:47 +0800
+Subject: [PATCH 1/3] gfx: Enable plain drm
+
+Also correct dst offset calc when updating surface.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ Makefile.common       | 7 +++++--
+ gfx/drivers/drm_gfx.c | 2 +-
+ qb/config.params.sh   | 2 +-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile.common b/Makefile.common
+index bd82ed4b89a..2baddddfcec 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -1175,9 +1175,12 @@ ifeq ($(HAVE_NETWORK_VIDEO), 1)
+ endif
+ 
+ ifeq ($(HAVE_PLAIN_DRM), 1)
++ifeq ($(HAVE_DRM),1)
++   HAVE_AND_WILL_USE_DRM = 1
+    OBJ += gfx/drivers/drm_gfx.o
+-   INCLUDE_DIRS += -I/usr/include/libdrm
+-   LIBS += -ldrm
++   DEFINES += $(DRM_CFLAGS)
++   LIBS += $(DRM_LIBS)
++endif
+ endif
+ 
+ ifeq ($(HAVE_VITAGL), 1)
+diff --git a/gfx/drivers/drm_gfx.c b/gfx/drivers/drm_gfx.c
+index 37fabae1692..83d65a1b7e7 100644
+--- a/gfx/drivers/drm_gfx.c
++++ b/gfx/drivers/drm_gfx.c
+@@ -329,7 +329,7 @@ static void drm_surface_update(void *data, const void *frame,
+             (uint8_t*)frame + src_offset,
+             surface->pitch);
+       src_offset += surface->total_pitch;
+-      dst_offset += surface->pitch;
++      dst_offset += surface->pages[surface->flip_page].buf.stride;
+    }
+ 
+    /* Page flipping */
+diff --git a/qb/config.params.sh b/qb/config.params.sh
+index f2ace2ee575..438dc994bf0 100644
+--- a/qb/config.params.sh
++++ b/qb/config.params.sh
+@@ -81,7 +81,7 @@ HAVE_XRANDR=auto           # Xrandr support.
+ HAVE_OMAP=no               # OMAP video support
+ HAVE_XINERAMA=auto         # Xinerama support.
+ HAVE_KMS=auto              # KMS context support
+-HAVE_PLAIN_DRM=no          # Plain DRM video support
++HAVE_PLAIN_DRM=yes         # Plain DRM video support
+ HAVE_EXYNOS=no             # Exynos video support
+ HAVE_DISPMANX=no           # Dispmanx video support
+ HAVE_SUNXI=no              # Sunxi video support
+
+From a26a7f92d56202e244485921b294e3dda53d1fb1 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Tue, 22 Jan 2019 12:51:12 +0800
+Subject: [PATCH 2/3] gfx: scaler: Support scaler to rgb565
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ libretro-common/gfx/scaler/pixconv.c | 23 +++++++++++++++++++++++
+ libretro-common/gfx/scaler/scaler.c  |  7 +++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/libretro-common/gfx/scaler/pixconv.c b/libretro-common/gfx/scaler/pixconv.c
+index cb66c334ee6..ddc3027050e 100644
+--- a/libretro-common/gfx/scaler/pixconv.c
++++ b/libretro-common/gfx/scaler/pixconv.c
+@@ -192,6 +192,29 @@ void conv_0rgb1555_argb8888(void *output_, const void *input_,
+    }
+ }
+ 
++void conv_argb8888_rgb565(void *output_, const void *input_,
++      int width, int height,
++      int out_stride, int in_stride)
++{
++   int h, w;
++   const uint32_t *input = (const uint32_t*)input_;
++   uint16_t *output      = (uint16_t*)output_;
++
++   for (h = 0; h < height;
++         h++, output += out_stride >> 1, input += in_stride >> 2)
++   {
++      for (w = 0; w < width; w++)
++      {
++         uint32_t col = input[w];
++         uint16_t r   = (col >> 19) & 0x1f;
++         uint16_t g   = (col >> 10) & 0x3f;
++         uint16_t b   = (col >>  3) & 0x1f;
++
++         output[w]    = (r << 11) | (g << 5) | b;
++      }
++   }
++}
++
+ void conv_rgb565_argb8888(void *output_, const void *input_,
+       int width, int height,
+       int out_stride, int in_stride)
+diff --git a/libretro-common/gfx/scaler/scaler.c b/libretro-common/gfx/scaler/scaler.c
+index 7c3c54e0e86..fad6508b287 100644
+--- a/libretro-common/gfx/scaler/scaler.c
++++ b/libretro-common/gfx/scaler/scaler.c
+@@ -159,6 +159,9 @@ bool scaler_ctx_gen_filter(struct scaler_ctx *ctx)
+                   case SCALER_FMT_RGBA4444:
+                      ctx->direct_pixconv = conv_argb8888_rgba4444;
+                      break;
++                  case SCALER_FMT_RGB565:
++                     ctx->direct_pixconv = conv_argb8888_rgb565;
++                     break;
+                   default:
+                      break;
+                }
+@@ -239,6 +242,10 @@ bool scaler_ctx_gen_filter(struct scaler_ctx *ctx)
+             /* No need to convert :D */
+             break;
+ 
++         case SCALER_FMT_RGB565:
++            ctx->out_pixconv = conv_argb8888_rgb565;
++            break;
++
+          case SCALER_FMT_RGBA4444:
+             ctx->out_pixconv = conv_argb8888_rgba4444;
+             break;
+
+From f2d55a3627fc1699acbe0a528c48e72fb80c827a Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Tue, 22 Jan 2019 11:33:29 +0800
+Subject: [PATCH 3/3] gfx: video: Add fbdev video driver
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ Makefile.common                         |   9 +
+ configuration.c                         |   5 +
+ gfx/common/fbdev_common.h               |  84 +++
+ gfx/drivers/fbdev_gfx.c                 | 834 ++++++++++++++++++++++++
+ gfx/drivers_display/gfx_display_fbdev.c |  82 +++
+ gfx/drivers_font/fbdev_font.c           | 457 +++++++++++++
+ gfx/font_driver.c                       |  36 +
+ gfx/font_driver.h                       |   1 +
+ gfx/gfx_display.c                       |   4 +
+ gfx/gfx_display.h                       |   3 +-
+ gfx/video_defines.h                     |   3 +-
+ qb/config.params.sh                     |   1 +
+ retroarch.c                             |   3 +
+ retroarch.h                             |   1 +
+ 14 files changed, 1521 insertions(+), 2 deletions(-)
+ create mode 100644 gfx/common/fbdev_common.h
+ create mode 100644 gfx/drivers/fbdev_gfx.c
+ create mode 100644 gfx/drivers_display/gfx_display_fbdev.c
+ create mode 100644 gfx/drivers_font/fbdev_font.c
+
+diff --git a/Makefile.common b/Makefile.common
+index 2baddddfcec..d0a4306035a 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -2037,6 +2037,15 @@ ifneq ($(findstring DOS,$(OS)),)
+           frontend/drivers/platform_dos.o
+ endif
+ 
++ifeq ($(HAVE_FBDEV), 1)
++   OBJ += gfx/drivers/fbdev_gfx.o gfx/drivers_font/fbdev_font.o
++   LDFLAGS += -rdynamic
++
++   ifeq ($(HAVE_MENU_COMMON), 1)
++      OBJ += gfx/drivers_display/gfx_display_fbdev.o
++   endif
++endif
++
+ ifeq ($(HAVE_STATIC_VIDEO_FILTERS), 1)
+    OBJ += gfx/video_filters/2xsai.o \
+           gfx/video_filters/super2xsai.o \
+diff --git a/configuration.c b/configuration.c
+index 02c3cd84417..c2352844376 100644
+--- a/configuration.c
++++ b/configuration.c
+@@ -164,6 +164,7 @@ enum video_driver_enum
+    VIDEO_GDI,
+    VIDEO_VGA,
+    VIDEO_FPGA,
++   VIDEO_FBDEV,
+    VIDEO_NULL
+ };
+ 
+@@ -367,6 +368,8 @@ static enum video_driver_enum VIDEO_DEFAULT_DRIVER = VIDEO_VGA;
+ static enum video_driver_enum VIDEO_DEFAULT_DRIVER = VIDEO_FPGA;
+ #elif defined(HAVE_DYLIB) && !defined(ANDROID)
+ static enum video_driver_enum VIDEO_DEFAULT_DRIVER = VIDEO_EXT;
++#elif defined(HAVE_FBDEV)
++static enum video_driver_enum VIDEO_DEFAULT_DRIVER = VIDEO_FBDEV;
+ #else
+ static enum video_driver_enum VIDEO_DEFAULT_DRIVER = VIDEO_NULL;
+ #endif
+@@ -835,6 +838,8 @@ const char *config_get_default_video(void)
+          return "vga";
+       case VIDEO_FPGA:
+          return "fpga";
++      case VIDEO_FBDEV:
++         return "fbdev";
+       case VIDEO_NULL:
+          break;
+    }
+diff --git a/gfx/common/fbdev_common.h b/gfx/common/fbdev_common.h
+new file mode 100644
+index 00000000000..4e211ce1b42
+--- /dev/null
++++ b/gfx/common/fbdev_common.h
+@@ -0,0 +1,84 @@
++/*  RetroArch - A frontend for libretro.
++ *  copyright (c) 2019 - Jeffy Chen
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef FBDEV_COMMON_H
++#define FBDEV_COMMON_H
++
++#ifdef HAVE_CONFIG_H
++#include "../../config.h"
++#endif
++
++#include <linux/fb.h>
++#include <gfx/scaler/scaler.h>
++#include <gfx/scaler/pixconv.h>
++
++#define FBDEV_LOG_TAG "[FBDEV]: "
++
++#define FBDEV_LOG(...) RARCH_LOG(FBDEV_LOG_TAG __VA_ARGS__)
++#define FBDEV_ERR(...) RARCH_ERR(FBDEV_LOG_TAG __VA_ARGS__)
++
++#define FBDEV_DEBUG(TAG, ...) \
++   if (FBDEV_DEBUG_##TAG) FBDEV_LOG(#TAG ": " __VA_ARGS__)
++
++#define FBDEV_DEBUG_ENTER 0
++#define FBDEV_DEBUG_EXIT 0
++#define FBDEV_DEBUG_SCALE 0
++#define FBDEV_DEBUG_FRAME 0
++#define FBDEV_DEBUG_MSG 0
++#define FBDEV_DEBUG_PERF 0
++#define FBDEV_DEBUG_TEXT 0
++
++#define FBDEV_MAX_PAGES 3
++
++typedef struct fbdevb_page
++{
++   void *buf;
++   unsigned offset;
++   bool used;
++} fbdev_page_t;
++
++typedef struct fbdev_data
++{
++   int fd;
++   struct fb_var_screeninfo vinfo;
++
++   void *fbmem;
++   unsigned fbmem_size;
++
++   fbdev_page_t pages[FBDEV_MAX_PAGES];
++   unsigned num_pages;
++
++   fbdev_page_t *curr_page;
++   fbdev_page_t *pending_page;
++   fbdev_page_t *menu_page;
++   fbdev_page_t *dummy_page;
++
++   /* screen size and bytes per pixel */
++   unsigned width, height, bpp;
++   /* video size and bytes per pixel */
++   unsigned video_width, video_height, video_bpp;
++   unsigned page_size;
++
++   struct scaler_ctx scaler;
++
++#if FBDEV_DEBUG_PERF
++   retro_time_t last_frame_time;
++#endif
++
++   bool sync;
++   bool menu_active;
++} fbdev_video_t;
++
++#endif // FBDEV_COMMON_H
+diff --git a/gfx/drivers/fbdev_gfx.c b/gfx/drivers/fbdev_gfx.c
+new file mode 100644
+index 00000000000..57eefbf2563
+--- /dev/null
++++ b/gfx/drivers/fbdev_gfx.c
+@@ -0,0 +1,834 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2010-2014 - Hans-Kristian Arntzen
++ *  Copyright (C) 2011-2017 - Daniel De Matteis
++ *  Copyright (C) 2019 - Jeffy Chen
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <assert.h>
++#include <ctype.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <sys/ioctl.h>
++#include <sys/mman.h>
++
++#ifdef HAVE_CONFIG_H
++#include "../../config.h"
++#endif
++
++#ifdef HAVE_MENU
++#include "../../menu/menu_driver.h"
++#endif
++
++#include <retro_inline.h>
++#include <retro_assert.h>
++#include <features/features_cpu.h>
++#include <gfx/video_frame.h>
++#include <string/stdstring.h>
++
++#include "../font_driver.h"
++#include "../common/fbdev_common.h"
++#include "../../configuration.h"
++#include "../../driver.h"
++#include "../../frontend/frontend_driver.h"
++#include "../../retroarch.h"
++#include "../../verbosity.h"
++
++#define FBDEV_KEEP_FBDEV_PARAMS
++#define FBDEV_SCALE_WITH_ASPECT
++//#define FBDEV_MAX_YRES_VIRTUAL 640
++//#define FBDEV_PREFER_BIG_PAGE
++
++static void print_vinfo(struct fb_var_screeninfo *vinfo)
++{
++   FBDEV_LOG("\txres: %d\n", vinfo->xres);
++   FBDEV_LOG("\tyres: %d\n", vinfo->yres);
++   FBDEV_LOG("\txres_virtual: %d\n", vinfo->xres_virtual);
++   FBDEV_LOG("\tyres_virtual: %d\n", vinfo->yres_virtual);
++   FBDEV_LOG("\txoffset: %d\n", vinfo->xoffset);
++   FBDEV_LOG("\tyoffset: %d\n", vinfo->yoffset);
++   FBDEV_LOG("\tbits_per_pixel: %d\n", vinfo->bits_per_pixel);
++   FBDEV_LOG("\tgrayscale: %d\n", vinfo->grayscale);
++   FBDEV_LOG("\tnonstd: %d\n", vinfo->nonstd);
++   FBDEV_LOG("\tactivate: %d\n", vinfo->activate);
++   FBDEV_LOG("\theight: %d\n", vinfo->height);
++   FBDEV_LOG("\twidth: %d\n", vinfo->width);
++   FBDEV_LOG("\taccel_flags: %d\n", vinfo->accel_flags);
++   FBDEV_LOG("\tpixclock: %d\n", vinfo->pixclock);
++   FBDEV_LOG("\tleft_margin: %d\n", vinfo->left_margin);
++   FBDEV_LOG("\tright_margin: %d\n", vinfo->right_margin);
++   FBDEV_LOG("\tupper_margin: %d\n", vinfo->upper_margin);
++   FBDEV_LOG("\tlower_margin: %d\n", vinfo->lower_margin);
++   FBDEV_LOG("\thsync_len: %d\n", vinfo->hsync_len);
++   FBDEV_LOG("\tvsync_len: %d\n", vinfo->vsync_len);
++   FBDEV_LOG("\tsync: %d\n", vinfo->sync);
++   FBDEV_LOG("\tvmode: %d\n", vinfo->vmode);
++   FBDEV_LOG("\tred: %d/%d\n", vinfo->red.length, vinfo->red.offset);
++   FBDEV_LOG("\tgreen: %d/%d\n", vinfo->green.length, vinfo->green.offset);
++   FBDEV_LOG("\tblue: %d/%d\n", vinfo->blue.length, vinfo->blue.offset);
++   FBDEV_LOG("\talpha: %d/%d\n", vinfo->transp.length, vinfo->transp.offset);
++}
++
++static void fbdev_deinit(fbdev_video_t *fbdev)
++{
++   FBDEV_DEBUG(ENTER);
++
++   if (fbdev->dummy_page) {
++      free(fbdev->dummy_page);
++      fbdev->dummy_page = NULL;
++   }
++
++   FBDEV_DEBUG(EXIT);
++}
++
++static int fbdev_init(fbdev_video_t *fbdev)
++{
++   FBDEV_DEBUG(ENTER);
++
++   struct fb_var_screeninfo vinfo;
++   unsigned width = fbdev->video_width;
++   unsigned height = fbdev->video_height;
++   unsigned bpp = fbdev->video_bpp;
++   int i, page_height;
++
++   if (ioctl(fbdev->fd, FBIOGET_VSCREENINFO, &vinfo) < 0) {
++      FBDEV_ERR("Failed to do FBIOGET_VSCREENINFO\n");
++      return -1;
++   }
++
++   FBDEV_LOG("Printing original vinfo:\n");
++   print_vinfo(&vinfo);
++
++#ifdef FBDEV_KEEP_FBDEV_PARAMS
++   width = vinfo.xres;
++   height = vinfo.yres;
++   bpp = (vinfo.bits_per_pixel + 7) / 8;
++#endif
++
++   vinfo.activate = FB_ACTIVATE_NOW;
++   vinfo.accel_flags = 0;
++   vinfo.xres = width;
++   vinfo.yres = height;
++   vinfo.xres_virtual = width;
++   vinfo.xoffset = 0;
++   vinfo.yoffset = 0;
++   vinfo.red.length = vinfo.red.offset = 0;
++   vinfo.green.length = vinfo.green.offset = 0;
++   vinfo.blue.length = vinfo.blue.offset = 0;
++   vinfo.transp.length = vinfo.transp.offset = 0;
++
++   fbdev->bpp = bpp;
++
++retry_auto:
++   vinfo.yres_virtual = fbdev->fbmem_size / width / fbdev->bpp;
++
++#ifdef FBDEV_MAX_YRES_VIRTUAL
++   if (vinfo.yres_virtual > FBDEV_MAX_YRES_VIRTUAL)
++      vinfo.yres_virtual = FBDEV_MAX_YRES_VIRTUAL;
++#endif
++
++   for (i = FBDEV_MAX_PAGES; i > 0; i--) {
++      page_height = vinfo.yres_virtual / i;
++      if (page_height >= height)
++         break;
++   }
++
++retry_fixed:
++   vinfo.bits_per_pixel = fbdev->bpp * 8;
++
++   fbdev->num_pages = FBDEV_MAX_PAGES;
++   while (fbdev->num_pages > 0) {
++#ifndef FBDEV_PREFER_BIG_PAGE
++      if (fbdev->num_pages == 1 && page_height > height) {
++         // Prefer dual buffers with smaller size than a single big buffer
++         fbdev->num_pages = 0;
++         break;
++      }
++#endif
++
++      vinfo.yres_virtual = fbdev->num_pages * page_height;
++
++      FBDEV_LOG("Printing wanted vinfo:\n");
++      print_vinfo(&vinfo);
++
++      if (!ioctl(fbdev->fd, FBIOPUT_VSCREENINFO, &vinfo))
++         break;
++
++      fbdev->num_pages--;
++      if (fbdev->num_pages)
++         FBDEV_LOG("Failed to init vscreen, retry pages: %d\n",
++                   fbdev->num_pages);
++   }
++
++   if (!fbdev->num_pages) {
++      if (fbdev->bpp == bpp) {
++         fbdev->bpp = bpp == 4 ? 2 : 4;
++         FBDEV_LOG("Failed to init vscreen, retry bpp: %d\n", fbdev->bpp);
++
++         if (page_height == height)
++            goto retry_fixed; // Last retry with new bpp
++         else
++            goto retry_auto; // retry with new bpp and auto page_height
++      }
++
++      if (page_height == height) {
++         // Nothing else to try...
++         FBDEV_ERR("Failed to set vscreen info\n");
++         return -1;
++      }
++
++      fbdev->bpp = bpp;
++      page_height = height;
++      fbdev->num_pages = FBDEV_MAX_PAGES;
++      FBDEV_LOG("Failed to init vscreen, retry page_height: %d\n",
++                page_height);
++      goto retry_fixed; // retry with original bpp and height
++   }
++
++   FBDEV_LOG("Printing actual vinfo:\n");
++   print_vinfo(&vinfo);
++
++   fbdev->vinfo = vinfo;
++   fbdev->width = vinfo.xres;
++   fbdev->height = vinfo.yres;
++   fbdev->bpp = (vinfo.bits_per_pixel + 7) / 8;
++
++   if (fbdev->bpp != 2 && fbdev->bpp != 4) {
++      FBDEV_ERR("Unsupported bpp: %d\n", fbdev->bpp);
++      return -1;
++   }
++
++   fbdev->num_pages = vinfo.yres_virtual / page_height;
++   if (!fbdev->num_pages) {
++      FBDEV_ERR("Failed to alloc pages\n");
++      return -1;
++   }
++
++   if (fbdev->num_pages > FBDEV_MAX_PAGES)
++      fbdev->num_pages = FBDEV_MAX_PAGES;
++
++   FBDEV_LOG("Init vscreen for pages %dx%d-%d x%d\n",
++             fbdev->width, page_height, fbdev->bpp, fbdev->num_pages);
++
++   fbdev->page_size = fbdev->width * fbdev->bpp * page_height;
++   for (i = 0; i < fbdev->num_pages; i++) {
++      fbdev->pages[i].buf = fbdev->fbmem + i * fbdev->page_size;
++      fbdev->pages[i].offset = 0;
++      fbdev->pages[i].used = false;
++   }
++
++   fbdev->dummy_page = calloc(1, sizeof(fbdev_page_t) + fbdev->page_size);
++   if (!fbdev->dummy_page)
++      return -1;
++
++   fbdev->dummy_page->buf = (void *)fbdev->dummy_page + sizeof(fbdev_page_t);
++
++   FBDEV_LOG("Inited screen %dx%d-%d\n",
++         fbdev->width, fbdev->height, fbdev->bpp * 8);
++
++   video_driver_set_size(fbdev->width, fbdev->height);
++
++   fbdev->curr_page = NULL;
++   fbdev->pending_page = NULL;
++   fbdev->menu_page = NULL;
++
++   FBDEV_DEBUG(EXIT);
++   return 0;
++}
++
++static void fbdev_gfx_free(void *data)
++{
++   FBDEV_DEBUG(ENTER);
++
++   fbdev_video_t *fbdev = data;
++   if (!fbdev)
++      return;
++
++   font_driver_free_osd();
++   scaler_ctx_gen_reset(&fbdev->scaler);
++
++   fbdev_deinit(fbdev);
++
++   if (fbdev->fbmem) {
++      munmap(fbdev->fbmem, fbdev->fbmem_size);
++      fbdev->fbmem = NULL;
++   }
++
++   if (fbdev->fd >= 0) {
++      close(fbdev->fd);
++      fbdev->fd = -1;
++   }
++
++   free(fbdev);
++
++   FBDEV_DEBUG(EXIT);
++}
++
++static void *fbdev_gfx_init(const video_info_t *video,
++      input_driver_t **input, void **input_data)
++{
++   FBDEV_DEBUG(ENTER);
++
++   struct fb_fix_screeninfo finfo;
++   struct retro_system_av_info *av_info;
++
++   av_info = video_viewport_get_system_av_info();
++   if (!av_info) {
++      FBDEV_ERR("Failed to get av info\n");
++      return NULL;
++   }
++
++   fbdev_video_t *fbdev = calloc(1, sizeof(fbdev_video_t));
++   if (!fbdev)
++      return NULL;
++
++   fbdev->video_bpp = video->rgb32 ? 4 : 2;
++   fbdev->video_width = av_info->geometry.base_width;
++   fbdev->video_height = av_info->geometry.base_height;
++
++   fbdev->fd = open("/dev/fb0", O_RDWR);
++   if (fbdev->fd < 0) {
++      FBDEV_ERR("Failed to open fbdev\n");
++      goto err;
++   }
++
++   if (ioctl(fbdev->fd, FBIOGET_FSCREENINFO, &finfo) < 0) {
++      FBDEV_ERR("Failed to do FBIOGET_FSCREENINFO\n");
++      goto err;
++   }
++
++   fbdev->fbmem_size = finfo.smem_len;
++   fbdev->fbmem = mmap(NULL, fbdev->fbmem_size, PROT_WRITE,
++         MAP_SHARED, fbdev->fd, 0);
++   if (fbdev->fbmem == MAP_FAILED) {
++      FBDEV_ERR("Failed to mmap(%d): -%d\n", fbdev->fbmem_size, errno);
++      fbdev->fbmem = NULL;
++      goto err;
++   }
++
++   // Clear original screen data
++   memset(fbdev->fbmem, 0, fbdev->fbmem_size);
++
++   if (fbdev_init(fbdev) < 0) {
++      FBDEV_ERR("Failed to init fbdev\n");
++      goto err;
++   }
++
++   if (video->font_enable)
++   {
++      font_driver_init_osd(fbdev,
++            video,
++            false,
++            video->is_threaded,
++            FONT_DRIVER_RENDER_FBDEV);
++   }
++
++   if (input && input_data)
++      *input = NULL;
++
++   frontend_driver_destroy_signal_handler_state();
++
++   frontend_driver_install_signal_handler();
++
++   FBDEV_LOG("Inited video %dx%d-%d\n",
++         fbdev->video_width, fbdev->video_height, fbdev->video_bpp * 8);
++
++   FBDEV_DEBUG(EXIT);
++   return fbdev;
++
++err:
++   fbdev_gfx_free(fbdev);
++   FBDEV_ERR("initialization failed\n");
++
++   FBDEV_DEBUG(EXIT);
++   return NULL;
++}
++
++static fbdev_page_t *fbdev_get_free_page(fbdev_video_t *fbdev)
++{
++   FBDEV_DEBUG(ENTER);
++
++   fbdev_page_t *page = NULL;
++   int i;
++   for (i = 0; i < fbdev->num_pages; i++) {
++      if (!fbdev->pages[i].used) {
++         page = &fbdev->pages[i];
++         break;
++      }
++   }
++
++   if (!page) {
++      if (fbdev->num_pages > 1)
++         FBDEV_ERR("Failed to get free page, fallback to first page\n");
++
++      page = &fbdev->pages[0];
++   }
++
++   page->used = true;
++   page->offset = 0;
++
++   FBDEV_DEBUG(EXIT);
++   return page;
++}
++
++static fbdev_page_t *fbdev_get_page(fbdev_video_t *fbdev,
++      const void *frame, unsigned width, unsigned height, unsigned pitch,
++      enum scaler_pix_fmt format)
++{
++   FBDEV_DEBUG(ENTER);
++
++#if FBDEV_DEBUG_PERF
++   retro_time_t time;
++#endif
++
++   fbdev_page_t *page;
++   struct scaler_ctx *scaler = &fbdev->scaler;
++
++   page = fbdev_get_free_page(fbdev);
++   if (!page) {
++      FBDEV_DEBUG(SCALE, "Failed to find free page\n");
++      return NULL;
++   }
++
++   FBDEV_DEBUG(SCALE, "Scale %p %dx%d(%d) to %p %dx%d\n",
++         frame, width, height, pitch, page->buf, fbdev->width, fbdev->height);
++
++   scaler->scaler_type = SCALER_TYPE_POINT;
++   scaler->out_fmt = fbdev->bpp == 4 ? SCALER_FMT_ARGB8888 : SCALER_FMT_RGB565;
++
++   float aspect = video_driver_get_aspect_ratio();
++   unsigned new_width = fbdev->width;
++   unsigned new_height = fbdev->height;
++   unsigned new_pitch = fbdev->width * fbdev->bpp;
++   unsigned x = 0, y = 0;
++   void *dst = page->buf;
++
++#ifdef FBDEV_SCALE_WITH_ASPECT
++   int i;
++
++   if (new_width > new_height * aspect) {
++      new_width = new_height * aspect;
++      x = (fbdev->width - new_width) / 2;
++   } else {
++      new_height = new_width / aspect;
++      y = (fbdev->height - new_height) / 2;
++   }
++
++   memset(dst, 0, y * new_pitch);
++   dst += y * new_pitch;
++   memset(dst + new_height * new_pitch, 0, y * new_pitch);
++   for (i = y; i < fbdev->height - y; i++) {
++      memset(dst, 0, x * fbdev->bpp);
++      memset(dst + new_pitch - x * fbdev->bpp, 0, x * fbdev->bpp);
++      dst += new_pitch;
++   }
++
++   dst = page->buf + (y * fbdev->width + x) * fbdev->bpp;
++#endif
++
++#if FBDEV_DEBUG_PERF
++   time = cpu_features_get_time_usec();
++   FBDEV_DEBUG(PERF, "Before scale: %f ms\n",
++         (time - fbdev->last_frame_time) / 1000.0);
++#endif
++
++   video_frame_scale(scaler, dst, frame, format,
++         new_width, new_height, new_pitch,
++         width, height, pitch);
++
++#if FBDEV_DEBUG_PERF
++   time = cpu_features_get_time_usec();
++   FBDEV_DEBUG(PERF, "After scale: %f ms\n",
++         (time - fbdev->last_frame_time) / 1000.0);
++#endif
++
++   FBDEV_DEBUG(EXIT);
++   return page;
++}
++
++static inline void fbdev_wait_vsync(fbdev_video_t *fbdev)
++{
++   int arg = 0;
++   ioctl(fbdev->fd, FBIO_WAITFORVSYNC, &arg);
++}
++
++static void fbdev_page_flip(fbdev_video_t *fbdev)
++{
++   FBDEV_DEBUG(ENTER);
++
++   if (fbdev->sync)
++      fbdev_wait_vsync(fbdev);
++
++   if (!fbdev->pending_page) {
++      FBDEV_DEBUG(FRAME, "Nothing to display\n");
++      return;
++   }
++
++   unsigned pitch = fbdev->width * fbdev->bpp;
++   unsigned offset = fbdev->pending_page->buf +
++      fbdev->pending_page->offset - fbdev->fbmem;
++
++   fbdev->vinfo.yoffset = offset / pitch;
++   fbdev->vinfo.xoffset = offset & pitch;
++   ioctl(fbdev->fd, FBIOPAN_DISPLAY, &fbdev->vinfo);
++
++   FBDEV_DEBUG(FRAME, "Flip at %d,%d\n",
++               fbdev->vinfo.xoffset, fbdev->vinfo.yoffset);
++
++   if (fbdev->curr_page) {
++      fbdev->curr_page->used = false;
++      fbdev->curr_page = NULL;
++   }
++
++   fbdev->curr_page = fbdev->pending_page;
++   fbdev->curr_page->used = true;
++
++   fbdev->pending_page = NULL;
++
++   FBDEV_DEBUG(EXIT);
++}
++
++static bool fbdev_gfx_frame(void *data, const void *frame, unsigned width,
++      unsigned height, uint64_t frame_count, unsigned pitch, const char *msg,
++      video_frame_info_t *video_info)
++{
++   FBDEV_DEBUG(ENTER);
++
++   fbdev_video_t *fbdev = data;
++   fbdev_page_t *page;
++
++   FBDEV_DEBUG(FRAME, "New frame %p %dx%d(%d)\n", frame, width, height, pitch);
++
++   if (!string_is_empty(msg))
++      FBDEV_DEBUG(MSG, "New msg: %s\n", msg);
++
++#if FBDEV_DEBUG_PERF
++   retro_time_t frame_start = cpu_features_get_time_usec();
++   retro_time_t time;
++
++   FBDEV_DEBUG(PERF, "Last frame duration: %f ms\n",
++         (frame_start - fbdev->last_frame_time) / 1000.0);
++   fbdev->last_frame_time = frame_start;
++#endif
++
++   /* Check if neither menu nor core framebuffer is to be displayed. */
++   if (!fbdev->menu_active && !frame)
++      return true;
++
++   if (width != fbdev->video_width || height != fbdev->video_height)
++   {
++      FBDEV_LOG("mode set (resolution changed by core)\n");
++
++      fbdev_deinit(fbdev);
++      fbdev_wait_vsync(fbdev);
++
++      fbdev->video_width = width;
++      fbdev->video_height = height;
++
++      if (fbdev_init(fbdev) < 0) {
++         FBDEV_ERR("Failed to reinit screen\n");
++         return false;
++      }
++   }
++
++#ifdef HAVE_MENU
++   if (fbdev->menu_active) {
++      unsigned page_size = fbdev->width * fbdev->height * fbdev->bpp;
++      unsigned bg_color_argb = 0x104E8B; // DodgerBlue4
++      int i;
++
++      // Use dummy page to draw menu text
++      if (fbdev->bpp == 2) {
++         uint16_t *p = fbdev->dummy_page->buf;
++         uint16_t bg_color;
++         conv_argb8888_rgb565(&bg_color, &bg_color_argb, 1, 1, 2, 4);
++         for (i = 0; i < fbdev->width * fbdev->height; i++)
++            *p++ = bg_color;
++      } else {
++         uint32_t *p = fbdev->dummy_page->buf;
++         for (i = 0; i < fbdev->width * fbdev->height; i++)
++            *p++ = bg_color_argb;
++      }
++
++      menu_driver_frame(video_info);
++
++#if FBDEV_DEBUG_PERF
++      time = cpu_features_get_time_usec();
++      FBDEV_DEBUG(PERF, "Menu frame ready: %f ms\n",
++            (time - frame_start) / 1000.0);
++#endif
++
++      if (fbdev->menu_page) {
++         fbdev->pending_page = fbdev->menu_page;
++         FBDEV_DEBUG(FRAME, "Show menu page\n");
++      } else {
++         // Use dummy page when menu page not provided
++         fbdev->pending_page = fbdev_get_free_page(fbdev);
++         if (fbdev->pending_page) {
++            memcpy(fbdev->pending_page->buf, fbdev->dummy_page->buf, page_size);
++            FBDEV_DEBUG(FRAME, "Show dummy page\n");
++         }
++      }
++
++#if FBDEV_DEBUG_PERF
++      time = cpu_features_get_time_usec();
++      FBDEV_DEBUG(PERF, "Menu ready: %f ms\n", (time - frame_start) / 1000.0);
++#endif
++   }
++#endif
++
++   if (fbdev->pending_page)
++      goto done;
++
++   fbdev->pending_page = fbdev_get_page(fbdev,
++         frame, width, height, pitch,
++         fbdev->video_bpp == 4 ? SCALER_FMT_ARGB8888 : SCALER_FMT_RGB565);
++   if (!fbdev->pending_page) {
++      FBDEV_ERR("Failed to display frame\n");
++      return true;
++   }
++
++#if FBDEV_DEBUG_PERF
++   time = cpu_features_get_time_usec();
++   FBDEV_DEBUG(PERF, "Frame ready: %f ms\n", (time - frame_start) / 1000.0);
++#endif
++
++   if (video_info->statistics_show)
++   {
++      struct font_params *osd_params = (struct font_params*)
++         &video_info->osd_stat_params;
++
++      if (osd_params)
++      {
++         font_driver_render_msg(fbdev, video_info->stat_text,
++               (const struct font_params*)osd_params, NULL);
++
++#if FBDEV_DEBUG_PERF
++         time = cpu_features_get_time_usec();
++         FBDEV_DEBUG(PERF, "After render statistics msg: %f ms\n",
++               (time - frame_start) / 1000.0);
++#endif
++      }
++   }
++
++done:
++   if (!string_is_empty(msg)) {
++      font_driver_render_msg(fbdev, msg, NULL, NULL);
++
++#if FBDEV_DEBUG_PERF
++      time = cpu_features_get_time_usec();
++      FBDEV_DEBUG(PERF, "After render msg: %f ms\n",
++            (time - frame_start) / 1000.0);
++#endif
++
++   }
++
++#if FBDEV_DEBUG_PERF
++   time = cpu_features_get_time_usec();
++   FBDEV_DEBUG(PERF, "Before flip: %f ms\n", (time - frame_start) / 1000.0);
++#endif
++
++   fbdev_page_flip(fbdev);
++
++#if FBDEV_DEBUG_PERF
++   time = cpu_features_get_time_usec();
++   FBDEV_DEBUG(PERF, "After flip: %f ms\n", (time - frame_start) / 1000.0);
++#endif
++
++   FBDEV_DEBUG(EXIT);
++   return true;
++}
++
++static void fbdev_gfx_set_nonblock_state(void* data, bool toggle,
++      bool a, unsigned b)
++{
++   fbdev_video_t *fbdev = data;
++
++   if (fbdev)
++      fbdev->sync = !toggle;
++}
++
++static bool fbdev_gfx_alive(void *data)
++{
++   (void)data;
++   return !frontend_driver_get_signal_handler_state();
++}
++
++static bool fbdev_gfx_focus(void *data)
++{
++   (void)data;
++   return true; /* fb device always has focus */
++}
++
++static bool fbdev_gfx_suppress_screensaver(void *data, bool enable)
++{
++   (void)data;
++   (void)enable;
++
++   return false;
++}
++
++static void fbdev_gfx_viewport_info(void *data, struct video_viewport *vp)
++{
++   fbdev_video_t *fbdev = data;
++
++   if (!fbdev)
++      return;
++
++   vp->x = vp->y = 0;
++
++   vp->width  = vp->full_width  = fbdev->video_width;
++   vp->height = vp->full_height = fbdev->video_height;
++}
++
++static bool fbdev_gfx_read_viewport(void *data, uint8_t *buffer, bool is_idle)
++{
++   (void)data;
++   (void)buffer;
++   return true;
++}
++
++static float fbdev_get_refresh_rate(void *data)
++{
++   fbdev_video_t *fbdev = data;
++   struct fb_var_screeninfo *vinfo = &fbdev->vinfo;
++
++   float ret = 1000000.0f / vinfo->pixclock /
++      (vinfo->xres + vinfo->left_margin + vinfo->right_margin + vinfo->hsync_len) * 1000000.0f /
++      (vinfo->yres + vinfo->upper_margin + vinfo->lower_margin + vinfo->vsync_len);
++   return ret;
++}
++
++static void fbdev_gfx_set_texture_frame(void *data,
++      const void *frame, bool rgb32,
++      unsigned width, unsigned height, float alpha)
++{
++   FBDEV_DEBUG(ENTER);
++
++   (void) alpha;
++   fbdev_video_t *fbdev = data;
++
++   enum scaler_pix_fmt format =
++      rgb32 ? SCALER_FMT_ARGB8888 : SCALER_FMT_RGBA4444;
++   unsigned pitch = rgb32 ? width * 4 : width * 2;
++
++   FBDEV_DEBUG(FRAME, "New menu %p %dx%d(%d)\n", frame, width, height, pitch);
++
++   if (fbdev->menu_page) {
++      fbdev->menu_page->used = false;
++      fbdev->menu_page = NULL;
++   }
++
++   fbdev->menu_page = fbdev_get_page(fbdev,
++         frame, width, height, pitch, format);
++
++   FBDEV_DEBUG(EXIT);
++}
++
++static void fbdev_gfx_set_texture_enable(void *data,
++      bool state, bool full_screen)
++{
++   FBDEV_DEBUG(ENTER);
++
++   (void) full_screen;
++   fbdev_video_t *fbdev = data;
++   if (!fbdev)
++      return;
++
++   fbdev->menu_active = state;
++
++   if (!state && fbdev->menu_page) {
++      fbdev->menu_page->used = false;
++      fbdev->menu_page = NULL;
++   }
++
++   FBDEV_DEBUG(EXIT);
++}
++
++static void fbdev_set_osd_msg(void *data,
++      const char *msg,
++      const void *params, void *font)
++{
++   FBDEV_DEBUG(ENTER);
++
++   fbdev_video_t *fbdev = data;
++
++   FBDEV_DEBUG(MSG, "New osd msg: %s\n", msg);
++
++   font_driver_render_msg(fbdev, msg, params, font);
++
++   FBDEV_DEBUG(EXIT);
++}
++
++static const video_poke_interface_t fbdev_gfx_poke_interface = {
++   NULL, /* get_flags  */
++   NULL, /* load_texture */
++   NULL, /* unload_texture */
++   NULL, /* set_video_mode */
++   fbdev_get_refresh_rate,
++   NULL, /* set_filtering */
++   NULL, /* get_video_output_size */
++   NULL, /* get_video_output_prev */
++   NULL, /* get_video_output_next */
++   NULL, /* get_current_framebuffer */
++   NULL, /* get_proc_address */
++   NULL, /* set_aspect_ratio */
++   NULL, /* apply_state_changes */
++   fbdev_gfx_set_texture_frame,
++   fbdev_gfx_set_texture_enable,
++   fbdev_set_osd_msg,
++   NULL, /* show_mouse */
++   NULL, /* grab_mouse_toggle */
++   NULL, /* get_current_shader */
++   NULL, /* get_current_software_framebuffer */
++   NULL, /* get_hw_render_interface */
++};
++
++static void fbdev_gfx_get_poke_interface(void *data,
++      const video_poke_interface_t **iface)
++{
++   FBDEV_DEBUG(ENTER);
++
++   (void)data;
++   *iface = &fbdev_gfx_poke_interface;
++
++   FBDEV_DEBUG(EXIT);
++}
++
++video_driver_t video_fbdev = {
++   fbdev_gfx_init,
++   fbdev_gfx_frame,
++   fbdev_gfx_set_nonblock_state,
++   fbdev_gfx_alive,
++   fbdev_gfx_focus,
++   fbdev_gfx_suppress_screensaver,
++   NULL, /* has_windowed */
++   NULL, /* set_shader */
++   fbdev_gfx_free,
++   "fbdev",
++   NULL, /* set_viewport */
++   NULL, /* set_rotation */
++   fbdev_gfx_viewport_info,
++   fbdev_gfx_read_viewport,
++   NULL, /* read_frame_raw */
++#ifdef HAVE_OVERLAY
++   NULL, /* overlay_interface */
++#endif
++#ifdef HAVE_VIDEO_LAYOUT
++   NULL,
++#endif
++   fbdev_gfx_get_poke_interface
++};
+diff --git a/gfx/drivers_display/gfx_display_fbdev.c b/gfx/drivers_display/gfx_display_fbdev.c
+new file mode 100644
+index 00000000000..b9c27dc1c7d
+--- /dev/null
++++ b/gfx/drivers_display/gfx_display_fbdev.c
+@@ -0,0 +1,82 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2011-2017 - Daniel De Matteis
++ *  Copyright (C) 2019 - Jeffy Chen
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <retro_miscellaneous.h>
++
++#ifdef HAVE_CONFIG_H
++#include "../../config.h"
++#endif
++
++#include "../gfx_display.h"
++
++#include "../../retroarch.h"
++#include "../font_driver.h"
++
++static const float *gfx_display_fbdev_get_default_vertices(void) { return NULL; }
++static const float *gfx_display_fbdev_get_default_tex_coords(void) { return NULL; }
++static void *gfx_display_fbdev_get_default_mvp(void *data) { return NULL; }
++
++static void gfx_display_fbdev_blend_begin(void *data) { }
++static void gfx_display_fbdev_blend_end(void *data) { }
++static void gfx_display_fbdev_viewport(gfx_display_ctx_draw_t *draw,
++      void *data) { }
++
++static void gfx_display_fbdev_draw(gfx_display_ctx_draw_t *draw,
++      void *data, unsigned video_width, unsigned video_height) { }
++
++static void gfx_display_fbdev_draw_pipeline(gfx_display_ctx_draw_t *draw,
++      void *data, unsigned video_width, unsigned video_height) { }
++
++static void gfx_display_fbdev_restore_clear_color(void) { }
++
++static void gfx_display_fbdev_clear_color(
++      gfx_display_ctx_clearcolor_t *clearcolor,
++      void *data)
++{
++   (void)clearcolor;
++}
++
++static bool gfx_display_fbdev_font_init_first(
++      void **font_handle, void *video_data,
++      const char *font_path, float font_size,
++      bool is_threaded)
++{
++   font_data_t **handle = (font_data_t**)font_handle;
++   *handle = font_driver_init_first(video_data,
++         font_path, font_size, true,
++         is_threaded,
++         FONT_DRIVER_RENDER_FBDEV);
++   return *handle;
++}
++
++gfx_display_ctx_driver_t gfx_display_ctx_fbdev = {
++   gfx_display_fbdev_draw,
++   gfx_display_fbdev_draw_pipeline,
++   gfx_display_fbdev_viewport,
++   gfx_display_fbdev_blend_begin,
++   gfx_display_fbdev_blend_end,
++   gfx_display_fbdev_restore_clear_color,
++   gfx_display_fbdev_clear_color,
++   gfx_display_fbdev_get_default_mvp,
++   gfx_display_fbdev_get_default_vertices,
++   gfx_display_fbdev_get_default_tex_coords,
++   gfx_display_fbdev_font_init_first,
++   GFX_VIDEO_DRIVER_FBDEV,
++   "fbdev",
++   true,
++   NULL,
++   NULL
++};
+diff --git a/gfx/drivers_font/fbdev_font.c b/gfx/drivers_font/fbdev_font.c
+new file mode 100644
+index 00000000000..99aa57914df
+--- /dev/null
++++ b/gfx/drivers_font/fbdev_font.c
+@@ -0,0 +1,457 @@
++/*  RetroArch - A frontend for libretro.
++ *  Copyright (C) 2010-2014 - Hans-Kristian Arntzen
++ *  Copyright (C) 2011-2017 - Daniel De Matteis
++ *  Copyright (C) 2019 - Jeffy Chen
++ *
++ *  RetroArch is free software: you can redistribute it and/or modify it under the terms
++ *  of the GNU General Public License as published by the Free Software Found-
++ *  ation, either version 3 of the License, or (at your option) any later version.
++ *
++ *  RetroArch is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
++ *  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
++ *  PURPOSE.  See the GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License along with RetroArch.
++ *  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <math.h>
++#include <stdlib.h>
++#include <encodings/utf.h>
++#include <string/stdstring.h>
++
++#ifdef HAVE_CONFIG_H
++#include "../../config.h"
++#endif
++
++#include "../font_driver.h"
++#include "../common/fbdev_common.h"
++
++#include "../../configuration.h"
++#include "../../verbosity.h"
++
++#define FBDEV_COLOR_A(col) (((col) >> 24) & 0xff)
++#define FBDEV_COLOR_R(col) (((col) >> 16) & 0xff)
++#define FBDEV_COLOR_G(col) (((col) >>  8) & 0xff)
++#define FBDEV_COLOR_B(col) (((col) >>  0) & 0xff)
++
++#define FBDEV_COLOR_ARGB(a, r, g, b) \
++   (((unsigned)(a) << 24) | ((r) << 16) | ((g) << 8) | ((b) << 0))
++
++#define FBDEV_BLEND_CHANNEL(blend, c1, c2) \
++   (((255 - (blend)) * (c1) + (blend) * (c2)) >> 8)
++
++#define FBDEV_BLEND_ARGB8888(blend, color, r, g, b) \
++   FBDEV_COLOR_ARGB(FBDEV_COLOR_A(color), \
++         FBDEV_BLEND_CHANNEL(blend, FBDEV_COLOR_R(color), r), \
++         FBDEV_BLEND_CHANNEL(blend, FBDEV_COLOR_G(color), g), \
++         FBDEV_BLEND_CHANNEL(blend, FBDEV_COLOR_B(color), b))
++
++typedef struct
++{
++   const font_renderer_driver_t *font_driver;
++   void *font_data;
++   struct font_atlas* atlas;
++} fbdev_font_t;
++
++static void *fbdev_init_font(void *data,
++      const char *font_path, float font_size,
++      bool is_threaded)
++{
++   fbdev_font_t *font = calloc(1, sizeof(*font));
++
++   if (!font)
++      return NULL;
++
++   if (!font_renderer_create_default(
++            &font->font_driver,
++            &font->font_data, font_path, font_size))
++   {
++      RARCH_WARN("Couldn't initialize font renderer.\n");
++      free(font);
++      return NULL;
++   }
++
++   font->atlas = font->font_driver->get_atlas(font->font_data);
++
++   return font;
++}
++
++static void fbdev_render_free_font(void *data, bool is_threaded)
++{
++   (void)is_threaded;
++   fbdev_font_t *font = (fbdev_font_t*)data;
++
++   if (!font)
++      return;
++
++   if (font->font_driver && font->font_data &&
++         font->font_driver->free)
++      font->font_driver->free(font->font_data);
++
++   free(font);
++}
++
++static int fbdev_get_message_width(void *data, const char *msg,
++      unsigned msg_len, float scale)
++{
++   fbdev_font_t *font = (fbdev_font_t*)data;
++
++   unsigned i;
++   int delta_x = 0;
++
++   if (!font)
++      return 0;
++
++   for (i = 0; i < msg_len; i++)
++   {
++      const struct font_glyph *glyph;
++      const char* msg_tmp = &msg[i];
++      unsigned    code    = utf8_walk(&msg_tmp);
++      unsigned    skip    = msg_tmp - &msg[i];
++
++      if (skip > 1)
++         i += skip - 1;
++
++      glyph = font->font_driver->get_glyph(font->font_data, code);
++
++      if (!glyph) /* Do something smarter here ... */
++         glyph = font->font_driver->get_glyph(font->font_data, '?');
++
++      if (!glyph)
++         continue;
++
++      delta_x += glyph->advance_x;
++   }
++
++   return delta_x * scale;
++}
++
++static inline void fbdev_blend_pixel(unsigned blend,
++      void *dst, unsigned bpp, unsigned r, unsigned g, unsigned b)
++{
++   unsigned color;
++   unsigned *ptr;
++
++   if (!blend)
++      return;
++
++   switch (bpp) {
++      case 2:
++         if (blend == 255) {
++            color = FBDEV_COLOR_ARGB(0xff, r, g, b);
++         } else {
++            conv_rgb565_argb8888(&color, dst, 1, 1, 4, 2);
++            color = FBDEV_BLEND_ARGB8888(blend, color, r, g, b);
++         }
++         conv_argb8888_rgb565(dst, &color, 1, 1, 2, 4);
++         break;
++      case 4:
++         ptr = (unsigned *)dst;
++         if (blend == 255)
++            *ptr = FBDEV_COLOR_ARGB(0xff, r, g, b);
++         else
++            *ptr = FBDEV_BLEND_ARGB8888(blend, *ptr, r, g, b);
++         break;
++      default:
++         return;
++   }
++
++   return;
++}
++
++static void fbdev_blend_glyph(fbdev_video_t *fbdev,
++      const uint8_t *src, unsigned color,
++      unsigned width, unsigned height,
++      unsigned x, unsigned y)
++{
++   unsigned i, j;
++   unsigned r, g, b;
++   unsigned dst_pitch = fbdev->width * fbdev->bpp;
++   void *dst, *p;
++
++   if (fbdev->pending_page)
++      dst = fbdev->pending_page->buf + (y * fbdev->width + x) * fbdev->bpp;
++   else
++      dst = fbdev->dummy_page->buf + (y * fbdev->width + x) * fbdev->bpp;
++
++   for (i = 0; i < height; i++, src += width, dst += dst_pitch)
++      for (j = 0, p = dst; j < width; j++, p += fbdev->bpp)
++         fbdev_blend_pixel(src[j], p, fbdev->bpp,
++               FONT_COLOR_GET_RED(color),
++               FONT_COLOR_GET_GREEN(color),
++               FONT_COLOR_GET_BLUE(color));
++}
++
++void fbdev_gfx_draw_text(
++      fbdev_video_t *fbdev,
++      fbdev_font_t *font,
++      const struct font_atlas *atlas, void *font_data,
++      const char *msg, float scale, unsigned color, int x, int y)
++{
++   int max_width, max_height;
++
++   if (!fbdev || !font || !atlas || !font_data ||
++         string_is_empty(msg))
++      return;
++
++   FBDEV_DEBUG(TEXT, "Draw text at (%d,%d): %s\n", x, y, msg);
++
++   for (; *msg; msg++)
++   {
++      int i, j;
++      int base_x, base_y;
++      int glyph_width, glyph_height;
++      const uint8_t *src;
++      uint8_t *buf;
++      const struct font_glyph *glyph =
++         font->font_driver->get_glyph(font_data, (uint8_t)*msg);
++
++      if (!glyph) /* Do something smarter here ... */
++         glyph = font->font_driver->get_glyph(font_data, '?');
++
++      if (!glyph)
++         continue;
++
++      base_x = x + glyph->draw_offset_x * scale;
++      base_y = y + glyph->draw_offset_y * scale;
++
++      max_width = fbdev->width - base_x;
++      max_height = fbdev->height - base_y;
++      if (max_width <= 0 || max_height <= 0)
++         continue;
++
++      glyph_width = glyph->width * scale;
++      glyph_height = glyph->height * scale;
++
++      // Scale glyph buffer
++      buf = malloc(glyph_width * glyph_height);
++      src = atlas->buffer + glyph->atlas_offset_x +
++         glyph->atlas_offset_y * atlas->width;
++      for (i = 0; i < glyph_height; i++) {
++         for (j = 0; j < glyph_width; j++) {
++            int offset = (i * atlas->width + j) / scale;
++            buf[i * glyph_width + j] = src[offset];
++         }
++      }
++      src = buf;
++
++      if (base_x < 0)
++      {
++         src -= base_x;
++         glyph_width += base_x;
++         base_x = 0;
++      }
++
++      if (base_y < 0)
++      {
++         src -= base_y * (int)atlas->width;
++         glyph_height += base_y;
++         base_y = 0;
++      }
++
++      if (glyph_width > max_width)
++         glyph_width = max_width;
++      if (glyph_height > max_height)
++         glyph_height = max_height;
++
++      fbdev_blend_glyph(fbdev, src, color,
++            glyph_width, glyph_height, base_x, base_y);
++
++      free(buf);
++
++      x += glyph->advance_x * scale;
++      y += glyph->advance_y * scale;
++   }
++}
++
++static void fbdev_render_line(
++      fbdev_video_t *fbdev,
++      fbdev_font_t *font, const char *msg, unsigned msg_len,
++      float scale, const unsigned int color, float pos_x,
++      float pos_y,
++      unsigned width, unsigned height, unsigned text_align)
++{
++   unsigned i;
++   int x            = roundf(pos_x * width);
++   int y            = roundf((1.0 - pos_y) * height);
++
++   switch (text_align)
++   {
++      case TEXT_ALIGN_RIGHT:
++         x -= fbdev_get_message_width(font, msg, msg_len, scale);
++         break;
++
++      case TEXT_ALIGN_CENTER:
++         x -= fbdev_get_message_width(font, msg, msg_len, scale) / 2;
++         break;
++      default:
++         break;
++   }
++
++   fbdev_gfx_draw_text(fbdev, font, font->atlas,
++         font->font_data, msg, scale, color, x, y);
++}
++
++static void fbdev_render_message(
++      fbdev_video_t *fbdev,
++      fbdev_font_t *font, const char *msg, float scale,
++      const unsigned int color, float pos_x, float pos_y,
++      unsigned width, unsigned height, unsigned text_align)
++{
++   struct font_line_metrics *line_metrics = NULL;
++   int lines = 0;
++   float line_height;
++
++   /* If font line metrics are not supported just draw as usual */
++   if (!font->font_driver->get_line_metrics ||
++       !font->font_driver->get_line_metrics(font->font_data, &line_metrics))
++   {
++      fbdev_render_line(fbdev, font, msg, strlen(msg),
++            scale, color, pos_x, pos_y,
++            width, height, text_align);
++      return;
++   }
++
++   line_height = scale / line_metrics->height;
++
++   for (;;)
++   {
++      const char* delim = strchr(msg, '\n');
++
++      /* Draw the line */
++      if (delim)
++      {
++         unsigned msg_len = delim - msg;
++         fbdev_render_line(fbdev, font, msg, msg_len,
++               scale, color, pos_x, pos_y - (float)lines * line_height,
++               width, height, text_align);
++         msg += msg_len + 1;
++         lines++;
++      }
++      else
++      {
++         unsigned msg_len = strlen(msg);
++         fbdev_render_line(fbdev, font, msg, msg_len,
++               scale, color, pos_x, pos_y - (float)lines * line_height,
++               width, height, text_align);
++         break;
++      }
++   }
++}
++
++static void fbdev_render_msg(
++      void *userdata,
++      void *data, const char *msg,
++      const struct font_params *params)
++{
++   float x, y, scale, drop_mod, drop_alpha;
++   int drop_x, drop_y;
++   enum text_alignment text_align;
++   unsigned color, color_dark, r, g, b,
++            alpha, r_dark, g_dark, b_dark, alpha_dark;
++   fbdev_font_t *font = (fbdev_font_t*)data;
++   fbdev_video_t *fbdev = (fbdev_video_t*)userdata;
++   unsigned width = fbdev->width;
++   unsigned height = fbdev->height;
++   settings_t *settings             = config_get_ptr();
++   float video_msg_pos_x            = settings->floats.video_msg_pos_x;
++   float video_msg_pos_y            = settings->floats.video_msg_pos_y;
++   float video_msg_color_r          = settings->floats.video_msg_color_r;
++   float video_msg_color_g          = settings->floats.video_msg_color_g;
++   float video_msg_color_b          = settings->floats.video_msg_color_b;
++
++   if (!font || string_is_empty(msg))
++      return;
++
++   if (params)
++   {
++      x              = params->x;
++      y              = params->y;
++      scale          = params->scale;
++      text_align     = params->text_align;
++      drop_x         = params->drop_x;
++      drop_y         = params->drop_y;
++      drop_mod       = params->drop_mod;
++      drop_alpha     = params->drop_alpha;
++
++      r              = FONT_COLOR_GET_RED(params->color);
++      g              = FONT_COLOR_GET_GREEN(params->color);
++      b              = FONT_COLOR_GET_BLUE(params->color);
++      alpha          = FONT_COLOR_GET_ALPHA(params->color);
++      color          = params->color;
++   }
++   else
++   {
++      x              = video_msg_pos_x;
++      y              = video_msg_pos_y;
++      scale          = 1.0f;
++      text_align     = TEXT_ALIGN_LEFT;
++
++      r              = (video_msg_color_r * 255);
++      g              = (video_msg_color_g * 255);
++      b              = (video_msg_color_b * 255);
++      alpha          = 255;
++      color          = FONT_COLOR_RGBA(r, g, b, alpha);
++
++      drop_x         = -2;
++      drop_y         = -2;
++      drop_mod       = 0.3f;
++      drop_alpha     = 1.0f;
++   }
++
++   if (drop_x || drop_y)
++   {
++      r_dark         = r * drop_mod;
++      g_dark         = g * drop_mod;
++      b_dark         = b * drop_mod;
++      alpha_dark     = alpha * drop_alpha;
++      color_dark     = FONT_COLOR_RGBA(r_dark, g_dark, b_dark, alpha_dark);
++
++      fbdev_render_message(fbdev, font, msg, scale, color_dark,
++            x + scale * drop_x / width, y +
++            scale * drop_y / height,
++            width, height, text_align);
++   }
++
++   fbdev_render_message(fbdev, font, msg, scale,
++         color, x, y,
++         width, height, text_align);
++}
++
++static const struct font_glyph *fbdev_font_get_glyph(
++      void *data, uint32_t code)
++{
++   fbdev_font_t *font = (fbdev_font_t*)data;
++
++   if (!font || !font->font_driver)
++      return NULL;
++
++   if (!font->font_driver->ident)
++      return NULL;
++
++   return font->font_driver->get_glyph((void*)font->font_driver, code);
++}
++
++static bool fbdev_font_get_line_metrics(void* data, struct font_line_metrics **metrics)
++{
++   fbdev_font_t* font = (fbdev_font_t*)data;
++
++   if (!font || !font->font_driver || !font->font_data)
++      return -1;
++
++   return font->font_driver->get_line_metrics(font->font_data, metrics);
++}
++
++font_renderer_t fbdev_font =
++{
++   fbdev_init_font,
++   fbdev_render_free_font,
++   fbdev_render_msg,
++   "fbdevfont",
++   fbdev_font_get_glyph,
++   NULL,                     /* bind_block */
++   NULL,                     /* flush */
++   fbdev_get_message_width,
++   fbdev_font_get_line_metrics
++};
+diff --git a/gfx/font_driver.c b/gfx/font_driver.c
+index f57d0a1f1d9..d5313378f02 100644
+--- a/gfx/font_driver.c
++++ b/gfx/font_driver.c
+@@ -676,6 +676,37 @@ static bool wiiu_font_init_first(
+ }
+ #endif
+ 
++#ifdef HAVE_FBDEV
++static const font_renderer_t *fbdev_font_backends[] = {
++   &fbdev_font,
++   NULL,
++};
++
++static bool fbdev_font_init_first(
++      const void **font_driver, void **font_handle,
++      void *video_data, const char *font_path,
++      float font_size, bool is_threaded)
++{
++   unsigned i;
++
++   for (i = 0; fbdev_font_backends[i]; i++)
++   {
++      void *data = fbdev_font_backends[i]->init(
++            video_data, font_path, font_size,
++            is_threaded);
++
++      if (!data)
++         continue;
++
++      *font_driver = fbdev_font_backends[i];
++      *font_handle = data;
++      return true;
++   }
++
++   return false;
++}
++#endif
++
+ static bool font_init_first(
+       const void **font_driver, void **font_handle,
+       void *video_data, const char *font_path, float font_size,
+@@ -782,6 +813,11 @@ static bool font_init_first(
+       case FONT_DRIVER_RENDER_VGA:
+          return vga_font_init_first(font_driver, font_handle,
+                video_data, font_path, font_size, is_threaded);
++#endif
++#ifdef HAVE_FBDEV
++      case FONT_DRIVER_RENDER_FBDEV:
++         return fbdev_font_init_first(font_driver, font_handle,
++               video_data, font_path, font_size, is_threaded);
+ #endif
+       case FONT_DRIVER_RENDER_DONT_CARE:
+          /* TODO/FIXME - lookup graphics driver's 'API' */
+diff --git a/gfx/font_driver.h b/gfx/font_driver.h
+index ef929497d25..7e1a7ffe77f 100644
+--- a/gfx/font_driver.h
++++ b/gfx/font_driver.h
+@@ -189,6 +189,7 @@ extern font_renderer_t gdi_font;
+ extern font_renderer_t vga_font;
+ extern font_renderer_t sixel_font;
+ extern font_renderer_t switch_font;
++extern font_renderer_t fbdev_font;
+ 
+ extern font_renderer_driver_t stb_font_renderer;
+ extern font_renderer_driver_t stb_unicode_font_renderer;
+diff --git a/gfx/gfx_display.c b/gfx/gfx_display.c
+index d4ab838d700..16304178295 100644
+--- a/gfx/gfx_display.c
++++ b/gfx/gfx_display.c
+@@ -619,6 +619,10 @@ static bool gfx_display_check_compatibility(
+          if (string_is_equal(video_driver, "switch"))
+             return true;
+          break;
++      case GFX_VIDEO_DRIVER_FBDEV:
++         if (string_is_equal(video_driver, "fbdev"))
++            return true;
++         break;
+    }
+ 
+    return false;
+diff --git a/gfx/gfx_display.h b/gfx/gfx_display.h
+index 9edc05f66d7..13074efaae3 100644
+--- a/gfx/gfx_display.h
++++ b/gfx/gfx_display.h
+@@ -83,7 +83,8 @@ enum gfx_display_driver_type
+    GFX_VIDEO_DRIVER_CTR,
+    GFX_VIDEO_DRIVER_WIIU,
+    GFX_VIDEO_DRIVER_GDI,
+-   GFX_VIDEO_DRIVER_SWITCH
++   GFX_VIDEO_DRIVER_SWITCH,
++   GFX_VIDEO_DRIVER_FBDEV
+ };
+ 
+ typedef struct gfx_display_ctx_clearcolor
+diff --git a/gfx/video_defines.h b/gfx/video_defines.h
+index 2a1dd62a390..a0998f21ac0 100644
+--- a/gfx/video_defines.h
++++ b/gfx/video_defines.h
+@@ -102,7 +102,8 @@ enum font_driver_render_api
+    FONT_DRIVER_RENDER_NETWORK_VIDEO,
+    FONT_DRIVER_RENDER_GDI,
+    FONT_DRIVER_RENDER_VGA,
+-   FONT_DRIVER_RENDER_SWITCH
++   FONT_DRIVER_RENDER_SWITCH,
++   FONT_DRIVER_RENDER_FBDEV
+ };
+ 
+ enum text_alignment
+diff --git a/qb/config.params.sh b/qb/config.params.sh
+index 438dc994bf0..6d7f8c2974f 100644
+--- a/qb/config.params.sh
++++ b/qb/config.params.sh
+@@ -85,6 +85,7 @@ HAVE_PLAIN_DRM=yes         # Plain DRM video support
+ HAVE_EXYNOS=no             # Exynos video support
+ HAVE_DISPMANX=no           # Dispmanx video support
+ HAVE_SUNXI=no              # Sunxi video support
++HAVE_FBDEV=yes             # Framebuffer device video support
+ HAVE_WAYLAND=auto          # Wayland support
+ C89_WAYLAND=no
+ CXX_WAYLAND=no
+diff --git a/retroarch.c b/retroarch.c
+index 57570143906..fec3b0ad616 100644
+--- a/retroarch.c
++++ b/retroarch.c
+@@ -547,6 +547,9 @@ static const video_driver_t *video_drivers[] = {
+ #endif
+ #ifdef HAVE_NETWORK_VIDEO
+    &video_network,
++#endif
++#ifdef HAVE_FBDEV
++   &video_fbdev,
+ #endif
+    &video_null,
+    NULL,
+diff --git a/retroarch.h b/retroarch.h
+index d381d679adb..0cb3346acfa 100644
+--- a/retroarch.h
++++ b/retroarch.h
+@@ -1887,6 +1887,7 @@ extern video_driver_t video_fpga;
+ extern video_driver_t video_sixel;
+ extern video_driver_t video_network;
+ extern video_driver_t video_oga;
++extern video_driver_t video_fbdev;
+ 
+ extern const gfx_ctx_driver_t gfx_ctx_osmesa;
+ extern const gfx_ctx_driver_t gfx_ctx_sdl_gl;
+
