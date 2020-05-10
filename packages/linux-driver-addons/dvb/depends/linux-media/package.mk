@@ -2,8 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="linux-media"
-PKG_VERSION="2020-02-11-ef0ed05dcef8"
-PKG_SHA256="1e3bf6480b0a36b4cc47daae6ba56898cb119be6d8c1a6b44481a2165b15ea72"
+PKG_VERSION="2020-04-23-e51759f56d31"
+PKG_SHA256="c38450b23e319077f17a1baba5e0709268c068f991b178e1b7dbcb68ce9ec6a7"
 PKG_LICENSE="GPL"
 PKG_SITE="https://linuxtv.org/downloads/drivers/"
 PKG_URL="$PKG_SITE/$PKG_NAME-$PKG_VERSION.tar.bz2"
