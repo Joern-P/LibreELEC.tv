@@ -1,0 +1,32 @@
+diff --git a/libretro-common/include/glsym/rglgen_headers.h b/libretro-common/include/glsym/rglgen_headers.h
+index 766efb63..3de538d6 100644
+--- a/Makefile
++++ b/Makefile
+@@ -58,6 +58,8 @@
+    override platform += unix
+ else ifneq (,$(findstring odroid,$(platform)))
+    override platform += unix
++else ifneq (,$(findstring RK3399,$(platform)))
++   override platform += unix
+ endif
+ 
+ # system platform
+@@ -158,6 +160,18 @@
+       endif
+       CPUFLAGS += -DARM_FIX
+    endif
++   
++   # RK3399
++   ifneq (,$(findstring RK3399,$(platform)))
++      GLES = 1
++      GL_LIB := -lGLESv2
++      HAVE_NEON = 1
++      WITH_DYNAREC=arm
++      LDFLAGS += -shared -Wl,--version-script=$(LIBRETRO_DIR)/link.T -Wl,--no-undefined -ldl
++      CPUFLAGS += -DNO_ASM -DARM -D__arm__ -DARM_ASM -D__NEON_OPT -DNOSSE -DARM_FIX
++      CPUFLAGS += -mtune=cortex-a72.cortex-a53 -march=armv8-a+crc -mfloat-abi=hard -mfpu=neon-fp-armv8
++      COREFLAGS += -DUSE_GENERIC_GLESV2 -DOS_LINUX
++   endif
+ 
+    # ODROIDs
+    ifneq (,$(findstring odroid,$(platform)))

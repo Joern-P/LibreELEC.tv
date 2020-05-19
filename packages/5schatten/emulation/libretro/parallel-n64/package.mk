@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="parallel-n64"
-PKG_VERSION="701224c16f97453179bf6fb69561d0b6d4dfe484"
-PKG_SHA256="70ecf5437966389b0a3c95dd48e0a7b7d8ef0eb8723335699214725c19767840"
+PKG_VERSION="b7e5a5dfa7d549f87e6bc41ad4640e480bbaa65b"
+PKG_SHA256="8bf1608b23f6d47aa35aae3c39cc40b278b3ce87b66971472fc39303c317522e"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/parallel-n64"
 PKG_URL="https://github.com/libretro/parallel-n64/archive/${PKG_VERSION}.tar.gz"
@@ -22,9 +22,9 @@ configure_package() {
     PKG_DEPENDS_TARGET+=" xorg-server"
   fi
 
-  # OpenGL Support
-  if [ "${OPENGL_SUPPORT}" = "yes" ]; then
-    PKG_DEPENDS_TARGET+=" ${OPENGL}"
+  # OpenGLES Support
+  if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+    PKG_DEPENDS_TARGET+=" ${OPENGLES}"
   fi
 }
 
@@ -39,6 +39,26 @@ pre_configure_target() {
           PKG_MAKE_OPTS_TARGET+=" platform=rpi2"
           ;;
       esac
+    elif [ "${PROJECT}" = "Rockchip" ]; then
+    case ${DEVICE} in
+      RK3328)
+        PKG_MAKE_OPTS_TARGET+=" platform=RK3328"
+        ;;
+      RK3399)
+       if target_has_feature neon; then
+        CFLAGS+=" -DGL_BGRA_EXT=0x80E1"
+        PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
+       fi
+       if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
+       fi
+       PKG_MAKE_OPTS_TARGET+=" platform=RK3399"
+         
+        ;;
+      TinkerBoard|MiQi)
+        PKG_MAKE_OPTS_TARGET+=" platform=RK3288"
+        ;;
+    esac
     else
       if target_has_feature neon; then
         CFLAGS+=" -DGL_BGRA_EXT=0x80E1"
@@ -47,7 +67,7 @@ pre_configure_target() {
       if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
         PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
       fi
-      PKG_MAKE_OPTS_TARGET+=" platform=armv "
+      PKG_MAKE_OPTS_TARGET+=" platform=armv"
     fi
   fi
 }
