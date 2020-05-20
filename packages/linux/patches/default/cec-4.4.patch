@@ -1,0 +1,936 @@
+From bf2a15087175257dc4c51e667b04d6c7772cd92f Mon Sep 17 00:00:00 2001
+From: mrfixit3000 <mrfixit2001@gmail.com>
+Date: Tue, 3 Mar 2020 21:06:55 -0500
+Subject: [PATCH] Additional CEC back ports
+
+---
+ drivers/media/cec/cec-adap.c              | 112 +++++++++++++++-------
+ drivers/media/cec/cec-api.c               |  34 ++++---
+ drivers/media/cec/cec-core.c              |  24 +++--
+ drivers/media/cec/cec-notifier.c          |   2 +
+ drivers/media/cec/cec-pin-priv.h          |  10 +-
+ drivers/media/cec/cec-pin.c               |  51 ++++++++--
+ drivers/media/cec/cec-priv.h              |   2 +
+ drivers/media/usb/pulse8-cec/pulse8-cec.c |  30 ++++--
+ include/linux/time.h                      |   1 +
+ include/media/cec.h                       |  23 ++++-
+ kernel/time/timeconv.c                    |  61 ++++++++++++
+ 11 files changed, 268 insertions(+), 82 deletions(-)
+
+diff --git a/drivers/media/cec/cec-adap.c b/drivers/media/cec/cec-adap.c
+index 66c3c16c31..3f801c28df 100644
+--- a/drivers/media/cec/cec-adap.c
++++ b/drivers/media/cec/cec-adap.c
+@@ -85,8 +85,8 @@ static unsigned int cec_log_addr2dev(const struct cec_adapter *adap, u8 log_addr
+ void cec_queue_event_fh(struct cec_fh *fh,
+ 			const struct cec_event *new_ev, u64 ts)
+ {
+-	static const u8 max_events[CEC_NUM_EVENTS] = {
+-		1, 1, 64, 64, 8, 8,
++	static const u16 max_events[CEC_NUM_EVENTS] = {
++		1, 1, 800, 800, 8, 8,
+ 	};
+ 	struct cec_event_entry *entry;
+ 	unsigned int ev_idx = new_ev->event - 1;
+@@ -154,11 +154,13 @@ static void cec_queue_event(struct cec_adapter *adap,
+ }
+ 
+ /* Notify userspace that the CEC pin changed state at the given time. */
+-void cec_queue_pin_cec_event(struct cec_adapter *adap, bool is_high, ktime_t ts)
++void cec_queue_pin_cec_event(struct cec_adapter *adap, bool is_high,
++			     bool dropped_events, ktime_t ts)
+ {
+ 	struct cec_event ev = {
+ 		.event = is_high ? CEC_EVENT_PIN_CEC_HIGH :
+ 				   CEC_EVENT_PIN_CEC_LOW,
++		.flags = dropped_events ? CEC_EVENT_FL_DROPPED_EVENTS : 0,
+ 	};
+ 	struct cec_fh *fh;
+ 
+@@ -354,12 +356,19 @@ static void cec_data_cancel(struct cec_data *data)
+ 			data->adap->transmit_queue_sz--;
+ 	}
+ 
+-	/* Mark it as an error */
+-	data->msg.tx_ts = ktime_get_ns();
+-	data->msg.tx_status |= CEC_TX_STATUS_ERROR |
+-			       CEC_TX_STATUS_MAX_RETRIES;
+-	data->msg.tx_error_cnt++;
+-	data->attempts = 0;
++	if (data->msg.tx_status & CEC_TX_STATUS_OK) {
++		/* Mark the canceled RX as a timeout */
++		data->msg.rx_ts = ktime_get_ns();
++		data->msg.rx_status = CEC_RX_STATUS_TIMEOUT;
++	} else {
++		/* Mark the canceled TX as an error */
++		data->msg.tx_ts = ktime_get_ns();
++		data->msg.tx_status |= CEC_TX_STATUS_ERROR |
++				       CEC_TX_STATUS_MAX_RETRIES;
++		data->msg.tx_error_cnt++;
++		data->attempts = 0;
++	}
++
+ 	/* Queue transmitted message for monitoring purposes */
+ 	cec_queue_msg_monitor(data->adap, &data->msg, 1);
+ 
+@@ -436,7 +445,7 @@ int cec_thread_func(void *_adap)
+ 				(adap->needs_hpd &&
+ 				 (!adap->is_configured && !adap->is_configuring)) ||
+ 				kthread_should_stop() ||
+-				(!adap->transmitting &&
++				(!adap->transmit_in_progress &&
+ 				 !list_empty(&adap->transmit_queue)),
+ 				msecs_to_jiffies(CEC_XFER_TIMEOUT_MS));
+ 			timeout = err == 0;
+@@ -444,7 +453,7 @@ int cec_thread_func(void *_adap)
+ 			/* Otherwise we just wait for something to happen. */
+ 			wait_event_interruptible(adap->kthread_waitq,
+ 				kthread_should_stop() ||
+-				(!adap->transmitting &&
++				(!adap->transmit_in_progress &&
+ 				 !list_empty(&adap->transmit_queue)));
+ 		}
+ 
+@@ -469,6 +478,7 @@ int cec_thread_func(void *_adap)
+ 			dprintk(1, "%s: message %*ph timed out\n", __func__,
+ 				adap->transmitting->msg.len,
+ 				adap->transmitting->msg.msg);
++			adap->transmit_in_progress = false;
+ 			adap->tx_timeouts++;
+ 			/* Just give up on this. */
+ 			cec_data_cancel(adap->transmitting);
+@@ -479,7 +489,7 @@ int cec_thread_func(void *_adap)
+ 		 * If we are still transmitting, or there is nothing new to
+ 		 * transmit, then just continue waiting.
+ 		 */
+-		if (adap->transmitting || list_empty(&adap->transmit_queue))
++		if (adap->transmit_in_progress || list_empty(&adap->transmit_queue))
+ 			goto unlock;
+ 
+ 		/* Get a new message to transmit */
+@@ -509,9 +519,11 @@ int cec_thread_func(void *_adap)
+ 		if (data->attempts) {
+ 			/* should be >= 3 data bit periods for a retry */
+ 			signal_free_time = CEC_SIGNAL_FREE_TIME_RETRY;
+-		} else if (data->new_initiator) {
++		} else if (adap->last_initiator !=
++			   cec_msg_initiator(&data->msg)) {
+ 			/* should be >= 5 data bit periods for new initiator */
+ 			signal_free_time = CEC_SIGNAL_FREE_TIME_NEW_INITIATOR;
++			adap->last_initiator = cec_msg_initiator(&data->msg);
+ 		} else {
+ 			/*
+ 			 * should be >= 7 data bit periods for sending another
+@@ -526,6 +538,8 @@ int cec_thread_func(void *_adap)
+ 		if (adap->ops->adap_transmit(adap, data->attempts,
+ 					     signal_free_time, &data->msg))
+ 			cec_data_cancel(data);
++		else
++			adap->transmit_in_progress = true;
+ 
+ unlock:
+ 		mutex_unlock(&adap->lock);
+@@ -556,14 +570,17 @@ void cec_transmit_done_ts(struct cec_adapter *adap, u8 status,
+ 	data = adap->transmitting;
+ 	if (!data) {
+ 		/*
+-		 * This can happen if a transmit was issued and the cable is
++		 * This might happen if a transmit was issued and the cable is
+ 		 * unplugged while the transmit is ongoing. Ignore this
+ 		 * transmit in that case.
+ 		 */
+-		dprintk(1, "%s was called without an ongoing transmit!\n",
+-			__func__);
+-		goto unlock;
++		if (!adap->transmit_in_progress)
++			dprintk(1, "%s was called without an ongoing transmit!\n",
++				__func__);
++		adap->transmit_in_progress = false;
++		goto wake_thread;
+ 	}
++	adap->transmit_in_progress = false;
+ 
+ 	msg = &data->msg;
+ 
+@@ -629,7 +646,6 @@ void cec_transmit_done_ts(struct cec_adapter *adap, u8 status,
+ 	 * for transmitting or to retry the current message.
+ 	 */
+ 	wake_up_interruptible(&adap->kthread_waitq);
+-unlock:
+ 	mutex_unlock(&adap->lock);
+ }
+ EXPORT_SYMBOL_GPL(cec_transmit_done_ts);
+@@ -696,7 +712,6 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
+ 			struct cec_fh *fh, bool block)
+ {
+ 	struct cec_data *data;
+-	u8 last_initiator = 0xff;
+ 	unsigned int timeout;
+ 	int res = 0;
+ 
+@@ -806,23 +821,6 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
+ 	data->adap = adap;
+ 	data->blocking = block;
+ 
+-	/*
+-	 * Determine if this message follows a message from the same
+-	 * initiator. Needed to determine the free signal time later on.
+-	 */
+-	if (msg->len > 1) {
+-		if (!(list_empty(&adap->transmit_queue))) {
+-			const struct cec_data *last;
+-
+-			last = list_last_entry(&adap->transmit_queue,
+-					       const struct cec_data, list);
+-			last_initiator = cec_msg_initiator(&last->msg);
+-		} else if (adap->transmitting) {
+-			last_initiator =
+-				cec_msg_initiator(&adap->transmitting->msg);
+-		}
+-	}
+-	data->new_initiator = last_initiator != cec_msg_initiator(msg);
+ 	init_completion(&data->c);
+ 	INIT_DELAYED_WORK(&data->work, cec_wait_timeout);
+ 
+@@ -853,6 +851,8 @@ int cec_transmit_msg_fh(struct cec_adapter *adap, struct cec_msg *msg,
+ 	mutex_unlock(&adap->lock);
+ 	res = wait_for_completion_killable_timeout(&data->c,
+ 						   msecs_to_jiffies(timeout));
++	if (!data->completed)
++		cancel_delayed_work_sync(&data->work);
+ 	mutex_lock(&adap->lock);
+ 
+ 	if (data->completed) {
+@@ -1037,6 +1037,8 @@ void cec_received_msg_ts(struct cec_adapter *adap,
+ 	mutex_lock(&adap->lock);
+ 	dprintk(2, "%s: %*ph\n", __func__, msg->len, msg->msg);
+ 
++	adap->last_initiator = 0xff;
++
+ 	/* Check if this message was for us (directed or broadcast). */
+ 	if (!cec_msg_is_broadcast(msg))
+ 		valid_la = cec_has_log_addr(adap, msg_dest);
+@@ -1427,6 +1429,13 @@ static int cec_config_thread_func(void *arg)
+ 			las->log_addr[i],
+ 			cec_phys_addr_exp(adap->phys_addr));
+ 		cec_transmit_msg_fh(adap, &msg, NULL, false);
++
++		/* Report Vendor ID */
++		if (adap->log_addrs.vendor_id != CEC_VENDOR_ID_NONE) {
++			cec_msg_device_vendor_id(&msg,
++						 adap->log_addrs.vendor_id);
++			cec_transmit_msg_fh(adap, &msg, NULL, false);
++		}
+ 	}
+ 	adap->kthread_config = NULL;
+ 	complete(&adap->config_completion);
+@@ -1491,14 +1500,20 @@ void __cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr, bool block)
+ 		if (adap->monitor_all_cnt)
+ 			WARN_ON(call_op(adap, adap_monitor_all_enable, false));
+ 		mutex_lock(&adap->devnode.lock);
+-		if (adap->needs_hpd || list_empty(&adap->devnode.fhs))
++		if (adap->needs_hpd || list_empty(&adap->devnode.fhs)) {
+ 			WARN_ON(adap->ops->adap_enable(adap, false));
++			adap->transmit_in_progress = false;
++			wake_up_interruptible(&adap->kthread_waitq);
++		}
+ 		mutex_unlock(&adap->devnode.lock);
+ 		if (phys_addr == CEC_PHYS_ADDR_INVALID)
+ 			return;
+ 	}
+ 
+ 	mutex_lock(&adap->devnode.lock);
++	adap->last_initiator = 0xff;
++	adap->transmit_in_progress = false;
++
+ 	if ((adap->needs_hpd || list_empty(&adap->devnode.fhs)) &&
+ 	    adap->ops->adap_enable(adap, true)) {
+ 		mutex_unlock(&adap->devnode.lock);
+@@ -2015,6 +2030,29 @@ void cec_monitor_all_cnt_dec(struct cec_adapter *adap)
+ 		WARN_ON(call_op(adap, adap_monitor_all_enable, 0));
+ }
+ 
++/*
++ * Helper functions to keep track of the 'monitor pin' use count.
++ *
++ * These functions are called with adap->lock held.
++ */
++int cec_monitor_pin_cnt_inc(struct cec_adapter *adap)
++{
++	int ret = 0;
++
++	if (adap->monitor_pin_cnt == 0)
++		ret = call_op(adap, adap_monitor_pin_enable, 1);
++	if (ret == 0)
++		adap->monitor_pin_cnt++;
++	return ret;
++}
++
++void cec_monitor_pin_cnt_dec(struct cec_adapter *adap)
++{
++	adap->monitor_pin_cnt--;
++	if (adap->monitor_pin_cnt == 0)
++		WARN_ON(call_op(adap, adap_monitor_pin_enable, 0));
++}
++
+ #ifdef CONFIG_DEBUG_FS
+ /*
+  * Log the current state of the CEC adapter.
+diff --git a/drivers/media/cec/cec-api.c b/drivers/media/cec/cec-api.c
+index 7e87c43b1b..eabb4637a0 100644
+--- a/drivers/media/cec/cec-api.c
++++ b/drivers/media/cec/cec-api.c
+@@ -46,12 +46,12 @@ static inline struct cec_devnode *cec_devnode_data(struct file *filp)
+ static unsigned int cec_poll(struct file *filp,
+ 			     struct poll_table_struct *poll)
+ {
+-	struct cec_devnode *devnode = cec_devnode_data(filp);
+ 	struct cec_fh *fh = filp->private_data;
+ 	struct cec_adapter *adap = fh->adap;
+ 	unsigned int res = 0;
+ 
+-	if (!devnode->registered)
++	poll_wait(filp, &fh->wait, poll);
++	if (!cec_is_registered(adap))
+ 		return POLLERR | POLLHUP;
+ 	mutex_lock(&adap->lock);
+ 	if (adap->is_configured &&
+@@ -61,7 +61,6 @@ static unsigned int cec_poll(struct file *filp,
+ 		res |= POLLIN | POLLRDNORM;
+ 	if (fh->total_queued_events)
+ 		res |= POLLPRI;
+-	poll_wait(filp, &fh->wait, poll);
+ 	mutex_unlock(&adap->lock);
+ 	return res;
+ }
+@@ -354,6 +353,7 @@ static long cec_s_mode(struct cec_adapter *adap, struct cec_fh *fh,
+ 	u32 mode;
+ 	u8 mode_initiator;
+ 	u8 mode_follower;
++	bool send_pin_event = false;
+ 	long err = 0;
+ 
+ 	if (copy_from_user(&mode, parg, sizeof(mode)))
+@@ -433,6 +433,19 @@ static long cec_s_mode(struct cec_adapter *adap, struct cec_fh *fh,
+ 		}
+ 	}
+ 
++	if (!err) {
++		bool old_mon_pin = fh->mode_follower == CEC_MODE_MONITOR_PIN;
++		bool new_mon_pin = mode_follower == CEC_MODE_MONITOR_PIN;
++
++		if (old_mon_pin != new_mon_pin) {
++			send_pin_event = new_mon_pin;
++			if (new_mon_pin)
++				err = cec_monitor_pin_cnt_inc(adap);
++			else
++				cec_monitor_pin_cnt_dec(adap);
++		}
++	}
++
+ 	if (err) {
+ 		mutex_unlock(&adap->lock);
+ 		return err;
+@@ -440,11 +453,9 @@ static long cec_s_mode(struct cec_adapter *adap, struct cec_fh *fh,
+ 
+ 	if (fh->mode_follower == CEC_MODE_FOLLOWER)
+ 		adap->follower_cnt--;
+-	if (fh->mode_follower == CEC_MODE_MONITOR_PIN)
+-		adap->monitor_pin_cnt--;
+ 	if (mode_follower == CEC_MODE_FOLLOWER)
+ 		adap->follower_cnt++;
+-	if (mode_follower == CEC_MODE_MONITOR_PIN) {
++	if (send_pin_event) {
+ 		struct cec_event ev = {
+ 			.flags = CEC_EVENT_FL_INITIAL_STATE,
+ 		};
+@@ -452,7 +463,6 @@ static long cec_s_mode(struct cec_adapter *adap, struct cec_fh *fh,
+ 		ev.event = adap->cec_pin_is_high ? CEC_EVENT_PIN_CEC_HIGH :
+ 						   CEC_EVENT_PIN_CEC_LOW;
+ 		cec_queue_event_fh(fh, &ev, 0);
+-		adap->monitor_pin_cnt++;
+ 	}
+ 	if (mode_follower == CEC_MODE_EXCL_FOLLOWER ||
+ 	    mode_follower == CEC_MODE_EXCL_FOLLOWER_PASSTHRU) {
+@@ -475,13 +485,12 @@ static long cec_s_mode(struct cec_adapter *adap, struct cec_fh *fh,
+ 
+ static long cec_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+ {
+-	struct cec_devnode *devnode = cec_devnode_data(filp);
+ 	struct cec_fh *fh = filp->private_data;
+ 	struct cec_adapter *adap = fh->adap;
+ 	bool block = !(filp->f_flags & O_NONBLOCK);
+ 	void __user *parg = (void __user *)arg;
+ 
+-	if (!devnode->registered)
++	if (!cec_is_registered(adap))
+ 		return -ENODEV;
+ 
+ 	switch (cmd) {
+@@ -608,16 +617,15 @@ static int cec_release(struct inode *inode, struct file *filp)
+ 	if (fh->mode_follower == CEC_MODE_FOLLOWER)
+ 		adap->follower_cnt--;
+ 	if (fh->mode_follower == CEC_MODE_MONITOR_PIN)
+-		adap->monitor_pin_cnt--;
++		cec_monitor_pin_cnt_dec(adap);
+ 	if (fh->mode_follower == CEC_MODE_MONITOR_ALL)
+ 		cec_monitor_all_cnt_dec(adap);
+ 	mutex_unlock(&adap->lock);
+ 
+ 	mutex_lock(&devnode->lock);
+ 	list_del(&fh->list);
+-	if (list_empty(&devnode->fhs) &&
+-	    !adap->needs_hpd &&
+-	    adap->phys_addr == CEC_PHYS_ADDR_INVALID) {
++	if (cec_is_registered(adap) && list_empty(&devnode->fhs) &&
++	    !adap->needs_hpd && adap->phys_addr == CEC_PHYS_ADDR_INVALID) {
+ 		WARN_ON(adap->ops->adap_enable(adap, false));
+ 	}
+ 	mutex_unlock(&devnode->lock);
+diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
+index f9320a3df4..118a016370 100644
+--- a/drivers/media/cec/cec-core.c
++++ b/drivers/media/cec/cec-core.c
+@@ -36,6 +36,10 @@ int cec_debug;
+ module_param_named(debug, cec_debug, int, 0644);
+ MODULE_PARM_DESC(debug, "debug level (0-2)");
+ 
++static bool debug_phys_addr;
++module_param(debug_phys_addr, bool, 0644);
++MODULE_PARM_DESC(debug_phys_addr, "add CEC_CAP_PHYS_ADDR if set");
++
+ static dev_t cec_dev_t;
+ 
+ /* Active devices */
+@@ -136,8 +140,10 @@ static int __must_check cec_devnode_register(struct cec_devnode *devnode,
+ 	devnode->cdev.kobj.parent = &devnode->dev.kobj;
+ 	devnode->cdev.owner = owner;
+ 
++	devnode->registered = true;
+ 	ret = cdev_add(&devnode->cdev, devnode->dev.devt, 1);
+ 	if (ret < 0) {
++		devnode->registered = false;
+ 		pr_err("%s: cdev_add failed\n", __func__);
+ 		goto clr_bit;
+ 	}
+@@ -146,7 +152,6 @@ static int __must_check cec_devnode_register(struct cec_devnode *devnode,
+ 	if (ret)
+ 		goto cdev_del;
+ 
+-	devnode->registered = true;
+ 	return 0;
+ 
+ cdev_del:
+@@ -167,8 +172,9 @@ static int __must_check cec_devnode_register(struct cec_devnode *devnode,
+  * This function can safely be called if the device node has never been
+  * registered or has already been unregistered.
+  */
+-static void cec_devnode_unregister(struct cec_devnode *devnode)
++static void cec_devnode_unregister(struct cec_adapter *adap)
+ {
++	struct cec_devnode *devnode = &adap->devnode;
+ 	struct cec_fh *fh;
+ 
+ 	mutex_lock(&devnode->lock);
+@@ -186,6 +192,11 @@ static void cec_devnode_unregister(struct cec_devnode *devnode)
+ 	devnode->unregistered = true;
+ 	mutex_unlock(&devnode->lock);
+ 
++	mutex_lock(&adap->lock);
++	__cec_s_phys_addr(adap, CEC_PHYS_ADDR_INVALID, false);
++	__cec_s_log_addrs(adap, NULL, false);
++	mutex_unlock(&adap->lock);
++
+ 	device_del(&devnode->dev);
+ 	cdev_del(&devnode->cdev);
+ 	put_device(&devnode->dev);
+@@ -200,7 +211,7 @@ static void cec_cec_notify(struct cec_adapter *adap, u16 pa)
+ void cec_register_cec_notifier(struct cec_adapter *adap,
+ 			       struct cec_notifier *notifier)
+ {
+-	if (WARN_ON(!adap->devnode.registered))
++	if (WARN_ON(!cec_is_registered(adap)))
+ 		return;
+ 
+ 	adap->notifier = notifier;
+@@ -235,6 +246,8 @@ struct cec_adapter *cec_allocate_adapter(const struct cec_adap_ops *ops,
+ 	adap->log_addrs.cec_version = CEC_OP_CEC_VERSION_2_0;
+ 	adap->log_addrs.vendor_id = CEC_VENDOR_ID_NONE;
+ 	adap->capabilities = caps;
++	if (debug_phys_addr)
++		adap->capabilities |= CEC_CAP_PHYS_ADDR;
+ 	adap->needs_hpd = caps & CEC_CAP_NEEDS_HPD;
+ 	adap->available_log_addrs = available_las;
+ 	adap->sequence = 0;
+@@ -369,7 +382,7 @@ void cec_unregister_adapter(struct cec_adapter *adap)
+ 	if (adap->notifier)
+ 		cec_notifier_unregister(adap->notifier);
+ #endif
+-	cec_devnode_unregister(&adap->devnode);
++	cec_devnode_unregister(adap);
+ }
+ EXPORT_SYMBOL_GPL(cec_unregister_adapter);
+ 
+@@ -377,9 +390,6 @@ void cec_delete_adapter(struct cec_adapter *adap)
+ {
+ 	if (IS_ERR_OR_NULL(adap))
+ 		return;
+-	mutex_lock(&adap->lock);
+-	__cec_s_phys_addr(adap, CEC_PHYS_ADDR_INVALID, false);
+-	mutex_unlock(&adap->lock);
+ 	kthread_stop(adap->kthread);
+ 	if (adap->kthread_config)
+ 		kthread_stop(adap->kthread_config);
+diff --git a/drivers/media/cec/cec-notifier.c b/drivers/media/cec/cec-notifier.c
+index 66e13aed2c..f457d2465b 100644
+--- a/drivers/media/cec/cec-notifier.c
++++ b/drivers/media/cec/cec-notifier.c
+@@ -139,6 +139,8 @@ void cec_notifier_unregister(struct cec_notifier *n)
+ {
+ 	mutex_lock(&n->lock);
+ 	n->callback = NULL;
++	n->cec_adap->notifier = NULL;
++	n->cec_adap = NULL;
+ 	mutex_unlock(&n->lock);
+ 	cec_notifier_put(n);
+ }
+diff --git a/drivers/media/cec/cec-pin-priv.h b/drivers/media/cec/cec-pin-priv.h
+index 7d0def1997..ca1555cdd5 100644
+--- a/drivers/media/cec/cec-pin-priv.h
++++ b/drivers/media/cec/cec-pin-priv.h
+@@ -86,7 +86,9 @@ enum cec_pin_state {
+ 	CEC_PIN_STATES
+ };
+ 
+-#define CEC_NUM_PIN_EVENTS 128
++#define CEC_NUM_PIN_EVENTS				128
++#define CEC_PIN_EVENT_FL_IS_HIGH			(1 << 0)
++#define CEC_PIN_EVENT_FL_DROPPED			(1 << 1)
+ 
+ #define CEC_PIN_IRQ_UNCHANGED	0
+ #define CEC_PIN_IRQ_DISABLE	1
+@@ -117,11 +119,13 @@ struct cec_pin {
+ 	u8				work_tx_status;
+ 	ktime_t				work_tx_ts;
+ 	atomic_t			work_irq_change;
+-	atomic_t			work_pin_events;
++	atomic_t			work_pin_num_events;
+ 	unsigned int			work_pin_events_wr;
+ 	unsigned int			work_pin_events_rd;
+ 	ktime_t				work_pin_ts[CEC_NUM_PIN_EVENTS];
+-	bool				work_pin_is_high[CEC_NUM_PIN_EVENTS];
++	u8				work_pin_events[CEC_NUM_PIN_EVENTS];
++	bool				work_pin_events_dropped;
++	u32				work_pin_events_dropped_cnt;
+ 	ktime_t				timer_ts;
+ 	u32				timer_cnt;
+ 	u32				timer_100ms_overruns;
+diff --git a/drivers/media/cec/cec-pin.c b/drivers/media/cec/cec-pin.c
+index b48dfe8441..d11b77b64e 100644
+--- a/drivers/media/cec/cec-pin.c
++++ b/drivers/media/cec/cec-pin.c
+@@ -93,12 +93,21 @@ static void cec_pin_update(struct cec_pin *pin, bool v, bool force)
+ 		return;
+ 
+ 	pin->adap->cec_pin_is_high = v;
+-	if (atomic_read(&pin->work_pin_events) < CEC_NUM_PIN_EVENTS) {
+-		pin->work_pin_is_high[pin->work_pin_events_wr] = v;
++	if (atomic_read(&pin->work_pin_num_events) < CEC_NUM_PIN_EVENTS) {
++		u8 ev = v;
++
++		if (pin->work_pin_events_dropped) {
++			pin->work_pin_events_dropped = false;
++			ev |= CEC_PIN_EVENT_FL_DROPPED;
++		}
++		pin->work_pin_events[pin->work_pin_events_wr] = ev;
+ 		pin->work_pin_ts[pin->work_pin_events_wr] = ktime_get();
+ 		pin->work_pin_events_wr =
+ 			(pin->work_pin_events_wr + 1) % CEC_NUM_PIN_EVENTS;
+-		atomic_inc(&pin->work_pin_events);
++		atomic_inc(&pin->work_pin_num_events);
++	} else {
++		pin->work_pin_events_dropped = true;
++		pin->work_pin_events_dropped_cnt++;
+ 	}
+ 	wake_up_interruptible(&pin->kthread_waitq);
+ }
+@@ -532,6 +541,17 @@ static enum hrtimer_restart cec_pin_timer(struct hrtimer *timer)
+ 			/* Start bit, switch to receive state */
+ 			pin->ts = ts;
+ 			pin->state = CEC_ST_RX_START_BIT_LOW;
++			/*
++			 * If a transmit is pending, then that transmit should
++			 * use a signal free time of no more than
++			 * CEC_SIGNAL_FREE_TIME_NEW_INITIATOR since it will
++			 * have a new initiator due to the receive that is now
++			 * starting.
++			 */
++			if (pin->tx_msg.len && pin->tx_signal_free_time >
++			    CEC_SIGNAL_FREE_TIME_NEW_INITIATOR)
++				pin->tx_signal_free_time =
++					CEC_SIGNAL_FREE_TIME_NEW_INITIATOR;
+ 			break;
+ 		}
+ 		if (ktime_to_ns(pin->ts) == 0)
+@@ -596,7 +616,7 @@ static int cec_pin_thread_func(void *_adap)
+ 			pin->work_rx_msg.len ||
+ 			pin->work_tx_status ||
+ 			atomic_read(&pin->work_irq_change) ||
+-			atomic_read(&pin->work_pin_events));
++			atomic_read(&pin->work_pin_num_events));
+ 
+ 		if (pin->work_rx_msg.len) {
+ 			cec_received_msg_ts(adap, &pin->work_rx_msg,
+@@ -611,14 +631,16 @@ static int cec_pin_thread_func(void *_adap)
+ 						     pin->work_tx_ts);
+ 		}
+ 
+-		while (atomic_read(&pin->work_pin_events)) {
++		while (atomic_read(&pin->work_pin_num_events)) {
+ 			unsigned int idx = pin->work_pin_events_rd;
++			u8 v = pin->work_pin_events[idx];
+ 
+ 			cec_queue_pin_cec_event(adap,
+-						pin->work_pin_is_high[idx],
++						v & CEC_PIN_EVENT_FL_IS_HIGH,
++						v & CEC_PIN_EVENT_FL_DROPPED,
+ 						pin->work_pin_ts[idx]);
+ 			pin->work_pin_events_rd = (idx + 1) % CEC_NUM_PIN_EVENTS;
+-			atomic_dec(&pin->work_pin_events);
++			atomic_dec(&pin->work_pin_num_events);
+ 		}
+ 
+ 		switch (atomic_xchg(&pin->work_irq_change,
+@@ -654,8 +676,9 @@ static int cec_pin_adap_enable(struct cec_adapter *adap, bool enable)
+ 
+ 	pin->enabled = enable;
+ 	if (enable) {
+-		atomic_set(&pin->work_pin_events, 0);
++		atomic_set(&pin->work_pin_num_events, 0);
+ 		pin->work_pin_events_rd = pin->work_pin_events_wr = 0;
++		pin->work_pin_events_dropped = false;
+ 		cec_pin_read(pin);
+ 		cec_pin_to_idle(pin);
+ 		pin->tx_msg.len = 0;
+@@ -697,6 +720,15 @@ static int cec_pin_adap_transmit(struct cec_adapter *adap, u8 attempts,
+ {
+ 	struct cec_pin *pin = adap->pin;
+ 
++	/*
++	 * If a receive is in progress, then this transmit should use
++	 * a signal free time of max CEC_SIGNAL_FREE_TIME_NEW_INITIATOR
++	 * since when it starts transmitting it will have a new initiator.
++	 */
++	if (pin->state != CEC_ST_IDLE &&
++	    signal_free_time > CEC_SIGNAL_FREE_TIME_NEW_INITIATOR)
++		signal_free_time = CEC_SIGNAL_FREE_TIME_NEW_INITIATOR;
++
+ 	pin->tx_signal_free_time = signal_free_time;
+ 	pin->tx_msg = *msg;
+ 	pin->work_tx_status = 0;
+@@ -721,6 +753,8 @@ static void cec_pin_adap_status(struct cec_adapter *adap,
+ 	seq_printf(file, "tx_bit:  %d\n", pin->tx_bit);
+ 	seq_printf(file, "rx_bit:  %d\n", pin->rx_bit);
+ 	seq_printf(file, "cec pin: %d\n", pin->ops->read(adap));
++	seq_printf(file, "cec pin events dropped: %u\n",
++		   pin->work_pin_events_dropped_cnt);
+ 	seq_printf(file, "irq failed: %d\n", pin->enable_irq_failed);
+ 	if (pin->timer_100ms_overruns) {
+ 		seq_printf(file, "timer overruns > 100ms: %u of %u\n",
+@@ -733,6 +767,7 @@ static void cec_pin_adap_status(struct cec_adapter *adap,
+ 			   pin->timer_sum_overrun / pin->timer_100ms_overruns);
+ 	}
+ 	pin->timer_cnt = 0;
++	pin->work_pin_events_dropped_cnt = 0;
+ 	pin->timer_100ms_overruns = 0;
+ 	pin->timer_300ms_overruns = 0;
+ 	pin->timer_max_overrun = 0;
+diff --git a/drivers/media/cec/cec-priv.h b/drivers/media/cec/cec-priv.h
+index 70767a7900..daf597643a 100644
+--- a/drivers/media/cec/cec-priv.h
++++ b/drivers/media/cec/cec-priv.h
+@@ -40,6 +40,8 @@ void cec_put_device(struct cec_devnode *devnode);
+ /* cec-adap.c */
+ int cec_monitor_all_cnt_inc(struct cec_adapter *adap);
+ void cec_monitor_all_cnt_dec(struct cec_adapter *adap);
++int cec_monitor_pin_cnt_inc(struct cec_adapter *adap);
++void cec_monitor_pin_cnt_dec(struct cec_adapter *adap);
+ int cec_adap_status(struct seq_file *file, void *priv);
+ int cec_thread_func(void *_adap);
+ void __cec_s_phys_addr(struct cec_adapter *adap, u16 phys_addr, bool block);
+diff --git a/drivers/media/usb/pulse8-cec/pulse8-cec.c b/drivers/media/usb/pulse8-cec/pulse8-cec.c
+index 50146f263d..0d9f660f3e 100644
+--- a/drivers/media/usb/pulse8-cec/pulse8-cec.c
++++ b/drivers/media/usb/pulse8-cec/pulse8-cec.c
+@@ -121,6 +121,7 @@ struct pulse8 {
+ 	unsigned int vers;
+ 	struct completion cmd_done;
+ 	struct work_struct work;
++	u8 work_result;
+ 	struct delayed_work ping_eeprom_work;
+ 	struct cec_msg rx_msg;
+ 	u8 data[DATA_SIZE];
+@@ -142,8 +143,10 @@ static void pulse8_irq_work_handler(struct work_struct *work)
+ {
+ 	struct pulse8 *pulse8 =
+ 		container_of(work, struct pulse8, work);
++	u8 result = pulse8->work_result;
+ 
+-	switch (pulse8->data[0] & 0x3f) {
++	pulse8->work_result = 0;
++	switch (result & 0x3f) {
+ 	case MSGCODE_FRAME_DATA:
+ 		cec_received_msg(pulse8->adap, &pulse8->rx_msg);
+ 		break;
+@@ -177,12 +180,12 @@ static irqreturn_t pulse8_interrupt(struct serio *serio, unsigned char data,
+ 		pulse8->escape = false;
+ 	} else if (data == MSGEND) {
+ 		struct cec_msg *msg = &pulse8->rx_msg;
++		u8 msgcode = pulse8->buf[0];
+ 
+ 		if (debug)
+ 			dev_info(pulse8->dev, "received: %*ph\n",
+ 				 pulse8->idx, pulse8->buf);
+-		pulse8->data[0] = pulse8->buf[0];
+-		switch (pulse8->buf[0] & 0x3f) {
++		switch (msgcode & 0x3f) {
+ 		case MSGCODE_FRAME_START:
+ 			msg->len = 1;
+ 			msg->msg[0] = pulse8->buf[1];
+@@ -191,14 +194,20 @@ static irqreturn_t pulse8_interrupt(struct serio *serio, unsigned char data,
+ 			if (msg->len == CEC_MAX_MSG_SIZE)
+ 				break;
+ 			msg->msg[msg->len++] = pulse8->buf[1];
+-			if (pulse8->buf[0] & MSGCODE_FRAME_EOM)
++			if (msgcode & MSGCODE_FRAME_EOM) {
++				WARN_ON(pulse8->work_result);
++				pulse8->work_result = msgcode;
+ 				schedule_work(&pulse8->work);
++				break;
++			}
+ 			break;
+ 		case MSGCODE_TRANSMIT_SUCCEEDED:
+ 		case MSGCODE_TRANSMIT_FAILED_LINE:
+ 		case MSGCODE_TRANSMIT_FAILED_ACK:
+ 		case MSGCODE_TRANSMIT_FAILED_TIMEOUT_DATA:
+ 		case MSGCODE_TRANSMIT_FAILED_TIMEOUT_LINE:
++			WARN_ON(pulse8->work_result);
++			pulse8->work_result = msgcode;
+ 			schedule_work(&pulse8->work);
+ 			break;
+ 		case MSGCODE_HIGH_ERROR:
+@@ -329,7 +338,7 @@ static int pulse8_setup(struct pulse8 *pulse8, struct serio *serio,
+ 	u8 cmd[2];
+ 	int err;
+ 	struct tm tm;
+-	time_t date;
++	time64_t date;
+ 
+ 	pulse8->vers = 0;
+ 
+@@ -349,7 +358,7 @@ static int pulse8_setup(struct pulse8 *pulse8, struct serio *serio,
+ 	if (err)
+ 		return err;
+ 	date = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+-	time_to_tm(date, 0, &tm);
++	time64_to_tm(date, 0, &tm);
+ 	dev_info(pulse8->dev, "Firmware build date %04ld.%02d.%02d %02d:%02d:%02d\n",
+ 		 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+ 		 tm.tm_hour, tm.tm_min, tm.tm_sec);
+@@ -585,7 +594,7 @@ static int pulse8_cec_adap_log_addr(struct cec_adapter *adap, u8 log_addr)
+ 	else
+ 		pulse8->config_pending = true;
+ 	mutex_unlock(&pulse8->config_lock);
+-	return err;
++	return log_addr == CEC_LOG_ADDR_INVALID ? 0 : err;
+ }
+ 
+ static int pulse8_cec_adap_transmit(struct cec_adapter *adap, u8 attempts,
+@@ -710,15 +719,14 @@ static void pulse8_ping_eeprom_work_handler(struct work_struct *work)
+ 		container_of(work, struct pulse8, ping_eeprom_work.work);
+ 	u8 cmd;
+ 
+-	schedule_delayed_work(&pulse8->ping_eeprom_work, PING_PERIOD);
++	mutex_lock(&pulse8->config_lock);
+ 	cmd = MSGCODE_PING;
+ 	pulse8_send_and_wait(pulse8, &cmd, 1,
+ 			     MSGCODE_COMMAND_ACCEPTED, 0);
+ 
+ 	if (pulse8->vers < 2)
+-		return;
++		goto unlock;;
+ 
+-	mutex_lock(&pulse8->config_lock);
+ 	if (pulse8->config_pending && persistent_config) {
+ 		dev_dbg(pulse8->dev, "writing pending config to EEPROM\n");
+ 		cmd = MSGCODE_WRITE_EEPROM;
+@@ -728,6 +736,8 @@ static void pulse8_ping_eeprom_work_handler(struct work_struct *work)
+ 		else
+ 			pulse8->config_pending = false;
+ 	}
++unlock:
++	schedule_delayed_work(&pulse8->ping_eeprom_work, PING_PERIOD);
+ 	mutex_unlock(&pulse8->config_lock);
+ }
+ 
+diff --git a/include/linux/time.h b/include/linux/time.h
+index 62cc507000..769628aa6a 100644
+--- a/include/linux/time.h
++++ b/include/linux/time.h
+@@ -206,6 +206,7 @@ struct tm {
+ };
+ 
+ void time_to_tm(time_t totalsecs, int offset, struct tm *result);
++void time64_to_tm(time64_t totalsecs, int offset, struct tm *result);
+ 
+ /**
+  * timespec_to_ns - Convert timespec to nanoseconds
+diff --git a/include/media/cec.h b/include/media/cec.h
+index 5db31bbdf1..1bb25d8bf9 100644
+--- a/include/media/cec.h
++++ b/include/media/cec.h
+@@ -75,7 +75,6 @@ struct cec_data {
+ 	struct delayed_work work;
+ 	struct completion c;
+ 	u8 attempts;
+-	bool new_initiator;
+ 	bool blocking;
+ 	bool completed;
+ };
+@@ -104,7 +103,7 @@ struct cec_fh {
+ 	wait_queue_head_t	wait;
+ 	struct mutex		lock;
+ 	struct list_head	events[CEC_NUM_EVENTS]; /* queued events */
+-	u8			queued_events[CEC_NUM_EVENTS];
++	u16			queued_events[CEC_NUM_EVENTS];
+ 	unsigned int		total_queued_events;
+ 	struct cec_event_entry	core_events[CEC_NUM_CORE_EVENTS];
+ 	struct list_head	msgs; /* queued messages */
+@@ -122,6 +121,7 @@ struct cec_adap_ops {
+ 	/* Low-level callbacks */
+ 	int (*adap_enable)(struct cec_adapter *adap, bool enable);
+ 	int (*adap_monitor_all_enable)(struct cec_adapter *adap, bool enable);
++	int (*adap_monitor_pin_enable)(struct cec_adapter *adap, bool enable);
+ 	int (*adap_log_addr)(struct cec_adapter *adap, u8 logical_addr);
+ 	int (*adap_transmit)(struct cec_adapter *adap, u8 attempts,
+ 			     u32 signal_free_time, struct cec_msg *msg);
+@@ -163,6 +163,7 @@ struct cec_adapter {
+ 	unsigned int transmit_queue_sz;
+ 	struct list_head wait_queue;
+ 	struct cec_data *transmitting;
++	bool transmit_in_progress;
+ 
+ 	struct task_struct *kthread_config;
+ 	struct completion config_completion;
+@@ -181,6 +182,7 @@ struct cec_adapter {
+ 	bool is_configuring;
+ 	bool is_configured;
+ 	bool cec_pin_is_high;
++	u8 last_initiator;
+ 	u32 monitor_all_cnt;
+ 	u32 monitor_pin_cnt;
+ 	u32 follower_cnt;
+@@ -224,6 +226,18 @@ static inline bool cec_is_sink(const struct cec_adapter *adap)
+ 	return adap->phys_addr == 0;
+ }
+ 
++/**
++ * cec_is_registered() - is the CEC adapter registered?
++ *
++ * @adap:	the CEC adapter, may be NULL.
++ *
++ * Return: true if the adapter is registered, false otherwise.
++ */
++static inline bool cec_is_registered(const struct cec_adapter *adap)
++{
++	return adap && adap->devnode.registered;
++}
++
+ #define cec_phys_addr_exp(pa) \
+ 	((pa) >> 12), ((pa) >> 8) & 0xf, ((pa) >> 4) & 0xf, (pa) & 0xf
+ 
+@@ -285,11 +299,12 @@ static inline void cec_received_msg(struct cec_adapter *adap,
+  *
+  * @adap:	pointer to the cec adapter
+  * @is_high:	when true the CEC pin is high, otherwise it is low
++ * @dropped_events: when true some events were dropped
+  * @ts:		the timestamp for this event
+  *
+  */
+-void cec_queue_pin_cec_event(struct cec_adapter *adap,
+-			     bool is_high, ktime_t ts);
++void cec_queue_pin_cec_event(struct cec_adapter *adap, bool is_high,
++			     bool dropped_events, ktime_t ts);
+ 
+ /**
+  * cec_queue_pin_hpd_event() - queue a pin event with a given timestamp.
+diff --git a/kernel/time/timeconv.c b/kernel/time/timeconv.c
+index 86628e755f..997faff74a 100644
+--- a/kernel/time/timeconv.c
++++ b/kernel/time/timeconv.c
+@@ -125,3 +125,64 @@ void time_to_tm(time_t totalsecs, int offset, struct tm *result)
+ 	result->tm_mday = days + 1;
+ }
+ EXPORT_SYMBOL(time_to_tm);
++
++/**
++ * time64_to_tm - converts the calendar time to local broken-down time
++ *
++ * @totalsecs	the number of seconds elapsed since 00:00:00 on January 1, 1970,
++ *		Coordinated Universal Time (UTC).
++ * @offset	offset seconds adding to totalsecs.
++ * @result	pointer to struct tm variable to receive broken-down time
++ */
++void time64_to_tm(time64_t totalsecs, int offset, struct tm *result)
++{
++	long days, rem, y;
++	int remainder;
++	const unsigned short *ip;
++
++	days = div_s64_rem(totalsecs, SECS_PER_DAY, &remainder);
++	rem = remainder;
++	rem += offset;
++	while (rem < 0) {
++		rem += SECS_PER_DAY;
++		--days;
++	}
++	while (rem >= SECS_PER_DAY) {
++		rem -= SECS_PER_DAY;
++		++days;
++	}
++
++	result->tm_hour = rem / SECS_PER_HOUR;
++	rem %= SECS_PER_HOUR;
++	result->tm_min = rem / 60;
++	result->tm_sec = rem % 60;
++
++	/* January 1, 1970 was a Thursday. */
++	result->tm_wday = (4 + days) % 7;
++	if (result->tm_wday < 0)
++		result->tm_wday += 7;
++
++	y = 1970;
++
++	while (days < 0 || days >= (__isleap(y) ? 366 : 365)) {
++		/* Guess a corrected year, assuming 365 days per year. */
++		long yg = y + math_div(days, 365);
++
++		/* Adjust DAYS and Y to match the guessed year. */
++		days -= (yg - y) * 365 + leaps_between(y, yg);
++		y = yg;
++	}
++
++	result->tm_year = y - 1900;
++
++	result->tm_yday = days;
++
++	ip = __mon_yday[__isleap(y)];
++	for (y = 11; days < ip[y]; y--)
++		continue;
++	days -= ip[y];
++
++	result->tm_mon = y;
++	result->tm_mday = days + 1;
++}
++EXPORT_SYMBOL(time64_to_tm);
+

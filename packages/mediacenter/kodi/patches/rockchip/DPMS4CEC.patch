@@ -1,0 +1,257 @@
+From f2e715857a361d3e56be4c8d3b5661dc6faebf74 Mon Sep 17 00:00:00 2001
+From: joern-p <ahap1@web.de>
+Date: Wed, 20 May 2020 09:12:11 +0200
+Subject: [PATCH 1/3] add CECStandby to powermanagement
+
+---
+ .../resources/strings.po                      | 13 +++++++--
+ system/settings/settings.xml                  |  8 +++++
+ xbmc/Application.cpp                          | 29 +++++++++++++++++--
+ xbmc/Application.h                            |  1 +
+ xbmc/messaging/ApplicationMessenger.h         |  2 +-
+ .../devices/PeripheralCecAdapter.cpp          |  1 +
+ xbmc/settings/Settings.cpp                    |  1 +
+ xbmc/settings/Settings.h                      |  1 +
+ 8 files changed, 51 insertions(+), 5 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 07a66466143e..76368e6ba4b8 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -6152,7 +6152,12 @@ msgctxt "#13036"
+ msgid "Failed for {0:s}"
+ msgstr ""
+ 
+-#empty strings from id 13037 to 13049
++#: system/settings/settings.xml
++msgctxt "#13037"
++msgid "turn off tv CEC"
++msgstr ""
++
++#empty strings from id 13038 to 13049
+ 
+ #: xbmc/powermanagement/PowerManager.cpp
+ msgctxt "#13050"
+@@ -19328,7 +19333,11 @@ msgctxt "#36357"
+ msgid "Calibrate the user interface by adjusting the overscan. Use this tool if the image being displayed is too large or small for your display."
+ msgstr ""
+ 
+-#empty string with id 36358
++#. Description of setting with label #13037 "Turn off TV CEC"
++#: system/settings/settings.xml
++msgctxt "#36358"
++msgid "Automatically turn off TV CEC when DPMS is activated"
++msgstr ""
+ 
+ #. Description of setting with label #36042 "Use limited colour range (16-235)"
+ #: system/settings/settings.xml
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 19cfe2db185c..3278aef8a612 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -2854,6 +2854,14 @@
+             <formatlabel>14044</formatlabel>
+           </control>
+         </setting>
++        <setting id="powermanagement.cecstandby" type="boolean" label="13037" help="36358">
++          <level>2</level>
++          <default>false</default>
++          <constraints>
++            <options>displaysoff</options>
++          </constraints>
++          <control type="toggle" />
++        </setting>
+         <setting id="powermanagement.shutdowntime" type="integer" label="357" help="36389">
+           <level>2</level>
+           <default>0</default>
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index fde7fdaee31a..e653bda5cc38 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2277,6 +2277,10 @@ void CApplication::OnApplicationMessage(ThreadMessage* pMsg)
+     }
+ 
+     break;
++    
++  case TMSG_TVISSTANDBY:
++    m_cecIsActive = true;
++    break;
+ 
+   default:
+     CLog::Log(LOGERROR, "%s: Unhandled threadmessage sent, %u", __FUNCTION__, msg);
+@@ -3360,6 +3364,7 @@ void CApplication::ResetScreenSaver()
+ {
+   // reset our timers
+   m_shutdownTimer.StartZero();
++  m_cecIsActive = false;
+ 
+   // screen saver timer is reset only if we're not already in screensaver or
+   // DPMS mode
+@@ -3552,6 +3557,11 @@ void CApplication::CheckScreenSaverAndDPMS()
+   // Are we playing a video and it is not paused?
+   if (m_appPlayer.IsPlayingVideo() && !m_appPlayer.IsPaused())
+     haveIdleActivity = true;
++  
++  bool havePauseIdleActivity = false;  
++  // Are we playing a video and it is paused?
++  if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
++    havePauseIdleActivity = true;
+ 
+   // Are we playing some music in fullscreen vis?
+   else if (m_appPlayer.IsPlayingAudio() &&
+@@ -3603,8 +3613,17 @@ void CApplication::CheckScreenSaverAndDPMS()
+   if (maybeDPMS
+       && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) * 60)
+   {
+-    ToggleDPMS(false);
+-    WakeUpScreenSaver();
++    if (!m_cecIsActive && CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_POWERMANAGEMENT_CECSTANDBY))
++    {
++       CApplicationMessenger::GetInstance().PostMsg(TMSG_CECSTANDBY);
++       m_cecIsActive = true;
++    }
++    
++    if (!havePauseIdleActivity)
++    {
++       ToggleDPMS(false);
++       WakeUpScreenSaver();
++    }
+   }
+   else if (maybeScreensaver
+            && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SCREENSAVER_TIME) * 60)
+@@ -3618,6 +3637,12 @@ void CApplication::CheckScreenSaverAndDPMS()
+ // the type of screensaver displayed
+ void CApplication::ActivateScreenSaver(bool forceType /*= false */)
+ {
++  //never start the Screensaver when DPMS is active
++  if (m_dpmsIsActive)
++  {
++    return;
++  }
++  
+   const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+   if (m_appPlayer.IsPlayingAudio() && settings->GetBool(CSettings::SETTING_SCREENSAVER_USEMUSICVISINSTEAD) &&
+       !settings->GetString(CSettings::SETTING_MUSICPLAYER_VISUALISATION).empty())
+diff --git a/xbmc/Application.h b/xbmc/Application.h
+index 57b006b60cfe..490e9f712f6d 100644
+--- a/xbmc/Application.h
++++ b/xbmc/Application.h
+@@ -424,6 +424,7 @@ friend class CAppInboundProtocol;
+ 
+   std::unique_ptr<DPMSSupport> m_dpms;
+   bool m_dpmsIsActive = false;
++  bool m_cecIsActive = false;
+   bool m_dpmsIsManual = false;
+ 
+   CFileItemPtr m_itemCurrentFile;
+diff --git a/xbmc/messaging/ApplicationMessenger.h b/xbmc/messaging/ApplicationMessenger.h
+index 09101f015735..0b48e70dd25b 100644
+--- a/xbmc/messaging/ApplicationMessenger.h
++++ b/xbmc/messaging/ApplicationMessenger.h
+@@ -57,7 +57,7 @@
+ #define TMSG_RESTARTAPP                   TMSG_MASK_APPLICATION + 7
+ #define TMSG_ACTIVATESCREENSAVER          TMSG_MASK_APPLICATION + 8
+ #define TMSG_NETWORKMESSAGE               TMSG_MASK_APPLICATION + 9
+-// unused: TMSG_MASK_APPLICATION + 10
++#define TMSG_TVISSTANDBY                  TMSG_MASK_APPLICATION + 10
+ #define TMSG_VOLUME_SHOW                  TMSG_MASK_APPLICATION + 11
+ #define TMSG_DISPLAY_SETUP                TMSG_MASK_APPLICATION + 12
+ #define TMSG_DISPLAY_DESTROY              TMSG_MASK_APPLICATION + 13
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 802dd0779ee8..c6ee682f7d9b 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -574,6 +574,7 @@ void CPeripheralCecAdapter::SetMenuLanguage(const char *strLanguage)
+ 
+ void CPeripheralCecAdapter::OnTvStandby(void)
+ {
++  KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_TVISSTANDBY);
+   int iActionOnTvStandby = GetSettingInt("standby_pc_on_tv_standby");
+   switch (iActionOnTvStandby)
+   {
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index 829e7b5af6e6..f34c24ab5dff 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -379,6 +379,7 @@ const std::string CSettings::SETTING_NETWORK_HTTPPROXYUSERNAME = "network.httppr
+ const std::string CSettings::SETTING_NETWORK_HTTPPROXYPASSWORD = "network.httpproxypassword";
+ const std::string CSettings::SETTING_NETWORK_BANDWIDTH = "network.bandwidth";
+ const std::string CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF = "powermanagement.displaysoff";
++const std::string CSettings::SETTING_POWERMANAGEMENT_CECSTANDBY = "powermanagement.cecstandby";
+ const std::string CSettings::SETTING_POWERMANAGEMENT_SHUTDOWNTIME = "powermanagement.shutdowntime";
+ const std::string CSettings::SETTING_POWERMANAGEMENT_SHUTDOWNSTATE = "powermanagement.shutdownstate";
+ const std::string CSettings::SETTING_POWERMANAGEMENT_WAKEONACCESS = "powermanagement.wakeonaccess";
+diff --git a/xbmc/settings/Settings.h b/xbmc/settings/Settings.h
+index d0743b32d380..96a84c4d1380 100644
+--- a/xbmc/settings/Settings.h
++++ b/xbmc/settings/Settings.h
+@@ -339,6 +339,7 @@ class CSettings : public CSettingsBase, public CSettingCreator, public CSettingC
+   static const std::string SETTING_NETWORK_HTTPPROXYPASSWORD;
+   static const std::string SETTING_NETWORK_BANDWIDTH;
+   static const std::string SETTING_POWERMANAGEMENT_DISPLAYSOFF;
++  static const std::string SETTING_POWERMANAGEMENT_CECSTANDBY;
+   static const std::string SETTING_POWERMANAGEMENT_SHUTDOWNTIME;
+   static const std::string SETTING_POWERMANAGEMENT_SHUTDOWNSTATE;
+   static const std::string SETTING_POWERMANAGEMENT_WAKEONACCESS;
+
+From d03ffc2305ea4419ce5f2257bd3a17a7375285de Mon Sep 17 00:00:00 2001
+From: joern-p <ahap1@web.de>
+Date: Wed, 20 May 2020 13:58:23 +0200
+Subject: [PATCH 2/3] init cecsource
+
+---
+ xbmc/Application.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index e653bda5cc38..d7f92bc22319 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -762,6 +762,7 @@ bool CApplication::Initialize()
+ 
+   // Init DPMS, before creating the corresponding setting control.
+   m_dpms.reset(new DPMSSupport());
++  CApplicationMessenger::GetInstance().PostMsg(TMSG_CECACTIVATESOURCE);
+   bool uiInitializationFinished = false;
+   if (CServiceBroker::GetGUI()->GetWindowManager().Initialized())
+   {
+@@ -876,6 +877,7 @@ bool CApplication::Initialize()
+ 
+   CheckOSScreenSaverInhibitionSetting();
+   // reset our screensaver (starts timers etc.)
++  
+   ResetScreenSaver();
+ 
+   // if the user interfaces has been fully initialized let everyone know
+
+From 3daf54c22f3b9ec27de05bd2b3ff31e4f643986c Mon Sep 17 00:00:00 2001
+From: joern-p <ahap1@web.de>
+Date: Wed, 20 May 2020 15:00:17 +0200
+Subject: [PATCH 3/3] ttt
+
+---
+ xbmc/Application.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index d7f92bc22319..d4a85db8ce6a 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -762,7 +762,6 @@ bool CApplication::Initialize()
+ 
+   // Init DPMS, before creating the corresponding setting control.
+   m_dpms.reset(new DPMSSupport());
+-  CApplicationMessenger::GetInstance().PostMsg(TMSG_CECACTIVATESOURCE);
+   bool uiInitializationFinished = false;
+   if (CServiceBroker::GetGUI()->GetWindowManager().Initialized())
+   {
+@@ -879,6 +878,7 @@ bool CApplication::Initialize()
+   // reset our screensaver (starts timers etc.)
+   
+   ResetScreenSaver();
++  WakeUpScreenSaverAndDPMS();
+
+ 
+   // if the user interfaces has been fully initialized let everyone know
+   if (uiInitializationFinished)
+

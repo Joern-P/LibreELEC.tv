@@ -1,0 +1,63 @@
+From 2636eac0357795c9c23c776468cde6d7fe91b0ae Mon Sep 17 00:00:00 2001
+From: joern-p <ahap1@web.de>
+Date: Tue, 19 May 2020 18:45:53 +0200
+Subject: [PATCH 1/2] disable dpms while video Pause
+
+---
+ xbmc/Application.cpp | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index fde7fdaee31a..b97c394d7a5d 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -3552,6 +3552,11 @@ void CApplication::CheckScreenSaverAndDPMS()
+   // Are we playing a video and it is not paused?
+   if (m_appPlayer.IsPlayingVideo() && !m_appPlayer.IsPaused())
+     haveIdleActivity = true;
++  
++  bool havePauseIdleActivity = false;  
++  // Are we playing a video and it is paused?
++  if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
++    havePauseIdleActivity = true;
+ 
+   // Are we playing some music in fullscreen vis?
+   else if (m_appPlayer.IsPlayingAudio() &&
+@@ -3601,7 +3606,8 @@ void CApplication::CheckScreenSaverAndDPMS()
+ 
+   // DPMS has priority (it makes the screensaver not needed)
+   if (maybeDPMS
+-      && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) * 60)
++      && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) * 60
++      && !havePauseIdleActivity)
+   {
+     ToggleDPMS(false);
+     WakeUpScreenSaver();
+
+From 3c17fbb588a1aa9cfe42a94720fb6571d5edaf67 Mon Sep 17 00:00:00 2001
+From: joern-p <ahap1@web.de>
+Date: Tue, 19 May 2020 19:03:40 +0200
+Subject: [PATCH 2/2] don't start Screensaver when DPMS is active
+
+---
+ xbmc/Application.cpp | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index b97c394d7a5d..5e874f421bec 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -3624,6 +3624,12 @@ void CApplication::CheckScreenSaverAndDPMS()
+ // the type of screensaver displayed
+ void CApplication::ActivateScreenSaver(bool forceType /*= false */)
+ {
++  //never start the Screensaver when DPMS is active
++  if (m_dpmsIsActive)
++  {
++    return;
++  }
++  
+   const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+   if (m_appPlayer.IsPlayingAudio() && settings->GetBool(CSettings::SETTING_SCREENSAVER_USEMUSICVISINSTEAD) &&
+       !settings->GetString(CSettings::SETTING_MUSICPLAYER_VISUALISATION).empty())
+
