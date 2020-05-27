@@ -27,6 +27,7 @@ configure_package() {
 }
 
 pre_configure_target() {
+  export CFLAGS="$CFLAGS -fopenmp"
   PKG_CONFIGURE_OPTS_TARGET="--enable-silent-rules \
                              --disable-dependency-tracking \
                              --disable-nls \

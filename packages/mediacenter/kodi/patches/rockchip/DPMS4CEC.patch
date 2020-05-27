@@ -165,7 +165,7 @@ index 802dd0779ee8..c6ee682f7d9b 100644
  
  void CPeripheralCecAdapter::OnTvStandby(void)
  {
-+  KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_TVISSTANDBY);
++  // KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_TVISSTANDBY);
    int iActionOnTvStandby = GetSettingInt("standby_pc_on_tv_standby");
    switch (iActionOnTvStandby)
    {
@@ -193,65 +193,4 @@ index d0743b32d380..96a84c4d1380 100644
    static const std::string SETTING_POWERMANAGEMENT_SHUTDOWNTIME;
    static const std::string SETTING_POWERMANAGEMENT_SHUTDOWNSTATE;
    static const std::string SETTING_POWERMANAGEMENT_WAKEONACCESS;
-
-From d03ffc2305ea4419ce5f2257bd3a17a7375285de Mon Sep 17 00:00:00 2001
-From: joern-p <ahap1@web.de>
-Date: Wed, 20 May 2020 13:58:23 +0200
-Subject: [PATCH 2/3] init cecsource
-
----
- xbmc/Application.cpp | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index e653bda5cc38..d7f92bc22319 100644
---- a/xbmc/Application.cpp
-+++ b/xbmc/Application.cpp
-@@ -762,6 +762,7 @@ bool CApplication::Initialize()
- 
-   // Init DPMS, before creating the corresponding setting control.
-   m_dpms.reset(new DPMSSupport());
-+  CApplicationMessenger::GetInstance().PostMsg(TMSG_CECACTIVATESOURCE);
-   bool uiInitializationFinished = false;
-   if (CServiceBroker::GetGUI()->GetWindowManager().Initialized())
-   {
-@@ -876,6 +877,7 @@ bool CApplication::Initialize()
- 
-   CheckOSScreenSaverInhibitionSetting();
-   // reset our screensaver (starts timers etc.)
-+  
-   ResetScreenSaver();
- 
-   // if the user interfaces has been fully initialized let everyone know
-
-From 3daf54c22f3b9ec27de05bd2b3ff31e4f643986c Mon Sep 17 00:00:00 2001
-From: joern-p <ahap1@web.de>
-Date: Wed, 20 May 2020 15:00:17 +0200
-Subject: [PATCH 3/3] ttt
-
----
- xbmc/Application.cpp | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
-index d7f92bc22319..d4a85db8ce6a 100644
---- a/xbmc/Application.cpp
-+++ b/xbmc/Application.cpp
-@@ -762,7 +762,6 @@ bool CApplication::Initialize()
- 
-   // Init DPMS, before creating the corresponding setting control.
-   m_dpms.reset(new DPMSSupport());
--  CApplicationMessenger::GetInstance().PostMsg(TMSG_CECACTIVATESOURCE);
-   bool uiInitializationFinished = false;
-   if (CServiceBroker::GetGUI()->GetWindowManager().Initialized())
-   {
-@@ -879,6 +878,7 @@ bool CApplication::Initialize()
-   // reset our screensaver (starts timers etc.)
-   
-   ResetScreenSaver();
-+  WakeUpScreenSaverAndDPMS();
-
- 
-   // if the user interfaces has been fully initialized let everyone know
-   if (uiInitializationFinished)
 

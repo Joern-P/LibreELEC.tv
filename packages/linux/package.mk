@@ -21,6 +21,7 @@ case "$LINUX" in
     PKG_SHA256="d7bc63aa0b073c6d755086fb97111e83c0712b6f69fd8a29774e108b41244484"
     PKG_URL="https://github.com/Joern-P/kernel/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
+    PKG_BUILD_PERF="no"
     ;;
   raspberrypi)
     PKG_VERSION="fe2c7bf4cad4641dfb6f12712755515ab15815ca" # 4.19.118
