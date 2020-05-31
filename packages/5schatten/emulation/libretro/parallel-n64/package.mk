@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="parallel-n64"
-PKG_VERSION="b7e5a5dfa7d549f87e6bc41ad4640e480bbaa65b"
-PKG_SHA256="8bf1608b23f6d47aa35aae3c39cc40b278b3ce87b66971472fc39303c317522e"
+PKG_VERSION="43f893044c2c2d850482778e4e79e51e34c253af"
+PKG_SHA256="5f08872f7113fadc26ab9fa30e1af24aa9a40a07806a6316563a5de0385810d9"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/parallel-n64"
 PKG_URL="https://github.com/libretro/parallel-n64/archive/${PKG_VERSION}.tar.gz"
