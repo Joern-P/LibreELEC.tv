@@ -9,6 +9,7 @@ PKG_LICENSE="GPL"
 PKG_SITE="https://www.linuxtv.org/wiki/index.php/LinuxTV_dvb-apps"
 PKG_URL="http://linuxtv.org/hg/dvb-apps/archive/${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
+PKG_BUILD_FLAGS=" -lto"
 PKG_LONGDESC="Applications for initial setup, testing and operation of an DVB device supporting the DVB-S, DVB-C, DVB-T, and ATSC."
 
 pre_make_target() {
