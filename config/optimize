@@ -93,3 +93,4 @@ if [ -z "$HOST_LIBDIR" ]; then
   # default dirs
   export HOST_LIBDIR="$HOST_LIBDIR /lib /usr/lib"
 fi
+
