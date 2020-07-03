@@ -4,8 +4,8 @@
 
 PKG_NAME="ffmpeg"
 # Current branch is: release/4.0-kodi
-PKG_VERSION="540a9e87426b7c7dd145a5e592711fad895ddb25"
-PKG_SHA256="ba86862ab08f2b67a5fd3d4f8dea38b6884537977097931d72636b0a91a902d5"
+PKG_VERSION="5e5772f1c607e300e1a82b33e5112ca02cd9dad2"
+PKG_SHA256="2a30219d3c709318a5b9e5c8bc2c81dbeb3442ab99aaa99cd9c160fd5b516d1e"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/Joern-P/FFmpeg/archive/${PKG_VERSION}.tar.gz"
