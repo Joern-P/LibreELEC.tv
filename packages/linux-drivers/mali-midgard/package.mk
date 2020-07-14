@@ -14,6 +14,7 @@ PKG_LONGDESC="mali-midgard: Linux drivers for Mali Midgard GPUs"
 PKG_TOOLCHAIN="manual"
 PKG_IS_KERNEL_PKG="yes"
 
+
 case $PROJECT in
   Allwinner)
     PKG_EXTRA_CFLAGS="-DCONFIG_MALI_DEVFREQ -DCONFIG_MALI_PLATFORM_DEVICETREE"
