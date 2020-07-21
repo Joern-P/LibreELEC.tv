@@ -1,0 +1,682 @@
+From 2d386c017c2b21a5d88df5a3167c96c482c159eb Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Thu, 23 Apr 2020 14:52:18 +0800
+Subject: [PATCH 1/4] HACK: xvimagesink: Support dma buffer rendering
+
+Send dma buffer to xv port when it supports dma port attributes.
+
+Change-Id: I69d94ffb700eb95af83799cdd5cde476d2930f92
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ sys/xvimage/meson.build   |   2 +-
+ sys/xvimage/xvcontext.c   |  11 ++-
+ sys/xvimage/xvcontext.h   |   8 ++
+ sys/xvimage/xvimagesink.c | 199 ++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 218 insertions(+), 2 deletions(-)
+
+diff --git a/sys/xvimage/meson.build b/sys/xvimage/meson.build
+index f1aaecf1a..f798a3752 100644
+--- a/sys/xvimage/meson.build
++++ b/sys/xvimage/meson.build
+@@ -19,7 +19,7 @@ if xvideo_dep.found()
+     xvimage_sources,
+     c_args : gst_plugins_base_args + no_warn_args,
+     include_directories: [configinc, libsinc],
+-    dependencies : glib_deps + [video_dep, gst_base_dep, gst_dep, x11_dep, xshm_dep, xvideo_dep, libm],
++    dependencies : glib_deps + [video_dep, gst_base_dep, gst_dep, x11_dep, xshm_dep, xvideo_dep, libm, allocators_dep],
+     install : true,
+     install_dir : plugins_install_dir,
+   )
+diff --git a/sys/xvimage/xvcontext.c b/sys/xvimage/xvcontext.c
+index 7b2cc4490..1bcf14982 100644
+--- a/sys/xvimage/xvcontext.c
++++ b/sys/xvimage/xvcontext.c
+@@ -152,13 +152,14 @@ gst_xvcontext_get_xv_support (GstXvContext * context,
+ 
+   /* Set XV_AUTOPAINT_COLORKEY and XV_DOUBLE_BUFFER and XV_COLORKEY */
+   {
+-    int count, todo = 4;
++    int count, todo = 5;
+     XvAttribute *const attr = XvQueryPortAttributes (context->disp,
+         context->xv_port_id, &count);
+     static const char autopaint[] = "XV_AUTOPAINT_COLORKEY";
+     static const char dbl_buffer[] = "XV_DOUBLE_BUFFER";
+     static const char colorkey[] = "XV_COLORKEY";
+     static const char iturbt709[] = "XV_ITURBT_709";
++    static const char dma_client_id[] = XV_DMA_CLIENT_PROP;
+ 
+     GST_DEBUG ("Checking %d Xv port attributes", count);
+ 
+@@ -166,6 +167,7 @@ gst_xvcontext_get_xv_support (GstXvContext * context,
+     context->have_double_buffer = FALSE;
+     context->have_colorkey = FALSE;
+     context->have_iturbt709 = FALSE;
++    context->have_dma_client = FALSE;
+ 
+     for (i = 0; ((i < count) && todo); i++) {
+       GST_DEBUG ("Got attribute %s", attr[i].name);
+@@ -234,6 +236,13 @@ gst_xvcontext_get_xv_support (GstXvContext * context,
+       } else if (!strcmp (attr[i].name, iturbt709)) {
+         todo--;
+         context->have_iturbt709 = TRUE;
++      } else if (!strcmp (attr[i].name, dma_client_id)) {
++        const Atom atom = XInternAtom (context->disp, dma_client_id, False);
++
++        XvSetPortAttribute (context->disp, context->xv_port_id, atom,
++            config->dma_client_id);
++        todo--;
++        context->have_dma_client = TRUE;
+       }
+     }
+ 
+diff --git a/sys/xvimage/xvcontext.h b/sys/xvimage/xvcontext.h
+index 4efe3f009..166e79f81 100644
+--- a/sys/xvimage/xvcontext.h
++++ b/sys/xvimage/xvcontext.h
+@@ -42,6 +42,11 @@
+ 
+ #include <gst/video/video.h>
+ 
++#define XV_DMA_CLIENT_PROP      "XV_DMA_CLIENT_ID"
++#define XV_DMA_VER_STRIDE_PROP  "XV_DMA_VER_STRIDE"
++#define XV_DMA_HOR_STRIDE_PROP  "XV_DMA_HOR_STRIDE"
++#define XV_DMA_CLIENT_PATH      "/tmp/.xv_dma_client"
++
+ G_BEGIN_DECLS
+ 
+ typedef struct _GstXvContextConfig GstXvContextConfig;
+@@ -69,6 +74,8 @@ struct _GstXvContextConfig
+   gint hue;
+   gint saturation;
+   gboolean cb_changed;
++
++  guint dma_client_id;
+ };
+ 
+ /**
+@@ -160,6 +167,7 @@ struct _GstXvContext
+   gboolean have_colorkey;
+   gboolean have_double_buffer;
+   gboolean have_iturbt709;
++  gboolean have_dma_client;
+ 
+   GList *formats_list;
+ 
+diff --git a/sys/xvimage/xvimagesink.c b/sys/xvimage/xvimagesink.c
+index aded234fe..6d91d1871 100644
+--- a/sys/xvimage/xvimagesink.c
++++ b/sys/xvimage/xvimagesink.c
+@@ -121,6 +121,7 @@
+ #include <gst/video/colorbalance.h>
+ /* Helper functions */
+ #include <gst/video/gstvideometa.h>
++#include <gst/allocators/gstdmabuf.h>
+ 
+ /* Object header */
+ #include "xvimagesink.h"
+@@ -132,6 +133,11 @@
+ /* for XkbKeycodeToKeysym */
+ #include <X11/XKBlib.h>
+ 
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/socket.h>
++#include <sys/un.h>
++
+ GST_DEBUG_CATEGORY_EXTERN (gst_debug_xv_image_sink);
+ #define GST_CAT_DEFAULT gst_debug_xv_image_sink
+ GST_DEBUG_CATEGORY_STATIC (GST_CAT_PERFORMANCE);
+@@ -221,6 +227,165 @@ G_DEFINE_TYPE_WITH_CODE (GstXvImageSink, gst_xv_image_sink, GST_TYPE_VIDEO_SINK,
+ /*                                                               */
+ /* ============================================================= */
+ 
++static void
++gst_xv_image_sink_check_dma_client (GstXvImageSink *xvimagesink)
++{
++  GstXvContext *context = xvimagesink->context;
++  Atom prop_atom;
++  int xv_value = 0;
++
++  if (!context->have_dma_client)
++    return;
++
++  g_mutex_lock (&context->lock);
++  prop_atom = XInternAtom (context->disp, XV_DMA_CLIENT_PROP, True);
++  if (prop_atom != None) {
++    XvGetPortAttribute (context->disp, context->xv_port_id,
++        prop_atom, &xv_value);
++  }
++  g_mutex_unlock (&context->lock);
++
++  context->have_dma_client = xv_value > 0;
++}
++
++static void
++gst_xv_image_sink_flush_dma_client (GstXvImageSink *xvimagesink)
++{
++  GstXvContext *context = xvimagesink->context;
++  Atom prop_atom;
++  int xv_value;
++
++  if (!context->have_dma_client)
++    return;
++
++  g_mutex_lock (&context->lock);
++  prop_atom = XInternAtom (context->disp, XV_DMA_CLIENT_PROP, True);
++  if (prop_atom != None) {
++    XvSetPortAttribute (context->disp, context->xv_port_id,
++        prop_atom, xvimagesink->config.dma_client_id);
++    XvGetPortAttribute (context->disp, context->xv_port_id,
++        prop_atom, &xv_value);
++  }
++  g_mutex_unlock (&context->lock);
++}
++
++static void
++gst_xv_image_sink_disable_dma_client (GstXvImageSink *xvimagesink)
++{
++  GstXvContext *context = xvimagesink->context;
++  Atom prop_atom;
++
++  if (!context->have_dma_client)
++    return;
++
++  g_mutex_lock (&context->lock);
++  prop_atom = XInternAtom (context->disp, XV_DMA_CLIENT_PROP, True);
++  if (prop_atom != None) {
++    XvSetPortAttribute (context->disp, context->xv_port_id,
++        prop_atom, 0);
++  }
++  g_mutex_unlock (&context->lock);
++
++  context->have_dma_client = FALSE;
++}
++
++static gboolean
++gst_xv_image_sink_send_dma_params (GstXvImageSink *xvimagesink,
++                                   gint hor_stride, gint ver_stride)
++{
++  GstXvContext *context = xvimagesink->context;
++  Atom prop_atom;
++  gboolean error = FALSE;
++
++  if (!context->have_dma_client)
++    return FALSE;
++
++  g_mutex_lock (&context->lock);
++  prop_atom = XInternAtom (context->disp, XV_DMA_HOR_STRIDE_PROP, True);
++  if (prop_atom != None) {
++    XvSetPortAttribute (context->disp, context->xv_port_id,
++        prop_atom, hor_stride);
++  } else {
++    error = TRUE;
++  }
++  prop_atom = XInternAtom (context->disp, XV_DMA_VER_STRIDE_PROP, True);
++  if (prop_atom != None) {
++    XvSetPortAttribute (context->disp, context->xv_port_id,
++        prop_atom, ver_stride);
++  } else {
++    error = TRUE;
++  }
++  g_mutex_unlock (&context->lock);
++
++  if (error == TRUE) {
++    gst_xv_image_sink_disable_dma_client (xvimagesink);
++    return FALSE;
++  }
++
++  return TRUE;
++}
++
++static gboolean
++gst_xv_image_sink_send_dma_fd (GstXvImageSink *xvimagesink, gint dma_fd)
++{
++  GstXvContext *context = xvimagesink->context;
++  struct sockaddr_un addr;
++  struct iovec iov;
++  struct msghdr msg;
++  struct cmsghdr *header;
++  gchar buf[CMSG_SPACE (sizeof (int))];
++  gint socket_fd;
++
++  if (!context->have_dma_client)
++    return FALSE;
++
++  gst_xv_image_sink_flush_dma_client (xvimagesink);
++
++  socket_fd = socket (PF_UNIX, SOCK_DGRAM, 0);
++  if (socket_fd < 0)
++    goto failed;
++
++  addr.sun_family = AF_LOCAL;
++  snprintf (addr.sun_path, sizeof (addr.sun_path),
++      XV_DMA_CLIENT_PATH ".%d", xvimagesink->config.dma_client_id);
++  addr.sun_path[sizeof (addr.sun_path) - 1] = '\0';
++
++  if (connect (socket_fd, (struct sockaddr *) &addr, sizeof (addr)) < 0)
++    goto failed;
++
++  iov.iov_base = buf;
++  iov.iov_len = 1;
++
++  msg.msg_iov = &iov;
++  msg.msg_iovlen = 1;
++  msg.msg_control = buf;
++  msg.msg_controllen = sizeof (buf);
++  msg.msg_name = NULL;
++  msg.msg_namelen = 0;
++
++  header = CMSG_FIRSTHDR (&msg);
++  header->cmsg_level = SOL_SOCKET;
++  header->cmsg_type = SCM_RIGHTS;
++
++  header->cmsg_len = CMSG_LEN (sizeof (int));
++  *((int *) CMSG_DATA (header)) = dma_fd;
++  sendmsg (socket_fd, &msg, 0);
++
++  /* Send am empty msg at the end */
++  header->cmsg_len = CMSG_LEN (0);
++  sendmsg (socket_fd, &msg, 0);
++
++  close (socket_fd);
++  return TRUE;
++
++failed:
++  gst_xv_image_sink_disable_dma_client (xvimagesink);
++
++  if (socket_fd >= 0)
++    close (socket_fd);
++
++  return FALSE;
++}
+ 
+ /* This function puts a GstXvImage on a GstXvImageSink's window. Returns FALSE
+  * if no window was available  */
+@@ -275,6 +440,7 @@ gst_xv_image_sink_xvimage_put (GstXvImageSink * xvimagesink,
+   }
+ 
+   mem = (GstXvImageMemory *) gst_buffer_peek_memory (xvimage, 0);
++
+   gst_xvimage_memory_get_crop (mem, &mem_crop);
+ 
+   crop = gst_buffer_get_video_crop_meta (xvimage);
+@@ -308,6 +474,13 @@ gst_xv_image_sink_xvimage_put (GstXvImageSink * xvimagesink,
+     memcpy (&result, &xwindow->render_rect, sizeof (GstVideoRectangle));
+   }
+ 
++  if (gst_buffer_n_memory (xvimage) > 1) {
++    GstMemory *dma_mem = gst_buffer_peek_memory (xvimage, 1);
++    gint dma_fd = gst_dmabuf_memory_get_fd (dma_mem);
++    if (dma_fd >= 0)
++      gst_xv_image_sink_send_dma_fd (xvimagesink, dma_fd);
++  }
++
+   gst_xvimage_memory_render (mem, &src, xwindow, &result, draw_border);
+ 
+   g_mutex_unlock (&xvimagesink->flow_lock);
+@@ -968,6 +1141,29 @@ gst_xv_image_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
+     if (res != GST_FLOW_OK)
+       goto no_buffer;
+ 
++    mem = gst_buffer_peek_memory (buf, 0);
++    gst_xv_image_sink_check_dma_client (xvimagesink);
++    if (gst_is_dmabuf_memory (mem) && xvimagesink->context->have_dma_client) {
++      GstVideoMeta *vmeta = gst_buffer_get_video_meta(buf);
++      gint hor_stride, ver_stride;
++
++      /* If this buffer is dmabuf and the xserver supports dma_client, we will
++         send the dmabuf fd directly */
++      GST_LOG_OBJECT (xvimagesink, "buffer %p is dmabuf, will send dmabuf fd",
++          buf);
++
++      /* Stash the dmabuf in index 1 */
++      gst_buffer_insert_memory (to_put, 1, gst_buffer_get_memory (buf, 0));
++
++      /* Try to send dmabuf params */
++      hor_stride = vmeta->stride[0];
++      ver_stride =
++          vmeta->n_planes == 1 ? vmeta->height : vmeta->offset[1] / hor_stride;
++      if (gst_xv_image_sink_send_dma_params (xvimagesink,
++              hor_stride, ver_stride))
++        goto put_image;
++    }
++
+     GST_CAT_LOG_OBJECT (GST_CAT_PERFORMANCE, xvimagesink,
+         "slow copy buffer %p into bufferpool buffer %p", buf, to_put);
+ 
+@@ -985,6 +1181,7 @@ gst_xv_image_sink_show_frame (GstVideoSink * vsink, GstBuffer * buf)
+     gst_video_frame_unmap (&src);
+   }
+ 
++put_image:
+   if (!gst_xv_image_sink_xvimage_put (xvimagesink, to_put))
+     goto no_window;
+ 
+@@ -1871,6 +2068,8 @@ gst_xv_image_sink_init (GstXvImageSink * xvimagesink)
+   xvimagesink->config.contrast = xvimagesink->config.brightness = 0;
+   xvimagesink->config.cb_changed = FALSE;
+ 
++  xvimagesink->config.dma_client_id = (guint) getpid();
++
+   xvimagesink->context = NULL;
+   xvimagesink->xwindow = NULL;
+   xvimagesink->cur_image = NULL;
+
+From 1875efa42e58e47fa9ab55ab35fc7fc9b6a763ec Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Thu, 23 Apr 2020 14:52:33 +0800
+Subject: [PATCH 2/4] video-converter: Support rockchip RGA 2D accel
+
+Disabled by default, set env GST_VIDEO_CONVERT_USE_RGA=1 to enable.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ gst-libs/gst/video/meson.build       |   2 +-
+ gst-libs/gst/video/video-converter.c | 174 +++++++++++++++++++++++++++
+ meson.build                          |  11 ++
+ 3 files changed, 186 insertions(+), 1 deletion(-)
+
+diff --git a/gst-libs/gst/video/meson.build b/gst-libs/gst/video/meson.build
+index bf77aa157..806f7cab3 100644
+--- a/gst-libs/gst/video/meson.build
++++ b/gst-libs/gst/video/meson.build
+@@ -105,7 +105,7 @@ gstvideo_h = video_enums[1]
+ video_gen_sources = [gstvideo_h]
+ 
+ orcsrc = 'video-orc'
+-gstvideo_deps = [gst_base_dep, libm]
++gstvideo_deps = [gst_base_dep, libm, rga_dep]
+ if have_orcc
+   gstvideo_deps += [orc_dep]
+   orc_h = custom_target(orcsrc + '.h',
+diff --git a/gst-libs/gst/video/video-converter.c b/gst-libs/gst/video/video-converter.c
+index 0f1d62cc2..1391cbf80 100644
+--- a/gst-libs/gst/video/video-converter.c
++++ b/gst-libs/gst/video/video-converter.c
+@@ -37,6 +37,11 @@
+ 
+ #include "video-orc.h"
+ 
++#ifdef HAVE_RGA
++#include <rga/rga.h>
++#include <rga/RgaApi.h>
++#endif
++
+ /**
+  * SECTION:videoconverter
+  * @title: GstVideoConverter
+@@ -3118,6 +3123,165 @@ convert_generic_task (ConvertTask * task)
+   }
+ }
+ 
++#ifdef HAVE_RGA
++static RgaSURF_FORMAT
++get_rga_format (GstVideoFormat format)
++{
++  switch (format) {
++    case GST_VIDEO_FORMAT_BGRA:
++    case GST_VIDEO_FORMAT_BGRx:
++      return RK_FORMAT_BGRA_8888;
++    case GST_VIDEO_FORMAT_RGBA:
++      return RK_FORMAT_RGBA_8888;
++    case GST_VIDEO_FORMAT_RGBx:
++      return RK_FORMAT_RGBX_8888;
++    case GST_VIDEO_FORMAT_BGR:
++      return RK_FORMAT_BGR_888;
++    case GST_VIDEO_FORMAT_RGB:
++      return RK_FORMAT_RGB_888;
++    case GST_VIDEO_FORMAT_RGB15:
++      return RK_FORMAT_RGBA_5551;
++    case GST_VIDEO_FORMAT_RGB16:
++      return RK_FORMAT_RGB_565;
++    case GST_VIDEO_FORMAT_NV12:
++      return RK_FORMAT_YCbCr_420_SP;
++    case GST_VIDEO_FORMAT_NV21:
++      return RK_FORMAT_YCrCb_420_SP;
++    case GST_VIDEO_FORMAT_I420:
++      return RK_FORMAT_YCbCr_420_P;
++    case GST_VIDEO_FORMAT_YV12:
++      return RK_FORMAT_YCrCb_420_P;
++    case GST_VIDEO_FORMAT_NV16:
++      return RK_FORMAT_YCbCr_422_SP;
++    case GST_VIDEO_FORMAT_NV61:
++      return RK_FORMAT_YCrCb_422_SP;
++    case GST_VIDEO_FORMAT_Y42B:
++      return RK_FORMAT_YCbCr_422_P;
++    default:
++      return RK_FORMAT_UNKNOWN;
++  }
++}
++
++static gboolean
++get_rga_info (const GstVideoFrame * frame, rga_info_t * info,
++    int x, int y, int w, int h)
++{
++  GstVideoMeta *meta = gst_buffer_get_video_meta (frame->buffer);
++  const GstVideoInfo *vinfo = &frame->info;
++  RgaSURF_FORMAT format;
++  gint hstride, vstride0, i;
++  guint8 *ptr;
++
++  memset (info, 0, sizeof (rga_info_t));
++
++  if (!meta)
++    return FALSE;
++
++  hstride = meta->stride[0];
++  vstride0 = meta->n_planes == 1 ? meta->height : meta->offset[1] / hstride;
++
++  /* RGA requires contig buffer */
++  ptr = GST_VIDEO_FRAME_PLANE_DATA (frame, 0);
++  for (i = 1; i < GST_VIDEO_FRAME_N_PLANES (frame); i++) {
++    gint size = GST_VIDEO_FRAME_PLANE_OFFSET (frame, i) -
++        GST_VIDEO_FRAME_PLANE_OFFSET (frame, i - 1);
++    gint vstride = size / meta->stride[i - 1];
++
++    ptr += size;
++    if (ptr != GST_VIDEO_FRAME_PLANE_DATA (frame, i))
++      return FALSE;
++
++    if ((meta->stride[i] != hstride && meta->stride[i] != hstride / 2) ||
++        (vstride != vstride0 && vstride != vstride0 / 2))
++      return FALSE;
++  }
++
++  format = get_rga_format (GST_VIDEO_INFO_FORMAT (vinfo));
++  switch (format) {
++    case RK_FORMAT_RGBX_8888:
++    case RK_FORMAT_RGBA_8888:
++    case RK_FORMAT_BGRA_8888:
++      hstride /= 4;
++      break;
++    case RK_FORMAT_RGB_888:
++    case RK_FORMAT_BGR_888:
++      hstride /= 3;
++      break;
++    case RK_FORMAT_RGBA_5551:
++    case RK_FORMAT_RGB_565:
++      hstride /= 2;
++      break;
++    case RK_FORMAT_YCbCr_422_SP:
++    case RK_FORMAT_YCrCb_422_SP:
++    case RK_FORMAT_YCbCr_422_P:
++    case RK_FORMAT_YCrCb_422_P:
++    case RK_FORMAT_YCbCr_420_SP:
++    case RK_FORMAT_YCrCb_420_SP:
++    case RK_FORMAT_YCbCr_420_P:
++    case RK_FORMAT_YCrCb_420_P:
++      /* RGA requires yuv image rect align to 2 */
++      x = (x + 1) & ~1;
++      y = (y + 1) & ~1;
++      w &= ~1;
++      h &= ~1;
++
++      /* RGA requires yuv image stride align to 8 */
++      if (hstride % 8)
++        return FALSE;
++
++      if (vstride0 % 2)
++        return FALSE;
++      break;
++    default:
++      return FALSE;
++  }
++
++  info->virAddr = GST_VIDEO_FRAME_PLANE_DATA (frame, 0);
++  info->mmuFlag = 1;
++
++  rga_set_rect (&info->rect, x, y, w, h, hstride, vstride0, format);
++  return TRUE;
++}
++
++static gboolean
++video_converter_try_rga (GstVideoConverter * convert)
++{
++  rga_info_t src_info = { 0 };
++  rga_info_t dst_info = { 0 };
++  static int rga_supported = 1;
++  static int rga_inited = 0;
++  const char *buf;
++
++  buf = getenv ("GST_VIDEO_CONVERT_USE_RGA");
++  if (!buf || strcmp (buf, "1"))
++    return FALSE;
++
++  if (!rga_supported)
++    return FALSE;
++
++  if (!rga_inited) {
++    if (c_RkRgaInit () < 0) {
++      rga_supported = 0;
++      return FALSE;
++    }
++    rga_inited = 1;
++  }
++
++  if (!get_rga_info (convert->src, &src_info, convert->in_x, convert->in_y,
++          convert->in_width, convert->in_height))
++    return FALSE;
++
++  if (!get_rga_info (convert->dest, &dst_info, convert->out_x, convert->out_y,
++          convert->out_width, convert->out_height))
++    return FALSE;
++
++  if (c_RkRgaBlit (&src_info, &dst_info, NULL) < 0)
++    return FALSE;
++
++  return TRUE;
++}
++#endif
++
+ static void
+ video_converter_generic (GstVideoConverter * convert, const GstVideoFrame * src,
+     GstVideoFrame * dest)
+@@ -3178,6 +3342,13 @@ video_converter_generic (GstVideoConverter * convert, const GstVideoFrame * src,
+     for (i = 0; i < out_y; i++)
+       PACK_FRAME (dest, convert->borderline, i, out_maxwidth);
+   }
++#ifdef HAVE_RGA
++  if (!GST_VIDEO_FRAME_IS_INTERLACED (src)) {
++    /* Accel convert with rockchip RGA */
++    if (video_converter_try_rga (convert))
++      goto done;
++  }
++#endif
+ 
+   n_threads = convert->conversion_runner->n_threads;
+   tasks = g_newa (ConvertTask, n_threads);
+@@ -3205,6 +3376,9 @@ video_converter_generic (GstVideoConverter * convert, const GstVideoFrame * src,
+   gst_parallelized_task_runner_run (convert->conversion_runner,
+       (GstParallelizedTaskFunc) convert_generic_task, (gpointer) tasks_p);
+ 
++#ifdef HAVE_RGA
++done:
++#endif
+   if (convert->borderline) {
+     for (i = out_y + out_height; i < out_maxheight; i++)
+       PACK_FRAME (dest, convert->borderline, i, out_maxwidth);
+diff --git a/meson.build b/meson.build
+index 92958ed3c..c2c899674 100644
+--- a/meson.build
++++ b/meson.build
+@@ -248,6 +248,17 @@ if get_option('default_library') == 'static'
+   gst_plugins_base_args += ['-DGST_STATIC_COMPILATION']
+ endif
+ 
++# Check for rockchip RGA
++rga_dep = cc.find_library('rga', required : false)
++
++if rga_dep.found() and not cc.has_header_symbol('rga/RgaApi.h', 'c_RkRgaInit')
++  rga_dep = unneeded_dep
++endif
++
++if rga_dep.found()
++  core_conf.set('HAVE_RGA', rga_dep.found())
++endif
++
+ # X11 checks are for sys/ and tests/
+ x11_dep = dependency('x11', required : get_option('x11'))
+ # GLib checks are for the entire project
+
+From 5e461ae2c0779f415a6dec8b8150ee1b70080be1 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Wed, 18 Mar 2020 10:09:49 +0800
+Subject: [PATCH 3/4] HACK: gl/egl: allow direct dmabuf import when unable to
+ query formats
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ gst-libs/gst/gl/egl/gsteglimage.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/gst-libs/gst/gl/egl/gsteglimage.c b/gst-libs/gst/gl/egl/gsteglimage.c
+index 2280c075d..2b4b870f5 100644
+--- a/gst-libs/gst/gl/egl/gsteglimage.c
++++ b/gst-libs/gst/gl/egl/gsteglimage.c
+@@ -757,8 +757,8 @@ gst_egl_image_check_dmabuf_direct (GstGLContext * context,
+   gst_eglQueryDmaBufModifiersEXT =
+       gst_gl_context_get_proc_address (context, "eglQueryDmaBufModifiersEXT");
+ 
+-  if (!gst_eglQueryDmaBufFormatsEXT || !gst_eglQueryDmaBufModifiersEXT)
+-    return FALSE;
++  if (!gst_eglQueryDmaBufFormatsEXT)
++    return TRUE;
+ 
+   display_egl = gst_gl_display_egl_from_gl_display (context->display);
+   if (!display_egl) {
+@@ -795,6 +795,9 @@ gst_egl_image_check_dmabuf_direct (GstGLContext * context,
+     return FALSE;
+   }
+ 
++  if (!gst_eglQueryDmaBufModifiersEXT)
++    return TRUE;
++
+   ret = gst_eglQueryDmaBufModifiersEXT (egl_display, fourcc, 0, NULL, NULL,
+       &num_modifiers);
+   if (!ret || num_modifiers == 0) {
+
+From e08b752e58ff5098d3f50aef3b3afabbff7b5d63 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Wed, 18 Mar 2020 10:12:31 +0800
+Subject: [PATCH 4/4] glupload: dmabuf: prefer DirectDmabufExternal uploader
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ gst-libs/gst/gl/gstglupload.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gst-libs/gst/gl/gstglupload.c b/gst-libs/gst/gl/gstglupload.c
+index 71e706896..6462a5733 100644
+--- a/gst-libs/gst/gl/gstglupload.c
++++ b/gst-libs/gst/gl/gstglupload.c
+@@ -1718,8 +1718,8 @@ static const UploadMethod _directviv_upload = {
+ 
+ static const UploadMethod *upload_methods[] = { &_gl_memory_upload,
+ #if GST_GL_HAVE_DMABUF
+-  &_direct_dma_buf_upload,
+   &_direct_dma_buf_external_upload,
++  &_direct_dma_buf_upload,
+   &_dma_buf_upload,
+ #endif
+ #if GST_GL_HAVE_VIV_DIRECTVIV
+

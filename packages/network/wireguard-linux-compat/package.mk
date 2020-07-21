@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireguard-linux-compat"
-PKG_VERSION="v1.0.20200623"
-PKG_SHA256="ef9d9718d60b99370594ebd209ee06d39ab01836e9fe08a7bac78ee32d36c910"
+PKG_VERSION="v1.0.20200712"
+PKG_SHA256="a445cb91554599b9c266e21a17e9bce060c35c38b0dee78f40308703440953b6"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.wireguard.com"
 PKG_URL="https://git.zx2c4.com/wireguard-linux-compat/snapshot/wireguard-linux-compat-$PKG_VERSION.tar.xz"

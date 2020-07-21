@@ -1,0 +1,16 @@
+--- a/Makefile	2020-06-09 15:52:24.806981750 +0200
++++ b/Makefile	2020-06-09 15:52:26.403669427 +0200
+@@ -105,13 +105,6 @@
+ 
+    ifneq (,$(findstring armv,$(platform)))
+       CPUFLAGS += -DARM -marm
+-      ifneq (,$(findstring cortexa8,$(platform)))
+-         CPUFLAGS += -mcpu=cortex-a8
+-      else ifneq (,$(findstring cortexa9,$(platform)))
+-         CPUFLAGS += -mcpu=cortex-a9
+-      else
+-         CPUFLAGS += -mcpu=cortex-a7
+-      endif
+       ifneq (,$(findstring neon,$(platform)))
+           CPUFLAGS += -mfpu=neon
+           HAVE_NEON = 1

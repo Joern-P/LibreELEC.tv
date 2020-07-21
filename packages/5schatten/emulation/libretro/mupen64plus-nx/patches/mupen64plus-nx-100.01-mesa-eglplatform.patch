@@ -23,15 +23,28 @@ index ba49e623..eb5b1754 100644
     GL_LIB := -lGLESv2
     HAVE_NEON = 1
     WITH_DYNAREC=arm
-@@ -283,7 +283,10 @@
+@@ -283,7 +283,9 @@
        CPUFLAGS += -march=armv8-a+crc -mfloat-abi=hard -mfpu=neon-fp-armv8
        ifneq (,$(findstring RK3399,$(platform)))
           CPUFLAGS += -mtune=cortex-a72.cortex-a53
 -         GLES3 = 1
-+         GLES = 1
++         GLES3 = 1
 +	  HAVE_PARALLEL_RSP = 1
 +         HAVE_THR_AL = 1
-+         LLE = 1
        else ifneq (,$(findstring RK3328,$(platform)))
           CPUFLAGS += -mtune=cortex-a53
           GLES = 1
+diff --git a/GLideN64/src/Graphics/OpenGLContext/opengl_Utils.cpp b/GLideN64/src/Graphics/OpenGLContext/opengl_Utils.cpp
+index 0279af9..dbc09fe 100644
+--- a/GLideN64/src/Graphics/OpenGLContext/opengl_Utils.cpp
++++ b/GLideN64/src/Graphics/OpenGLContext/opengl_Utils.cpp
+@@ -61,7 +61,7 @@ bool Utils::isEGLExtensionSupported(const char * extension)
+		return false;
+	}
+
+	const char* start = extensions;
+-	for (;;) {
++	while (start) {
+ 		where = strstr(start, extension);
+ 		if (where == nullptr)
+ 			break;          

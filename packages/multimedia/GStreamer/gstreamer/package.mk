@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="gstreamer"
-PKG_VERSION="1.16.2"
-PKG_SHA256="e3f044246783fd685439647373fa13ba14f7ab0b346eadd06437092f8419e94e"
+PKG_VERSION="1.17.2"
+PKG_SHA256="0163bb2c086759411b686526e7d8f4b22efc4ac02ddf3941f66b14949f106eef"
 PKG_LICENSE="GPL"
 PKG_SITE="https://gstreamer.freedesktop.org"
 PKG_URL="https://gstreamer.freedesktop.org/src/gstreamer/${PKG_NAME}-${PKG_VERSION}.tar.xz"
