@@ -151,6 +151,7 @@ configure_target() {
     --disable-doc \
     \
     `#Hardware accelerated decoding encoding` \
+    $PKG_FFMPEG_RKMPP \
     $PKG_FFMPEG_HW_ENCODERS_RPi \
     $PKG_FFMPEG_HW_ENCODERS_GENERIC \
     \
@@ -182,7 +183,6 @@ configure_target() {
     --extra-ldflags="$LDFLAGS" \
     --extra-libs="$PKG_FFMPEG_LIBS" \
     --enable-pic \
-    $PKG_FFMPEG_RKMPP \
     --enable-gnutls \
     --disable-openssl \
     \

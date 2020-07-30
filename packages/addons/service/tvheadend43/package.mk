@@ -2,16 +2,16 @@
 # Copyright (C) 2018-present Team CoreELEC (https://coreelec.org)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="51a4c5bec7b6fc69dab7b8d559f9b1b881f0eb8e"
-PKG_SHA256="b44a09c6579ee7ce7e4b490bd8b7d6d22daed70ccd6571aad222b8c73ffaeeda"
-PKG_VERSION_NUMBER="221c29b"
-PKG_REV="102"
+PKG_VERSION="0f13f5912921321a7061ffde760ec41c32d99e77"
+PKG_SHA256="5035032126ff342b57e48929c7a7af4de410dc1c7581f15599005474ef5578af"
+PKG_VERSION_NUMBER="0f13f59"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain avahi comskip curl dvb-apps ffmpegx libdvbcsa libhdhomerun \
-                    libiconv openssl pngquant:host Python2:host tvh-dtv-scan-tables"
+                    libiconv openssl pngquant:host Python3:host tvh-dtv-scan-tables"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
 PKG_LONGDESC="Tvheadend ($PKG_VERSION_NUMBER): is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV, SAT>IP, ATSC and ISDB-T"
@@ -49,7 +49,7 @@ if [[ "$TARGET_ARCH" != "x86_64" ]]; then
 fi
 
 post_unpack() {
-  sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ CoreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
+  sed -e 's/VER="0.0.0~unknown"/VER="'$PKG_VERSION_NUMBER' ~ LibreELEC Tvh-addon v'$ADDON_VERSION'.'$PKG_REV'"/g' -i $PKG_BUILD/support/version
   sed -e 's|'/usr/bin/pngquant'|'$TOOLCHAIN/bin/pngquant'|g' -i $PKG_BUILD/support/mkbundle
 }
 
@@ -65,7 +65,7 @@ pre_configure_target() {
                              --enable-dvbcsa \
                              --disable-dvben50221 \
                              --disable-dvbscan \
-                             --enable-hdhomerun_client \
+                             --disable-hdhomerun_client \
                              --disable-hdhomerun_static \
                              --enable-epoll \
                              --enable-inotify \
