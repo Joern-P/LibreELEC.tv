@@ -10,6 +10,12 @@ PKG_DEPENDS_TARGET="toolchain emulationstation retroarch flycast libretro-beetle
 PKG_LONGDESC="OEM: Metapackage for various OEM packages"
 PKG_TOOLCHAIN="manual"
 
+# Entware support
+if [ "$ENTWARE_SUPPORT" = "yes" ]; then
+  ln -sf /storage/.opt $INSTALL/opt
+  PKG_DEPENDS_TARGET+=" entware"
+fi
+
 
 makeinstall_target() {
   # Create directories
