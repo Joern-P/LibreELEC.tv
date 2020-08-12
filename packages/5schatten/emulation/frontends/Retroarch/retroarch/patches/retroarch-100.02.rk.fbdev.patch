@@ -1,0 +1,131 @@
+From 137c262cfbafa44a7de8b1525b66cd1cd00ecdf7 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Fri, 12 Apr 2019 10:22:47 +0800
+Subject: [PATCH 1/3] gfx: Enable plain drm
+
+Also correct dst offset calc when updating surface.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ Makefile.common       | 7 +++++--
+ gfx/drivers/drm_gfx.c | 2 +-
+ qb/config.params.sh   | 2 +-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile.common b/Makefile.common
+index bd82ed4b89a..2baddddfcec 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -1175,9 +1175,12 @@ ifeq ($(HAVE_NETWORK_VIDEO), 1)
+ endif
+ 
+ ifeq ($(HAVE_PLAIN_DRM), 1)
++ifeq ($(HAVE_DRM),1)
++   HAVE_AND_WILL_USE_DRM = 1
+    OBJ += gfx/drivers/drm_gfx.o
+-   INCLUDE_DIRS += -I/usr/include/libdrm
+-   LIBS += -ldrm
++   DEFINES += $(DRM_CFLAGS)
++   LIBS += $(DRM_LIBS)
++endif
+ endif
+ 
+ ifeq ($(HAVE_VITAGL), 1)
+diff --git a/gfx/drivers/drm_gfx.c b/gfx/drivers/drm_gfx.c
+index 37fabae1692..83d65a1b7e7 100644
+--- a/gfx/drivers/drm_gfx.c
++++ b/gfx/drivers/drm_gfx.c
+@@ -329,7 +329,7 @@ static void drm_surface_update(void *data, const void *frame,
+             (uint8_t*)frame + src_offset,
+             surface->pitch);
+       src_offset += surface->total_pitch;
+-      dst_offset += surface->pitch;
++      dst_offset += surface->pages[surface->flip_page].buf.stride;
+    }
+ 
+    /* Page flipping */
+diff --git a/qb/config.params.sh b/qb/config.params.sh
+index f2ace2ee575..438dc994bf0 100644
+--- a/qb/config.params.sh
++++ b/qb/config.params.sh
+@@ -81,7 +81,7 @@ HAVE_XRANDR=auto           # Xrandr support.
+ HAVE_OMAP=no               # OMAP video support
+ HAVE_XINERAMA=auto         # Xinerama support.
+ HAVE_KMS=auto              # KMS context support
+-HAVE_PLAIN_DRM=no          # Plain DRM video support
++HAVE_PLAIN_DRM=yes         # Plain DRM video support
+ HAVE_EXYNOS=no             # Exynos video support
+ HAVE_DISPMANX=no           # Dispmanx video support
+ HAVE_SUNXI=no              # Sunxi video support
+
+From a26a7f92d56202e244485921b294e3dda53d1fb1 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Tue, 22 Jan 2019 12:51:12 +0800
+Subject: [PATCH 2/3] gfx: scaler: Support scaler to rgb565
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ libretro-common/gfx/scaler/pixconv.c | 23 +++++++++++++++++++++++
+ libretro-common/gfx/scaler/scaler.c  |  7 +++++++
+ 2 files changed, 30 insertions(+)
+
+diff --git a/libretro-common/gfx/scaler/pixconv.c b/libretro-common/gfx/scaler/pixconv.c
+index cb66c334ee6..ddc3027050e 100644
+--- a/libretro-common/gfx/scaler/pixconv.c
++++ b/libretro-common/gfx/scaler/pixconv.c
+@@ -192,6 +192,29 @@ void conv_0rgb1555_argb8888(void *output_, const void *input_,
+    }
+ }
+ 
++void conv_argb8888_rgb565(void *output_, const void *input_,
++      int width, int height,
++      int out_stride, int in_stride)
++{
++   int h, w;
++   const uint32_t *input = (const uint32_t*)input_;
++   uint16_t *output      = (uint16_t*)output_;
++
++   for (h = 0; h < height;
++         h++, output += out_stride >> 1, input += in_stride >> 2)
++   {
++      for (w = 0; w < width; w++)
++      {
++         uint32_t col = input[w];
++         uint16_t r   = (col >> 19) & 0x1f;
++         uint16_t g   = (col >> 10) & 0x3f;
++         uint16_t b   = (col >>  3) & 0x1f;
++
++         output[w]    = (r << 11) | (g << 5) | b;
++      }
++   }
++}
++
+ void conv_rgb565_argb8888(void *output_, const void *input_,
+       int width, int height,
+       int out_stride, int in_stride)
+diff --git a/libretro-common/gfx/scaler/scaler.c b/libretro-common/gfx/scaler/scaler.c
+index 7c3c54e0e86..fad6508b287 100644
+--- a/libretro-common/gfx/scaler/scaler.c
++++ b/libretro-common/gfx/scaler/scaler.c
+@@ -159,6 +159,9 @@ bool scaler_ctx_gen_filter(struct scaler_ctx *ctx)
+                   case SCALER_FMT_RGBA4444:
+                      ctx->direct_pixconv = conv_argb8888_rgba4444;
+                      break;
++                  case SCALER_FMT_RGB565:
++                     ctx->direct_pixconv = conv_argb8888_rgb565;
++                     break;
+                   default:
+                      break;
+                }
+@@ -239,6 +242,10 @@ bool scaler_ctx_gen_filter(struct scaler_ctx *ctx)
+             /* No need to convert :D */
+             break;
+ 
++         case SCALER_FMT_RGB565:
++            ctx->out_pixconv = conv_argb8888_rgb565;
++            break;
++
+          case SCALER_FMT_RGBA4444:
+             ctx->out_pixconv = conv_argb8888_rgba4444;
+             break;
+
