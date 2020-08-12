@@ -1,0 +1,47 @@
+diff --git a/xbmc/windowing/gbm/DRMUtils.cpp b/xbmc/windowing/gbm/DRMUtils.cpp
+index 9446d67bc3..96f9ab9a1b 100644
+--- a/xbmc/windowing/gbm/DRMUtils.cpp
++++ b/xbmc/windowing/gbm/DRMUtils.cpp
+@@ -358,7 +358,7 @@ bool CDRMUtils::SupportsFormat(drmModePlanePtr plane, uint32_t format)
+   return false;
+ }
+ 
+-drmModePlanePtr CDRMUtils::FindPlane(drmModePlaneResPtr resources, int crtc_index, int type)
++drmModePlanePtr CDRMUtils::FindPlane(drmModePlaneResPtr resources, int crtc_index, int type, bool allow_cursor_plane = false)
+ {
+   for (uint32_t i = 0; i < resources->count_planes; i++)
+   {
+@@ -372,7 +372,7 @@ drmModePlanePtr CDRMUtils::FindPlane(drmModePlaneResPtr resources, int crtc_inde
+       {
+         drmModePropertyPtr p = drmModeGetProperty(m_fd, props->props[j]);
+ 
+-        if ((strcmp(p->name, "type") == 0) && (props->prop_values[j] != DRM_PLANE_TYPE_CURSOR))
++        if ((strcmp(p->name, "type") == 0) && ((props->prop_values[j] != DRM_PLANE_TYPE_CURSOR) || allow_cursor_plane))
+         {
+           switch (type)
+           {
+@@ -457,6 +457,10 @@ bool CDRMUtils::FindPlanes()
+   {
+     drmModeFreePlane(m_gui_plane->plane);
+     m_gui_plane->plane = FindPlane(plane_resources, m_crtc_index, KODI_GUI_PLANE);
++    /* Allow fallback to DRM_PLANE_TYPE_CURSOR if no DRM_PLANE_TYPE_OVERLAY is available */
++    if (m_gui_plane->plane == nullptr)
++      m_gui_plane->plane = FindPlane(plane_resources, m_crtc_index, KODI_GUI_PLANE, true);
++
+     m_gui_plane->SetFormat(DRM_FORMAT_XRGB8888);
+   }
+ 
+diff --git a/xbmc/windowing/gbm/DRMUtils.h b/xbmc/windowing/gbm/DRMUtils.h
+index 1920d2a4df..defeca8116 100644
+--- a/xbmc/windowing/gbm/DRMUtils.h
++++ b/xbmc/windowing/gbm/DRMUtils.h
+@@ -152,7 +152,7 @@ protected:
+ 
+ private:
+   static bool SupportsFormat(drmModePlanePtr plane, uint32_t format);
+-  drmModePlanePtr FindPlane(drmModePlaneResPtr resources, int crtc_index, int type);
++  drmModePlanePtr FindPlane(drmModePlaneResPtr resources, int crtc_index, int type, bool allow_cursor_plane);
+ 
+   bool GetResources();
+   bool FindConnector();
+
