@@ -1,0 +1,190 @@
+From 23dbf44c227cecff4a2627eba7b7c4777e480456 Mon Sep 17 00:00:00 2001
+From: afl1 <afl2001@gmail.com>
+Date: Wed, 10 Apr 2019 10:23:40 +0200
+Subject: [PATCH] VideoPlayer: detect interlaced content at stream start
+
+---
+ xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h |  4 ++
+ .../DVDDemuxers/DVDDemuxFFmpeg.cpp            | 41 +++++++++++++++----
+ xbmc/cores/VideoPlayer/DVDStreamInfo.cpp      |  6 +++
+ xbmc/cores/VideoPlayer/DVDStreamInfo.h        |  2 +
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp   | 28 ++++++++-----
+ 6 files changed, 84 insertions(+), 23 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h
+index a8a6dd9b24..7e883630ea 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h
+@@ -126,6 +126,8 @@ class CDemuxStreamVideo : public CDemuxStream
+   {
+     iFpsScale = 0;
+     iFpsRate = 0;
++    bInterlaced = true;
++    bUnknownIP = true;
+     iHeight = 0;
+     iWidth = 0;
+     fAspect = 0.0;
+@@ -151,6 +153,8 @@ class CDemuxStreamVideo : public CDemuxStream
+   int iBitsPerPixel;
+   int iBitRate;
+   std::string stereo_mode; // expected stereo mode
++  bool bInterlaced; // progressive/interlaced flag
++  bool bUnknownIP; // progressive/interlace unknown
+ };
+ 
+ class CDemuxStreamAudio : public CDemuxStream
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index a20ad73221..7ab3c62af0 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include <sstream>
+ #include <utility>
++#include <cmath>
+ 
+ #include "commons/Exception.h"
+ #include "cores/FFmpeg.h"
+@@ -1510,6 +1511,7 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
+       case AVMEDIA_TYPE_VIDEO:
+       {
+         CDemuxStreamVideoFFmpeg* st = new CDemuxStreamVideoFFmpeg(pStream);
++        float fps = 0;        
+         stream = st;
+         if(strcmp(m_pFormatContext->iformat->name, "flv") == 0)
+           st->bVFR = true;
+@@ -1521,24 +1523,49 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
+           st->bPTSInvalid = true;
+ 
+         AVRational r_frame_rate = pStream->r_frame_rate;
++        CLog::Log(LOGDEBUG, "DVDDemuxFFmpeg::%s - fps:%d/%d tbr:%d/%d tbn:%d/%d", __FUNCTION__,
++            pStream->avg_frame_rate.num, pStream->avg_frame_rate.den, r_frame_rate.num, r_frame_rate.den, pStream->codec->time_base.den, pStream->codec->time_base.num);
+ 
+-        //average fps is more accurate for mkv files
+-        if (m_bMatroska && pStream->avg_frame_rate.den && pStream->avg_frame_rate.num)
++        st->bUnknownIP = false;
++        st->bInterlaced = false;
++        st->iFpsRate  = 0;
++        st->iFpsScale = 0;
++
++        if (pStream->avg_frame_rate.den && pStream->avg_frame_rate.num)
+         {
+-          st->iFpsRate = pStream->avg_frame_rate.num;
++          st->iFpsRate  = pStream->avg_frame_rate.num;
+           st->iFpsScale = pStream->avg_frame_rate.den;
+         }
+         else if(r_frame_rate.den && r_frame_rate.num)
+         {
+-          st->iFpsRate = r_frame_rate.num;
++          st->iFpsRate  = r_frame_rate.num;
+           st->iFpsScale = r_frame_rate.den;
+         }
+-        else
++        if (st->iFpsScale)
++          fps = static_cast<float>(st->iFpsRate) / static_cast<float>(st->iFpsScale);
++
++        if (fps > 24.5f && pStream->codec->time_base.num && pStream->codec->time_base.den &&
++            pStream->codec->field_order != AV_FIELD_PROGRESSIVE && pStream->codec->field_order != AV_FIELD_UNKNOWN)
+         {
+-          st->iFpsRate  = 0;
+-          st->iFpsScale = 0;
++          if (static_cast<float>(pStream->codec->time_base.den) / static_cast<float>(pStream->codec->time_base.num) < 61.0)
++          {
++            st->iFpsRate  = pStream->codec->time_base.den;
++            st->iFpsScale = pStream->codec->time_base.num;
++          }
++          else
++            st->iFpsRate  *= 2;
++
++          st->bInterlaced = true;
++        }
++        else if (r_frame_rate.den && r_frame_rate.num && std::abs(static_cast<float>(r_frame_rate.num) / static_cast<float>(r_frame_rate.den) - 2.0f * fps) < 0.01f)
++        {
++          st->iFpsRate  = r_frame_rate.num;
++          st->iFpsScale = r_frame_rate.den;
++          st->bInterlaced = true;
+         }
+ 
++        CLog::Log(LOGDEBUG, "DVDDemuxFFmpeg::%s - fps:%d/%d i/p:%d", __FUNCTION__, st->iFpsRate, st->iFpsScale, st->bInterlaced);
++ 
+         if (pStream->codec_info_nb_frames > 0 &&
+             pStream->codec_info_nb_frames <= 2 &&
+             m_pInput->IsStreamType(DVDSTREAM_TYPE_DVD))
+diff --git a/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp b/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp
+index f1679dde4a..b8847e25a7 100644
+--- a/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp
++++ b/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp
+@@ -226,6 +226,12 @@ void CDVDStreamInfo::Assign(const CDemuxStream& right, bool withextradata)
+   else if (right.type == STREAM_VIDEO)
+   {
+     const CDemuxStreamVideo *stream = static_cast<const CDemuxStreamVideo*>(&right);
++    if (stream->bInterlaced)
++      codecOptions |= CODEC_INTERLACED;
++
++    if (stream->bUnknownIP)
++      codecOptions |= CODEC_UNKNOWN_I_P;
++
+     fpsscale  = stream->iFpsScale;
+     fpsrate   = stream->iFpsRate;
+     height    = stream->iHeight;
+diff --git a/xbmc/cores/VideoPlayer/DVDStreamInfo.h b/xbmc/cores/VideoPlayer/DVDStreamInfo.h
+index dca0ba4878..64e8f3491d 100644
+--- a/xbmc/cores/VideoPlayer/DVDStreamInfo.h
++++ b/xbmc/cores/VideoPlayer/DVDStreamInfo.h
+@@ -17,6 +17,8 @@ extern "C" {
+ 
+ #define CODEC_FORCE_SOFTWARE 0x01
+ #define CODEC_ALLOW_FALLBACK 0x02
++#define CODEC_INTERLACED     0x40
++#define CODEC_UNKNOWN_I_P    0x80
+ 
+ class CDemuxStream;
+ struct DemuxCryptoSession;
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index a0a737488f..014ef01d38 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -154,7 +154,7 @@ bool CVideoPlayerVideo::OpenStream(CDVDStreamInfo hint)
+ 
+ void CVideoPlayerVideo::OpenStream(CDVDStreamInfo &hint, CDVDVideoCodec* codec)
+ {
+-  CLog::Log(LOGDEBUG, "CVideoPlayerVideo::OpenStream - open stream with codec id: %i", hint.codec);
++  CLog::Log(LOGDEBUG, "CVideoPlayerVideo::OpenStream - open stream with codec id: %i fps:%d/%d options:%02x", hint.codec, hint.fpsrate, hint.fpsscale, hint.codecOptions);
+ 
+   m_processInfo.GetVideoBufferManager().ReleasePools();
+ 
+@@ -161,11 +161,32 @@
+   {
+     m_fFrameRate = DVD_TIME_BASE / CDVDCodecUtils::NormalizeFrameduration((double)DVD_TIME_BASE * hint.fpsscale / hint.fpsrate);
+     m_bFpsInvalid = false;
++
++    if (hint.codecOptions & CODEC_UNKNOWN_I_P)
++    {
++      if (MathUtils::FloatEquals(static_cast<float>(m_fFrameRate), 25.0f, 0.01f))
++      {
++        m_fFrameRate = 50.0;
++        m_processInfo.SetVideoInterlaced(true);
++      }
++      else if (MathUtils::FloatEquals(static_cast<float>(m_fFrameRate), 29.97f, 0.01f))
++      {
++        m_fFrameRate = 60000.0 / 1001.0;
++        m_processInfo.SetVideoInterlaced(true);
++      }
++      else
++        m_processInfo.SetVideoInterlaced(false);
++    }
++    else
++      m_processInfo.SetVideoInterlaced((hint.codecOptions & CODEC_INTERLACED) == CODEC_INTERLACED);
++
++    m_retryProgressive = 0;
+     m_processInfo.SetVideoFps(static_cast<float>(m_fFrameRate));
+   }
+   else
+   {
+-    m_fFrameRate = 25;
++    m_fFrameRate = 50;
++    m_processInfo.SetVideoInterlaced(true);
+     m_bFpsInvalid = true;
+     m_processInfo.SetVideoFps(0);
+   }
+

@@ -1,0 +1,24 @@
+From 9258ec72ce1f8e7ed2e7940162725f86405e54e8 Mon Sep 17 00:00:00 2001
+From: afl1 <afl2001@gmail.com>
+Date: Mon, 11 Mar 2019 19:13:04 +0100
+Subject: [PATCH] Increase number of renderer buffers.
+
+Patch: kodi-le-033-increase-numRenderBuffers.patch
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h            | 2 +-
+ xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererAML.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+index 7282fddf1a..85d5072b73 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+@@ -18,7 +18,7 @@
+ #include "cores/VideoPlayer/Process/VideoBuffer.h"
+ 
+ #define MAX_FIELDS 3
+-#define NUM_BUFFERS 6
++#define NUM_BUFFERS 8
+ 
+ class CSetting;
+ 

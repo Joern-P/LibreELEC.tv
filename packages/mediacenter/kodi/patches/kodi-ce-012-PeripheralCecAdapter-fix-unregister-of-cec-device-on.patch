@@ -109,6 +109,18 @@ index 1691c0f3aa..d68a628946 100644
  void CPeripheralCecAdapter::StandbyDevices(void)
  {
    CSingleLock lock(m_critSection);
+@@ -1720,7 +1720,10 @@
+     bStandby = m_bStandbyPending;
+     m_bStandbyPending = false;
+     if (bStandby)
+-      m_bGoingToStandby = true;
++      if (m_cecAdapter->IsLibCECActiveSource())
++        m_bGoingToStandby = true;
++      else
++        bStandby = false;
+   }
+ 
+   if (bStandby)   
 diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.h b/xbmc/peripherals/devices/PeripheralCecAdapter.h
 index 442519b3b5..5e469a484e 100644
 --- a/xbmc/peripherals/devices/PeripheralCecAdapter.h
