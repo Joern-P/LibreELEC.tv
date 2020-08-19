@@ -87,18 +87,21 @@ index fde7fdaee31a..e653bda5cc38 100644
  
    // screen saver timer is reset only if we're not already in screensaver or
    // DPMS mode
-@@ -3552,6 +3557,11 @@ void CApplication::CheckScreenSaverAndDPMS()
+@@ -3568,11 +3568,12 @@
+   // whether the current state of the application should be regarded as active even when there is no
+   // explicit user activity such as input
+   bool haveIdleActivity = false;
+-
++  bool havePauseIdleActivity = false;  
    // Are we playing a video and it is not paused?
    if (m_appPlayer.IsPlayingVideo() && !m_appPlayer.IsPaused())
      haveIdleActivity = true;
-+  
-+  bool havePauseIdleActivity = false;  
-+  // Are we playing a video and it is paused?
-+  if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
+-
++  else if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
 +    havePauseIdleActivity = true;
- 
    // Are we playing some music in fullscreen vis?
    else if (m_appPlayer.IsPlayingAudio() &&
+            CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow() == WINDOW_VISUALISATION &&
 @@ -3603,8 +3613,17 @@ void CApplication::CheckScreenSaverAndDPMS()
    if (maybeDPMS
        && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) * 60)
