@@ -1,0 +1,126 @@
+From 41e7308c266a14bcf122134acc0bb10364bf6f56 Mon Sep 17 00:00:00 2001
+From: MrFixIt2001 <mrfixit2001@gmail.com>
+Date: Tue, 23 Jun 2020 10:01:55 -0400
+Subject: [PATCH] Add the missing code for vop resets Also do some minor
+ cleanup
+
+---
+ drivers/gpu/drm/rockchip/rockchip_drm_vop.c | 62 ++++++++++++++++++---
+ 1 file changed, 55 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+index d95d55590d..48b24e644d 100644
+--- a/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
++++ b/drivers/gpu/drm/rockchip/rockchip_drm_vop.c
+@@ -1357,8 +1357,11 @@ static void vop_core_clks_disable(struct vop *vop)
+ static void vop_power_enable(struct drm_crtc *crtc)
+ {
+ 	struct vop *vop = to_vop(crtc);
++	struct reset_control *ahb_rst;
+ 	int ret, i;
+ 
++	vop->is_enabled = false;
++
+ 	ret = pm_runtime_get_sync(vop->dev);
+ 	if (ret < 0) {
+ 		dev_err(vop->dev, "failed to get pm runtime: %d\n", ret);
+@@ -1370,12 +1373,25 @@ static void vop_power_enable(struct drm_crtc *crtc)
+ 		goto err_put_pm_runtime;
+ 	}
+ 
+-	ret = clk_prepare_enable(vop->dclk);
++	ret = clk_prepare(vop->dclk);
+ 	if (ret < 0) {
+-		dev_err(vop->dev, "failed to enable dclk - %d\n", ret);
++		dev_err(vop->dev, "failed to prepare dclk - %d\n", ret);
+ 		goto err_disable_core;
+ 	}
+ 
++	/*
++	 * do hclk_reset, reset all vop registers.
++	 */
++	ahb_rst = devm_reset_control_get(vop->dev, "ahb");
++	if (IS_ERR(ahb_rst)) {
++		DRM_DEV_ERROR(vop->dev, "failed to get ahb reset\n");
++		ret = PTR_ERR(ahb_rst);
++		goto err_disable_dclk;
++	}
++	reset_control_assert(ahb_rst);
++	usleep_range(10, 20);
++	reset_control_deassert(ahb_rst);
++
+ 	VOP_INTR_SET_TYPE(vop, clear, INTR_MASK, 1);
+ 	VOP_INTR_SET_TYPE(vop, enable, INTR_MASK, 0);
+ 
+@@ -1393,12 +1409,46 @@ static void vop_power_enable(struct drm_crtc *crtc)
+ 			vop->version = VOP_VERSION(3, 1);
+ 	}
+ 
++	VOP_CTRL_SET(vop, global_regdone_en, 1);
++	VOP_CTRL_SET(vop, dsp_blank, 0);
++
+ 	vop_cfg_done(vop);
+ 
++	/*
++	 * do dclk_reset, let all config take affect.
++	 */
++	vop->dclk_rst = devm_reset_control_get(vop->dev, "dclk");
++	if (IS_ERR(vop->dclk_rst)) {
++		DRM_DEV_ERROR(vop->dev, "failed to get dclk reset\n");
++		ret = PTR_ERR(vop->dclk_rst);
++		goto err_disable_dclk;
++	}
++	reset_control_assert(vop->dclk_rst);
++	usleep_range(10, 20);
++	reset_control_deassert(vop->dclk_rst);
++
++	clk_disable(vop->hclk);
++	clk_disable(vop->aclk);
++
++	// Everything is configured - let's enable clocks!
++
++	ret = vop_core_clks_enable(vop);
++	if (ret < 0) {
++		goto err_disable_dclk;
++	}
++
++	ret = clk_enable(vop->dclk);
++	if (ret < 0) {
++		dev_err(vop->dev, "failed to prepare dclk - %d\n", ret);
++		goto err_disable_dclk;
++	}
++
+ 	vop->is_enabled = true;
+ 
+ 	return;
+ 
++err_disable_dclk:
++	clk_disable_unprepare(vop->dclk);
+ err_disable_core:
+ 	vop_core_clks_disable(vop);
+ err_put_pm_runtime:
+@@ -1412,8 +1462,6 @@ static void vop_initial(struct drm_crtc *crtc)
+ 
+ 	vop_power_enable(crtc);
+ 
+-	VOP_CTRL_SET(vop, global_regdone_en, 1);
+-	VOP_CTRL_SET(vop, dsp_blank, 0);
+ 	VOP_CTRL_SET(vop, axi_outstanding_max_num, 30);
+ 	VOP_CTRL_SET(vop, axi_max_outstanding_en, 1);
+ 	VOP_CTRL_SET(vop, dither_up_en, 1);
+@@ -1425,11 +1473,11 @@ static void vop_initial(struct drm_crtc *crtc)
+ 	 */
+ 	for (i = 0; i < vop->num_wins; i++) {
+ 		struct vop_win *win = &vop->win[i];
+-		int flags, channel = i * 2 + 1;
++		int channel = i * 2 + 1;
+ 
+-		spin_lock_irqsave(&vop->reg_lock, flags); // spin_lock(&vop->reg_lock);
++		spin_lock(&vop->reg_lock);
+ 		VOP_WIN_SET(vop, win, channel, (channel + 1) << 4 | channel);
+-		spin_unlock_irqrestore(&vop->reg_lock, flags); // spin_unlock(&vop->reg_lock);
++		spin_unlock(&vop->reg_lock);
+ 	}
+ 	VOP_CTRL_SET(vop, afbdc_en, 0);
+ 	vop_enable_debug_irq(crtc);
+
