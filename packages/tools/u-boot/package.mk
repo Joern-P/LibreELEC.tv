@@ -23,10 +23,10 @@ PKG_NEED_UNPACK="$PROJECT_DIR/$PROJECT/bootloader"
 
 case "$PROJECT" in
   Rockchip)
-    PKG_VERSION="8659d08d2b589693d121c1298484e861b7dafc4f"
-    PKG_SHA256="3f9f2bbd0c28be6d7d6eb909823fee5728da023aca0ce37aef3c8f67d1179ec1"
-    PKG_URL="https://github.com/rockchip-linux/u-boot/archive/$PKG_VERSION.tar.gz"
-    PKG_PATCH_DIRS="rockchip"
+    PKG_VERSION="v2020.07"
+    PKG_SHA256=""
+    PKG_URL="https://github.com/u-boot/u-boot/archive/$PKG_VERSION.tar.gz"
+    PKG_PATCH_DIRS="2020.07"
     ;;
   *)
     PKG_VERSION="v2020.04"
