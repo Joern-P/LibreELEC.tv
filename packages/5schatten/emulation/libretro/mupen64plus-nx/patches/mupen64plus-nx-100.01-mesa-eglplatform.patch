@@ -28,7 +28,7 @@ index ba49e623..eb5b1754 100644
        ifneq (,$(findstring RK3399,$(platform)))
           CPUFLAGS += -mtune=cortex-a72.cortex-a53
 -         GLES3 = 1
-+         GLES3 = 1
++         GLES = 1
 +	  HAVE_PARALLEL_RSP = 1
 +         HAVE_THR_AL = 1
        else ifneq (,$(findstring RK3328,$(platform)))

@@ -120,7 +120,9 @@ pre_configure_target() {
       else
         PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3"
       fi
-      PKG_CONFIGURE_OPTS_TARGET+=" --enable-kms"
+      PKG_CONFIGURE_OPTS_TARGET+=" --enable-kms \
+      				    --disable-x11 \
+      				    --disable-wayland"
     fi
   fi
 
