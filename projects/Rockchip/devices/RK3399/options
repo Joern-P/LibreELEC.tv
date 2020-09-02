@@ -28,7 +28,6 @@
     KERNEL_MAKE_EXTRACMD=""
 	KERNEL_MAKE_EXTRACMD+=" rockchip/rk3399-nanopi4-rev00.dtb"
   	KERNEL_MAKE_EXTRACMD+=" rockchip/rk3399-nanopi4-rev01.dtb"
-  	KERNEL_MAKE_EXTRACMD+=" rockchip/rk3399-nanopi4-rev21.dtb"
 	KERNEL_MAKE_EXTRACMD+=" rockchip/rk3399-khadas-edge.dtb"
     KERNEL_MAKE_EXTRACMD+=" rockchip/rk3399-rock960.dtb"
     KERNEL_MAKE_EXTRACMD+=" rockchip/rk3399-rock-pi-4.dtb"
