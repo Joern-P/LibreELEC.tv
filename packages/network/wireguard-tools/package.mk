@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireguard-tools"
-PKG_VERSION="v1.0.20200820"
-PKG_SHA256="da6fd3fa605e4908d8d7ed2cbd0e5c2e3aba26ac8dcef5cd6c085b1ad99fcf92"
+PKG_VERSION="v1.0.20200827"
+PKG_SHA256="ec08772216da73a2f6a925927ce794fe9686ba169bb774e451d34199db19795c"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.wireguard.com"
 PKG_URL="https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-$PKG_VERSION.tar.xz"

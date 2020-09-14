@@ -23,7 +23,7 @@
       <group id="3">
         <setting id="videoscreen.noofbuffers">
           <default>2</default>
-          <visible>false</visible>
+          <visible>true</visible>
         </setting>
       </group>
     </category>
