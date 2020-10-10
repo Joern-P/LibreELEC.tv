@@ -36,7 +36,7 @@ if [ "$PROJECT" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp "
   PKG_NEED_UNPACK+=" $(get_pkg_directory rkmpp)"
   PKG_PATCH_DIRS+=" rkmpp"
-  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3 --enable-encoder=h264_rkmpp --enable-encoder=libx264rgb --enable-encoder=libvpx_vp8 --enable-encoder=libvpx_vp9"
+  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3 --enable-encoder=h264_rkmpp --enable-encoder=libx264rgb"
 else
   PKG_FFMPEG_RKMPP="--disable-rkmpp"
 fi
@@ -114,8 +114,6 @@ pre_configure_target() {
     --enable-encoder=ac3 \
     --enable-encoder=eac3 \
     --enable-encoder=flac \
-    --enable-libmp3lame \
-    --enable-encoder=libmp3lame \
     --enable-libopus \
     --enable-encoder=libopus \
     --enable-libvorbis \
@@ -146,11 +144,13 @@ configure_target() {
     \
     `#Licensing options` \
     --enable-gpl \
+    --enable-nonfree \
     \
     `#Documentation options` \
     --disable-doc \
     \
     `#Hardware accelerated decoding encoding` \
+    $PKG_FFMPEG_ENCODERS \
     $PKG_FFMPEG_RKMPP \
     $PKG_FFMPEG_HW_ENCODERS_RPi \
     $PKG_FFMPEG_HW_ENCODERS_GENERIC \

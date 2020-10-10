@@ -2,8 +2,8 @@
 # Copyright (C) 2019-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="libvpx-system"
-PKG_VERSION="1.8.1"
-PKG_SHA256="df19b8f24758e90640e1ab228ab4a4676ec3df19d23e4593375e6f3847dee03e"
+PKG_VERSION="1.9.0"
+PKG_SHA256=""
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.webmproject.org"
 PKG_URL="https://github.com/webmproject/libvpx/archive/v${PKG_VERSION}.tar.gz"
@@ -41,6 +41,8 @@ configure_target() {
                         --disable-unit-tests \
                         --disable-vp8-decoder \
                         --disable-vp9-decoder \
+                        --enable-vp8-encoder \
+                        --enable-vp9-encoder \
                         --enable-ccache \
                         --enable-pic \
                         --enable-static \

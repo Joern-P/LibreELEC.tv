@@ -2,10 +2,10 @@
 # Copyright (C) 2018-present Team CoreELEC (https://coreelec.org)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="0f13f5912921321a7061ffde760ec41c32d99e77"
-PKG_SHA256="5035032126ff342b57e48929c7a7af4de410dc1c7581f15599005474ef5578af"
-PKG_VERSION_NUMBER="0f13f59"
-PKG_REV="103"
+PKG_VERSION="c3204bc6ff87deed26a3bd8ef7a8224a50606dc3"
+PKG_SHA256=""
+PKG_VERSION_NUMBER="c3204bc"
+PKG_REV="105"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -61,6 +61,7 @@ pre_configure_target() {
                              $PKG_TVH_TRANSCODING \
                              --enable-avahi \
                              --enable-bundle \
+                             --enable-neon \
                              --disable-dbus_1 \
                              --enable-dvbcsa \
                              --disable-dvben50221 \
@@ -114,8 +115,8 @@ addon() {
   # copy gnutls lib that is needed for ffmpeg
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -PL $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.4 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.8 $ADDON_BUILD/$PKG_ADDON_ID/lib
+  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
   cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 $ADDON_BUILD/$PKG_ADDON_ID/lib
 
   # set only version (revision will be added by buildsystem)
@@ -133,3 +134,4 @@ addon() {
         $(get_build_dir tvh-dtv-scan-tables)/isdb-t \
         $ADDON_BUILD/$PKG_ADDON_ID/dvb-scan
 }
+

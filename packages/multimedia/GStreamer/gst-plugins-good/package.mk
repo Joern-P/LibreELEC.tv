@@ -12,6 +12,7 @@ PKG_LONGDESC="Good GStreamer plugins and helper libraries"
 
 PKG_MESON_OPTS_TARGET="-Dgdk-pixbuf=disabled \
                        -Dqt5=disabled \
+                       -Dpng=disabled \
                        -Dtaglib=disabled \
                        -Dexamples=disabled \
                        -Dtests=disabled \
