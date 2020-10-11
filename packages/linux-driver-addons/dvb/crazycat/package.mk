@@ -43,3 +43,4 @@ make_target() {
 makeinstall_target() {
   install_driver_addon_files "$PKG_BUILD/v4l/"
 }
+
