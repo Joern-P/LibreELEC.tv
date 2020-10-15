@@ -20,11 +20,11 @@
 @@ -2,6 +2,9 @@
  [9.255.255]
  VIDEO_IPU3_IMGU
- VIDEO_DW9714
+ INTEL_ATOMISP
 +CEC_NOTIFIER
 +MEDIA_CEC_RC
 +MEDIA_CEC_SUPPORT
- 
- [4.19.0]
- # Needs union ec_response_get_next_data_v1.cec_message
+
+ [5.5]
+ # lots of kAPI changes in 5.6, so disable for older kernels
 

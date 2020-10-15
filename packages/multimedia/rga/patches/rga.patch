@@ -1,0 +1,335 @@
+diff -uNr a/drmrga.h b/drmrga.h
+--- a/drmrga.h	2020-05-14 14:43:31.000000000 +0200
++++ b/drmrga.h	2020-09-29 14:34:08.000000000 +0200
+@@ -45,6 +45,18 @@
+ };
+ /*****************************************************************************/
+ 
++/* memory type definitions. */
++enum drm_rockchip_gem_mem_type {
++    /* Physically Continuous memory and used as default. */
++    ROCKCHIP_BO_CONTIG  = 1 << 0,
++    /* cachable mapping. */
++    ROCKCHIP_BO_CACHABLE    = 1 << 1,
++    /* write-combine mapping. */
++    ROCKCHIP_BO_WC      = 1 << 2,
++    ROCKCHIP_BO_SECURE  = 1 << 3,
++    ROCKCHIP_BO_MASK    = ROCKCHIP_BO_CONTIG | ROCKCHIP_BO_CACHABLE |
++                ROCKCHIP_BO_WC | ROCKCHIP_BO_SECURE
++};
+ 
+ typedef struct bo {
+     int fd;
+diff -uNr a/normal/NormalRga.cpp b/normal/NormalRga.cpp
+--- a/normal/NormalRga.cpp	2020-05-14 14:43:31.000000000 +0200
++++ b/normal/NormalRga.cpp	2020-09-29 14:34:08.000000000 +0200
+@@ -14,10 +14,12 @@
+ //#include "../GraphicBuffer.h"
+ //#include "../RgaApi.h"
+ #include <sys/ioctl.h> 
++#include <pthread.h>
+ //#include <cutils/properties.h>
+ 
+ volatile int32_t refCount = 0;
+-struct rgaContext *rgaCtx = NULL;
++pthread_mutex_t gMutex = PTHREAD_MUTEX_INITIALIZER;
++static struct rgaContext *rgaCtx = NULL;
+ 
+ void NormalRgaSetLogOnceFlag(int log)
+ {
+@@ -38,7 +40,7 @@
+ int NormalRgaOpen(void **context)
+ {
+ 	struct rgaContext *ctx = NULL;
+-	char buf[30];
++	char buf[30] = {};
+ 	int fd = -1;
+ 	int ret = 0;
+ 
+@@ -78,7 +80,6 @@
+ 	rgaCtx = ctx;
+ 
+ init:
+-	//android_atomic_inc(&refCount);
+ 	*context = (void *)ctx;
+ 	return ret;
+ 
+@@ -107,17 +108,7 @@
+ 		return -ENODEV;
+ 	}
+ 
+-	if (refCount <= 0) {
+-		DEBUG("This can not be happened \n");
+-		return 0;
+-	}
+-
+-	if (refCount > 0)
+-	//if (refCount > 0 && android_atomic_dec(&refCount) != 1)
+-		return 0;
+-
+ 	rgaCtx = NULL;
+-
+ 	close(ctx->rgaFd);
+ 
+ 	free(ctx);
+@@ -128,14 +119,28 @@
+ int RgaInit(void **ctx)
+ {
+ 	int ret = 0;
+-	ret = NormalRgaOpen(ctx);
++	pthread_mutex_lock(&gMutex);
++	if (refCount == 0) {
++		ret = NormalRgaOpen(ctx);
++	}
++	refCount++;
++	pthread_mutex_unlock(&gMutex);
+ 	return ret;
+ }
+ 
+ int RgaDeInit(void *ctx)
+ {
+ 	int ret = 0;
+-	ret = NormalRgaClose(ctx);
++	pthread_mutex_lock(&gMutex);
++	if (refCount <= 0) {
++		refCount = 0;
++	} else if (refCount == 1) {
++		refCount = 0;
++		ret = NormalRgaClose(ctx);
++	} else {
++		refCount--;
++	}
++	pthread_mutex_unlock(&gMutex);
+ 	return ret;
+ }
+ 
+@@ -148,7 +153,7 @@
+ 	int dstVirW,dstVirH,dstActW,dstActH,dstXPos,dstYPos;
+ 	//int src1VirW,src1VirH,src1ActW,src1ActH,src1XPos,src1YPos;
+ 	int scaleMode,rotateMode,orientation,ditherEn;
+-	int srcType,dstType,src1Type,srcMmuFlag,dstMmuFlag,src1MmuFlag;
++	int srcType,dstType,srcMmuFlag,dstMmuFlag;
+ 	int planeAlpha;
+ 	int dstFd = -1;
+ 	int srcFd = -1;
+@@ -158,15 +163,14 @@
+     float hScale = 1;
+     float vScale = 1;
+ 	int ret = 0;
+-	rga_rect_t relSrcRect,tmpSrcRect,relDstRect,tmpDstRect;
+-	rga_rect_t relSrc1Rect,tmpSrc1Rect;
+-	struct rga_req rgaReg,tmprgaReg;
++	rga_rect_t relSrcRect,relDstRect;
++	rga_rect_t relSrc1Rect;
++	struct rga_req rgaReg;
+ 	unsigned int blend;
+ 	unsigned int yuvToRgbMode;
+ 	bool perpixelAlpha = 0;
+ 	void *srcBuf = NULL;
+ 	void *dstBuf = NULL;
+-	void *src1Buf = NULL;
+ 	RECT_t clip;
+ 
+ 	if (!ctx) {
+@@ -177,7 +181,6 @@
+ 	memset(&rgaReg, 0, sizeof(struct rga_req));
+ 
+ 	srcType = dstType = srcMmuFlag = dstMmuFlag = 0;
+-	src1Type = src1MmuFlag = 0;
+ 	rotation = 0;
+ 	blend = 0;
+ 	yuvToRgbMode = 0;
+@@ -698,12 +701,11 @@
+ 	//check buffer_handle_t with rects
+ 	struct rgaContext *ctx = rgaCtx;
+ 	int dstVirW,dstVirH,dstActW,dstActH,dstXPos,dstYPos;
+-	int scaleMode,ditherEn;
+ 	int dstType,dstMmuFlag;
+ 	int dstFd = -1;
+ 	int ret = 0;
+ 	unsigned int color = 0x00000000;
+-	rga_rect_t relDstRect,tmpDstRect;
++	rga_rect_t relDstRect;
+ 	struct rga_req rgaReg;
+ 	COLOR_FILL fillColor ;
+ 	void *dstBuf = NULL;
+diff -uNr a/RgaApi.cpp b/RgaApi.cpp
+--- a/RgaApi.cpp	2020-05-14 14:43:31.000000000 +0200
++++ b/RgaApi.cpp	2020-09-29 14:34:08.000000000 +0200
+@@ -25,6 +25,12 @@
+     return 0;
+ }
+ 
++int c_RkRgaGetAllocBufferCache(bo_t *bo_info, int width, int height, int bpp)
++{
++    rkRga.RkRgaGetAllocBufferCache(bo_info, width, height, bpp);
++    return 0;
++}
++
+ int c_RkRgaGetMmap(bo_t *bo_info)
+ {
+     rkRga.RkRgaGetMmap(bo_info);
+diff -uNr a/RgaApi.h b/RgaApi.h
+--- a/RgaApi.h	2020-05-14 14:43:31.000000000 +0200
++++ b/RgaApi.h	2020-09-29 14:34:08.000000000 +0200
+@@ -33,6 +33,7 @@
+ int c_RkRgaInit();
+ void c_RkRgaDeInit();
+ int c_RkRgaGetAllocBuffer(bo_t *bo_info, int width, int height, int bpp);
++int c_RkRgaGetAllocBufferCache(bo_t *bo_info, int width, int height, int bpp);
+ int c_RkRgaGetMmap(bo_t *bo_info);
+ int c_RkRgaUnmap(bo_t *bo_info);
+ int c_RkRgaGetBufferFd(bo_t *bo_info, int *fd);
+diff -uNr a/RockchipFileOps.cpp b/RockchipFileOps.cpp
+--- a/RockchipFileOps.cpp	2020-05-14 14:43:31.000000000 +0200
++++ b/RockchipFileOps.cpp	2020-09-29 14:34:08.000000000 +0200
+@@ -180,7 +180,7 @@
+     }
+ #endif
+ 
+-    return 0;
++    return ret;
+ }
+ 
+ int output_buf_data_to_file(void *buf, int f, int sw, int sh, int index)
+@@ -221,6 +221,6 @@
+     fclose(file);
+ #endif
+ 
+-    return 0;
++    return ret;
+ }
+ 
+diff -uNr a/RockchipRga.cpp b/RockchipRga.cpp
+--- a/RockchipRga.cpp	2020-05-14 14:43:31.000000000 +0200
++++ b/RockchipRga.cpp	2020-09-29 14:34:08.000000000 +0200
+@@ -38,46 +38,31 @@
+ // ---------------------------------------------------------------------------
+ 
+ RockchipRga::RockchipRga():
+-    mSupportRga(false),
+     mLogOnce(0),
+     mLogAlways(0),
+     mContext(NULL)
+ {
+-    RkRgaInit();
++    // RkRgaInit();
+     printf("Rga built version:%s \n", RK_GRAPHICS_VER);
+ }
+ 
+ RockchipRga::~RockchipRga()
+ {
+-    RgaDeInit(mContext);
++    // RgaDeInit(mContext);
+ }
+ 
+ int RockchipRga::RkRgaInit()
+ {
+-    int ret = 0;
+-
+-    if (mSupportRga)
+-        return 0;
+-
+-    ret = RgaInit(&mContext);
+-    if(ret == 0)
+-        mSupportRga = true;
+-    else
+-        mSupportRga = false;
+-
+-    return ret;
++    return RgaInit(&mContext);
+ }
+ 
+ void RockchipRga::RkRgaDeInit()
+ {
+-    if (mSupportRga)
+-        RgaDeInit(mContext);
+-
+-    mSupportRga = false;
++    RgaDeInit(mContext);
+ }
+ 
+ int RockchipRga::RkRgaAllocBuffer(int drm_fd, bo_t *bo_info, int width,
+-                                  int height, int bpp) {
++                                  int height, int bpp, int flags) {
+ #if LIBDRM
+     struct drm_mode_create_dumb arg;
+     int ret;
+@@ -86,6 +71,7 @@
+     arg.bpp = bpp;
+     arg.width = width;
+     arg.height = height;
++    arg.flags = flags;
+ 
+     ret = drmIoctl(drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &arg);
+     if (ret) {
+@@ -125,7 +111,7 @@
+ #endif
+ }
+ 
+-int RockchipRga::RkRgaGetAllocBuffer(bo_t *bo_info, int width, int height, int bpp)
++int RockchipRga::RkRgaGetAllocBufferExt(bo_t *bo_info, int width, int height, int bpp, int flags)
+ {
+     static const char* card = "/dev/dri/card0";
+     int ret;
+@@ -141,7 +127,7 @@
+         fprintf(stderr, "Fail to open %s: %m\n", card);
+         return -errno;
+     }
+-    ret = RkRgaAllocBuffer(drm_fd, bo_info, width, height, bpp);
++    ret = RkRgaAllocBuffer(drm_fd, bo_info, width, height, bpp, flags);
+     if (ret) {
+         close(drm_fd);
+         return ret;
+@@ -150,6 +136,16 @@
+     return 0;
+ }
+ 
++int RockchipRga::RkRgaGetAllocBuffer(bo_t *bo_info, int width, int height, int bpp)
++{
++    return RkRgaGetAllocBufferExt(bo_info, width, height, bpp, 0);
++}
++
++int RockchipRga::RkRgaGetAllocBufferCache(bo_t *bo_info, int width, int height, int bpp)
++{
++    return RkRgaGetAllocBufferExt(bo_info, width, height, bpp, ROCKCHIP_BO_CACHABLE);
++}
++
+ int RockchipRga::RkRgaGetMmap(bo_t *bo_info)
+ {
+ #if LIBDRM
+@@ -227,8 +223,8 @@
+     if (!rgaInfo)
+         return -EINVAL;
+ 
+-    printf("fd-vir-phy-hnd-format[%d, %p, %p, %p, %d] \n", rgaInfo->fd,
+-	rgaInfo->virAddr, rgaInfo->phyAddr, (void*)rgaInfo->hnd, rgaInfo->format);
++    printf("fd-vir-phy-hnd-format[%d, %p, %p, %d, %d] \n", rgaInfo->fd,
++	rgaInfo->virAddr, rgaInfo->phyAddr, rgaInfo->hnd, rgaInfo->format);
+     printf("rect[%d, %d, %d, %d, %d, %d, %d, %d] \n",
+         rgaInfo->rect.xoffset, rgaInfo->rect.yoffset,
+         rgaInfo->rect.width,   rgaInfo->rect.height, rgaInfo->rect.wstride,
+diff -uNr a/RockchipRga.h b/RockchipRga.h
+--- a/RockchipRga.h	2020-05-14 14:43:31.000000000 +0200
++++ b/RockchipRga.h	2020-09-29 14:34:08.000000000 +0200
+@@ -47,9 +47,11 @@
+     int         RkRgaInit();
+     void        RkRgaDeInit();
+     int         RkRgaAllocBuffer(int drm_fd /* input */, bo_t *bo_info,
+-                                 int width, int height, int bpp);
++                                 int width, int height, int bpp, int flags);
+     int         RkRgaFreeBuffer(int drm_fd /* input */, bo_t *bo_info);
++    int         RkRgaGetAllocBufferExt(bo_t *bo_info, int width, int height, int bpp, int flags);
+     int         RkRgaGetAllocBuffer(bo_t *bo_info, int width, int height, int bpp);
++    int         RkRgaGetAllocBufferCache(bo_t *bo_info, int width, int height, int bpp);
+     int         RkRgaGetMmap(bo_t *bo_info);
+     int         RkRgaUnmap(bo_t *bo_info);
+     int         RkRgaFree(bo_t *bo_info);
+@@ -62,7 +64,6 @@
+     void        RkRgaSetAlwaysLogFlag(bool log) {mLogAlways = log;}
+     void        RkRgaLogOutRgaReq(struct rga_req rgaReg);
+     int         RkRgaLogOutUserPara(rga_info *rgaInfo);
+-    inline bool RkRgaIsReady() { return mSupportRga; }
+ 
+ /************************************private***********************************/
+ private:
