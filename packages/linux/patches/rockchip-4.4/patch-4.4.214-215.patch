@@ -4833,18 +4833,6 @@ index 0b34dbc8f3..7dcb33d388 100644
  	return 0;
  }
  
-diff --git a/tools/lib/api/fs/fs.c b/tools/lib/api/fs/fs.c
-index 68a459aed0..599ff07197 100644
---- a/tools/lib/api/fs/fs.c
-+++ b/tools/lib/api/fs/fs.c
-@@ -179,6 +179,7 @@ static bool fs__env_override(struct fs *fs)
- 	size_t name_len = strlen(fs->name);
- 	/* name + "_PATH" + '\0' */
- 	char upper_name[name_len + 5 + 1];
-+
- 	memcpy(upper_name, fs->name, name_len);
- 	mem_toupper(upper_name, name_len);
- 	strcpy(&upper_name[name_len], "_PATH");
 diff --git a/tools/usb/usbip/src/usbip_network.c b/tools/usb/usbip/src/usbip_network.c
 index b4c37e76a6..187dfaa67d 100644
 --- a/tools/usb/usbip/src/usbip_network.c

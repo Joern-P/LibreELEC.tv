@@ -3,7 +3,7 @@
 
 PKG_NAME="game-tools"
 PKG_VERSION=""
-PKG_REV="101"
+PKG_REV="103"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE=""
@@ -39,4 +39,6 @@ addon() {
     cp -P $(get_build_dir linuxconsoletools)/utils/fftest $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir linuxconsoletools)/utils/jscal $ADDON_BUILD/$PKG_ADDON_ID/bin
     cp -P $(get_build_dir linuxconsoletools)/utils/jstest $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir linuxconsoletools)/utils/evdev-joystick $ADDON_BUILD/$PKG_ADDON_ID/bin
+    cp -P $(get_build_dir linuxconsoletools)/utils/inputattach $ADDON_BUILD/$PKG_ADDON_ID/bin
 }
