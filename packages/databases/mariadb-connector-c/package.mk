@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mariadb-connector-c"
-PKG_VERSION="3.1.9"
+PKG_VERSION="3.1.11"
 PKG_SHA256=""
 PKG_LICENSE="LGPL"
 PKG_SITE="https://mariadb.org/"

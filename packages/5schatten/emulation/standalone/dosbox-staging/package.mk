@@ -2,12 +2,12 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="dosbox-staging"
-PKG_VERSION="0ef5a2dacef9a7146c52680595a7f35d6bc7399f" # 0.74-3 / r4250
+PKG_VERSION="1209db5324c2670f59214ec2f2df1eb793d7e32b"
 PKG_SHA256=""
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dosbox-staging/dosbox-staging"
 PKG_URL="https://github.com/dosbox-staging/dosbox-staging/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain linux glibc glib systemd dbus alsa-lib SDL2-system SDL2_net SDL_sound libpng zlib opusfile libvorbis-system flac-system libogg-system fluidsynth-system munt"
+PKG_DEPENDS_TARGET="toolchain linux glibc glib systemd dbus alsa-lib SDL2-system SDL2_net SDL_sound libpng zlib opusfile libvorbis-system flac-system libogg-system fluidsynth-system munt dosbox-sdl2-shaders"
 PKG_LONGDESC="This is an enhanced fork of DOSBox. It is currently in sync with revision 4156."
 PKG_TOOLCHAIN="autotools"
 PKG_BUILD_FLAGS="-lto"
@@ -32,6 +32,8 @@ pre_configure_target() {
                              --enable-core-inline \
                              --enable-dynrec \
                              --enable-unaligned_memory \
+                             --enable-fpu \
+                             --enable-opengl \
                              --with-sdl-prefix=${SYSROOT_PREFIX}/usr"
   # Define target CPU arch
   case ${TARGET_CPU} in

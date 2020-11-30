@@ -2,7 +2,7 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libmali"
-PKG_VERSION="263579e5d8e17fa0e2be68628db3b49e42824a45"
+PKG_VERSION="352640634a37e6ecdb3b7e09c877cd141865703c"
 PKG_SHA256=""
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
@@ -35,6 +35,10 @@ post_makeinstall_target() {
 
   if [ $(ls -1q $INSTALL/usr/lib/libmali-*.so | wc -l) -gt 1 ]; then
     ln -sfv /var/lib/libmali/libmali.so $INSTALL/usr/lib/libmali.so
+  fi
+  
+  if [ $(ls -1q $INSTALL/usr/lib/libGL.so | wc -l) -gt 1 ]; then
+    ln -sfv /var/lib/libmali/libGL.so $INSTALL/usr/lib/libGL.so
   fi
 
   # Add missing DT_SONAME libMali.so

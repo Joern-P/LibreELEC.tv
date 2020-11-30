@@ -44,6 +44,7 @@ kodi_service_start() {
     usleep "${RR_USLEEP_DELAY}"
     systemctl start kodi
   fi
+  echo ondemand > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
   echo "rr-config-script: Kodi service starting"
 }
 
@@ -64,6 +65,7 @@ kodi_service_stop() {
     usleep "${RR_USLEEP_DELAY}"
     fluidsynth_service_start
   fi
+  echo performance > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
 }
 
 # Command line interface

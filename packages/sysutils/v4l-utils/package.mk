@@ -15,7 +15,7 @@ PKG_LONGDESC="Linux V4L2 and DVB API utilities and v4l libraries (libv4l)."
 
 PKG_CONFIGURE_OPTS_TARGET="--without-jpeg \
 	--enable-static \
-	--disable-shared"
+	--enable-shared"
 
 pre_configure_target() {
   # cec-ctl fails to build in subdirs
@@ -29,7 +29,7 @@ make_target() {
   if [ "$CEC_FRAMEWORK_SUPPORT" = "yes" ]; then
     make -C utils/cec-ctl CFLAGS="$TARGET_CFLAGS"
   fi
-  make -C lib CFLAGS="$TARGET_CFLAGS"
+  make -C lib CFLAGS="$TARGET_CFLAGS" 
   make -C utils/dvb CFLAGS="$TARGET_CFLAGS"
   make -C utils/v4l2-ctl CFLAGS="$TARGET_CFLAGS"
 }
@@ -42,6 +42,10 @@ makeinstall_target() {
   fi
   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/dvb
   make install DESTDIR=$INSTALL PREFIX=/usr -C utils/v4l2-ctl
+  cp -PR $PKG_BUILD/lib/libv4l2/.libs/libv4l2.s* $INSTALL/usr/lib/
+  cp -PR $PKG_BUILD/lib/libv4l2/.libs/libv4l2.s* $SYSROOT_PREFIX/usr/lib/
+  mkdir -p $SYSROOT_PREFIX/usr/include/libv4l2
+  cp -PR $PKG_BUILD/lib/include/*.h $SYSROOT_PREFIX/usr/include/libv4l2/
 }
 
 create_multi_keymap() {
