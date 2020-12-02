@@ -12,6 +12,7 @@ PKG_DEPENDS_INIT="toolchain util-linux"
 PKG_LONGDESC="The open-iscsi package allows you to mount iSCSI targets."
 PKG_TOOLCHAIN="configure"
 
+
 PKG_MAKE_OPTS_INIT="user"
 
 pre_configure_init() {

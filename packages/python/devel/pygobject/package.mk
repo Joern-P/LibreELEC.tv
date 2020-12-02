@@ -14,6 +14,7 @@ PKG_TOOLCHAIN="autotools"
 PKG_CONFIGURE_OPTS_TARGET="--enable-thread --disable-introspection"
 
 pre_configure_target() {
+  CFLAGS="$CFLAGS -fcommon"
   export PYTHON_INCLUDES="$($SYSROOT_PREFIX/usr/bin/python2-config --includes)"
 }
 
@@ -24,3 +25,4 @@ post_makeinstall_target() {
   rm -rf $INSTALL/usr/bin
   rm -rf $INSTALL/usr/share/pygobject
 }
+

@@ -1,0 +1,35 @@
+From 22ea64cebcafd0e32c3bf70359c4a54ac7f89b9f Mon Sep 17 00:00:00 2001
+From: Raybuntu <57228613+Raybuntu@users.noreply.github.com>
+Date: Wed, 12 Aug 2020 14:40:00 +0100
+Subject: [PATCH] PeripheralCecAdapter: Don't flood TV with isActiveSource
+ requests
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index e16ac7f2a8..981249648c 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1732,14 +1732,16 @@ void CPeripheralCecAdapter::ProcessStandbyDevices(void)
+     CSingleLock lock(m_critSection);
+     int iScreensaverDelay = GetSettingInt("screensaver_delay_standby");
+     if ((m_ScreensaverStandbySent.IsValid() &&
+-        (CDateTime::GetCurrentDateTime() - m_ScreensaverStandbySent < CDateTimeSpan(0, 0, 0, iScreensaverDelay))) ||
+-        (!m_cecAdapter->IsLibCECActiveSource()))
++        (CDateTime::GetCurrentDateTime() - m_ScreensaverStandbySent < CDateTimeSpan(0, 0, 0, iScreensaverDelay))))
+       return;
+     bStandby = m_bStandbyPending;
+     m_bStandbyPending = false;
+     m_ScreensaverStandbySent.SetValid(false);
+     if (bStandby)
+-      m_bGoingToStandby = true;
++      if (m_cecAdapter->IsLibCECActiveSource())
++        m_bGoingToStandby = true;
++      else
++        bStandby = false;
+   }
+ 
+   if (bStandby)
+

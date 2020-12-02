@@ -11,3 +11,7 @@ PKG_DEPENDS_TARGET="toolchain rkmpp gstreamer gst-plugins-base gst-libav gst-plu
 PKG_LONGDESC="The Gstreamer hardware encoder/decoder plugins for Rockchip platform."
 PKG_TOOLCHAIN="autotools"
 PKG_CONFIGURE_OPTS_TARGET="--enable-rockchipmpp"
+
+pre_configure_target() {
+  CFLAGS="$CFLAGS -fcommon"
+}

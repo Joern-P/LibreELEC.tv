@@ -36,7 +36,9 @@ if [ "$PROJECT" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp "
   PKG_NEED_UNPACK+=" $(get_pkg_directory rkmpp)"
   PKG_PATCH_DIRS+=" rkmpp"
-  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3 --enable-encoder=h264_rkmpp --enable-encoder=libx264rgb"
+  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3 \
+  			 --disable-libopenh264 --disable-decoder=h264_v4l2m2m --disable-decoder=vp8_v4l2m2m \
+  			 --disable-decoder=mpeg2_v4l2m2m --disable-decoder=mpeg4_v4l2m2m"
 else
   PKG_FFMPEG_RKMPP="--disable-rkmpp"
 fi

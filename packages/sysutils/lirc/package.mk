@@ -21,6 +21,7 @@ PKG_CONFIGURE_OPTS_TARGET="--enable-devinput \
                            --runstatedir=/run"
 
 pre_configure_target() {
+  export CFLAGS="$CFLAGS -fcommon"
   export HAVE_WORKING_POLL=yes
   export HAVE_UINPUT=yes
   export PYTHON=:

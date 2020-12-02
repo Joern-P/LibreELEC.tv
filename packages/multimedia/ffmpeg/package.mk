@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-# Current branch is: release/4.0-kodi
-PKG_VERSION="b6c4531317ed947902da7b87d07febd69d3b8fb3"
+# Current branch is: release/4.2-kodi
+PKG_VERSION="ed8a98a9b6610c58e20e9f5902ffcb45d65ca990"
 PKG_SHA256=""
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
@@ -44,7 +44,10 @@ if [ "$PROJECT" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp "
   PKG_NEED_UNPACK+=" $(get_pkg_directory rkmpp)"
   PKG_PATCH_DIRS+=" rkmpp"
-  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-librga --enable-version3"
+  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-librga --enable-version3 \
+  			 --disable-libopenh264 --disable-decoder=h264_v4l2m2m --disable-decoder=vp8_v4l2m2m \
+  			 --disable-decoder=mpeg2_v4l2m2m --disable-decoder=mpeg4_v4l2m2m"
+
 else
   PKG_FFMPEG_RKMPP="--disable-rkmpp"
 fi
