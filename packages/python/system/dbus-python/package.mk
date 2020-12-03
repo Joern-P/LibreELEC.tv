@@ -12,7 +12,6 @@ PKG_LONGDESC="D-BUS is a message bus, used for sending messages between applicat
 PKG_BUILD_FLAGS="+lto"
 
 pre_configure_target() {
-  CFLAGS="$CFLAGS -fcommon"
   export PYTHON_CONFIG="$SYSROOT_PREFIX/usr/bin/python2-config"
   export PYTHON_INCLUDES="$($SYSROOT_PREFIX/usr/bin/python2-config --includes)"
   export PYTHON_LIBS="$($SYSROOT_PREFIX/usr/bin/python2-config --ldflags)"

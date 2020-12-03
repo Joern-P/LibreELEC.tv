@@ -12,6 +12,3 @@ PKG_LONGDESC="The Gstreamer hardware encoder/decoder plugins for Rockchip platfo
 PKG_TOOLCHAIN="autotools"
 PKG_CONFIGURE_OPTS_TARGET="--enable-rockchipmpp"
 
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fcommon"
-}

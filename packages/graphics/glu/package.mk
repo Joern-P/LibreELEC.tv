@@ -16,9 +16,4 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-silent-rules \
                            --disable-debug \
                            --disable-osmesa \
                            --with-gnu-ld"
-                           
-
-pre_configure_target() {
-  CFLAGS="$CFLAGS -fcommon"
-}       
 
