@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="dosbox-staging"
-PKG_VERSION="1209db5324c2670f59214ec2f2df1eb793d7e32b"
+PKG_VERSION="84eb66334721dfcfd858a551cf9b854e527aa64e"
 PKG_SHA256=""
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/dosbox-staging/dosbox-staging"
@@ -33,7 +33,6 @@ pre_configure_target() {
                              --enable-dynrec \
                              --enable-unaligned_memory \
                              --enable-fpu \
-                             --enable-opengl \
                              --with-sdl-prefix=${SYSROOT_PREFIX}/usr"
   # Define target CPU arch
   case ${TARGET_CPU} in

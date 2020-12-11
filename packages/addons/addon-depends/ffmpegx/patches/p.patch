@@ -1,0 +1,11 @@
+diff -uNr a/configure b/configure
+--- a/configure	2020-11-30 15:41:42.000000000 +0100
++++ b/configure	2020-12-10 16:51:42.113524089 +0100
+@@ -1833,6 +1833,7 @@
+     v4l2_m2m
+     xvmc
+     librga
++    rkmpp
+ "
+ 
+ # catchall list of things that require external libs to link

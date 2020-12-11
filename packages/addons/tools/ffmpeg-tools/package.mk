@@ -3,7 +3,7 @@
 
 PKG_NAME="ffmpeg-tools"
 PKG_VERSION="2.0"
-PKG_REV="112"
+PKG_REV="116"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://libreelec.tv"
@@ -20,11 +20,15 @@ PKG_ADDON_TYPE="xbmc.python.script"
 addon() {
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/bin/
   cp -L $(get_build_dir ffmpegx)/.INSTALL_PKG/usr/local/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
+  cp -L $(get_build_dir kvazaar)/.install_pkg/usr/bin/* $ADDON_BUILD/$PKG_ADDON_ID/bin
 
   # copy gnutls lib that is needed for ffmpeg
   mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
     cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 \
            $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 \
            $(get_build_dir nettle)/.install_pkg/usr/lib/{libhogweed.so.6,libnettle.so.8} \
+           $(get_build_dir zimg)/.install_pkg/usr/lib/libzimg.so.2 \
+           $(get_build_dir fdk-aac)/.install_pkg/usr/lib/libfdk-aac.so.2 \
+           $(get_build_dir kvazaar)/.install_pkg/usr/lib/libkvazaar.so.6\
            $ADDON_BUILD/$PKG_ADDON_ID/lib
 }

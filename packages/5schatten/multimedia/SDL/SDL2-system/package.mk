@@ -106,7 +106,7 @@ pre_configure_target(){
   if [ "${OPENGL_SUPPORT}" = "yes" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -DVIDEO_OPENGL=ON"
   else
-    PKG_CMAKE_OPTS_TARGET+=" -DVIDEO_OPENGL=ON"
+    PKG_CMAKE_OPTS_TARGET+=" -DVIDEO_OPENGL=OFF"
   fi
 
   # OpenGLES Support
