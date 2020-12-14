@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="ed8a98a9b6610c58e20e9f5902ffcb45d65ca990"
+PKG_VERSION="4.2.4"
 PKG_SHA256=""
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://github.com/Joern-P/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://ffmpeg.org/releases/ffmpeg-$PKG_VERSION.tar.xz"
 PKG_DEPENDS_TARGET="toolchain aom bzip2 gnutls x264-system libvpx-system libvorbis opus x264 zlib rga kvazaar fdk-aac zimg"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding."
 PKG_BUILD_FLAGS="-gold"
@@ -36,7 +36,7 @@ if [ "$PROJECT" = "Rockchip" ]; then
   PKG_DEPENDS_TARGET="$PKG_DEPENDS_TARGET rkmpp "
   PKG_NEED_UNPACK+=" $(get_pkg_directory rkmpp)"
   PKG_PATCH_DIRS+=" rkmpp"
-  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-librga --enable-version3 --enable-vfp --enable-encoder=h264_rkmpp \
+  PKG_FFMPEG_RKMPP="--enable-rkmpp --enable-libdrm --enable-version3 --enable-vfp --enable-encoder=h264_rkmpp \
   			 --disable-libopenh264 --disable-decoder=h264_v4l2m2m --disable-decoder=vp8_v4l2m2m \
   			 --disable-decoder=mpeg2_v4l2m2m --disable-decoder=mpeg4_v4l2m2m \
   			 --enable-hwaccel=h264_rkmpp --enable-hwaccel=hevc_rkmpp"
