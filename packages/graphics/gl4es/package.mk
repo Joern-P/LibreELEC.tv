@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="gl4es"
-PKG_VERSION="a4486d5d65c299559e8e001ee17911221bf04c58" 
+PKG_VERSION="215b5356ea300ec35c9db2f649964a1bc4d30182" 
 PKG_SHA256=""
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/ptitSeb/gl4es/"

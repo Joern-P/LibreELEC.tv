@@ -17,7 +17,7 @@ PKG_PATCH_DIRS="$LINUX"
 
 case "$LINUX" in
   rockchip-4.4)
-    PKG_VERSION="970be69a78eb92a999f5ef9e176f4ea9f4ba9ba2"
+    PKG_VERSION="105886b314180510688e84abc79e6de63911278c"
     PKG_SHA256=""
     PKG_URL="https://github.com/Joern-P/kernel/archive/$PKG_VERSION.tar.gz"
     PKG_SOURCE_NAME="linux-$LINUX-$PKG_VERSION.tar.gz"
