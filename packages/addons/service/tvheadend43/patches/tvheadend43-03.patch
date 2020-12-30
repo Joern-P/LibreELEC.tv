@@ -1,0 +1,2486 @@
+diff -uNr a/docs/html/config_misc.html b/docs/html/config_misc.html
+--- a/docs/html/config_misc.html	1970-01-01 01:00:00.000000000 +0100
++++ b/docs/html/config_misc.html	2020-12-21 15:40:15.343177000 +0100
+@@ -0,0 +1,215 @@
++<div class="hts-doc-text">
++
++ <img src="docresources/configgeneraltab1.png">
++ <br>
++  <img src="docresources/configgeneraltab2.png">
++ 
++ <p>
++ This tabs allow configuration of several general parameters that affect the
++ core TVH functionality.
++ </p>
++
++ <dl>
++	   
++  <br><br>
++  <hr>
++  <b>Language Settings</b>
++  <hr>
++  
++  <dt>Default Language(s)
++  <dd>
++  Select the list of languages (in order of priority) to be used for supplying
++  EPG information to clients that don't provide their own configuration.</dd>
++  <p>
++  <dd>The EPG information is NOT translated, this only applies to EPG providers
++  that give information (titles, descriptions, etc..) in multiple languages.</dd>
++  
++  <br><br>
++  <hr>
++  <b>DVB Scan Files</b>
++  <hr>
++  
++  <dt>DVB scan files path:
++  <dd>
++  Select the path to use for DVB scan configuration files. Typically
++  dvb-apps stores these in /usr/share/dvb/. Leave blank to use TVH's internal
++  file set.</dd>
++
++  <br><br>
++  <hr>
++  <b>Time Update</b>
++  <hr>
++
++  <dd>Tvheadend has a built-in capability to update the system time.
++  However, you should bear in mind that DVB time is not highly accurate and is
++  prone to both jitter and variation between different transponders.</dd>
++  <br>
++  <dd>Where possible, it's probably still better to use an internet based NTP source
++  to synchronise the system clock (i.e. through the underlying operating system).</dd>
++
++  <dl>
++    <dt>Update time</dt>
++    <dd>Enable system time updates. This will only work if the user
++    running TVH has rights to update the system clock (normally only root).</dd>
++ 
++    <dt>Enable NTP driver</dt>
++    <dd>This will create an NTP driver (using shmem interface) that you can feed
++    into ntpd. This can be run without root priviledges, but generally the 
++    performance is not that great.</dd>
++  
++    <dt>Update tolerance (milliseconds)</dt>
++    <dd>Only update the system clock (doesn't affect NTP driver) if the delta
++    between the system clock and DVB time is greater than this. This can help
++    stop excessive oscillations on the system clock.</dd>
++
++   <br><br>
++   <hr>
++   <b>Picon</b>
++   <hr>
++
++   <dd>Picons (from p ersonal icons) are collections of similar icons that can be automatically
++   matched against your channels based on a number of technical parameters that will uniquely 
++   define a channel. The use of these parameters (e.g. mux, frequency, orbital position) 
++   removes the ambiguity of using names - it's not case sensitive, it doesn't care if there 
++   are spaces or not, and so on.
++
++   You can generate picons yourself from existing images, or you can usually find sets 
++   pre-made on the Internet if you search for them. They're a good way to get large numbers 
++   of icons matched quickly, and usually in a similar style (such as square, x * y pixels, with 
++   a consistent highlight/reflection effect).</dd>
++
++   <dl>
++    <dt>Prefer picons over channel name:</dt>
++    <dd>If both a picon and a channel-specific (e.g. channelname.jpg) icon are defined, use the picon.</dd>
++ 
++    <dt>Channel icon path</dt>
++    <dd>Path to an icon for this channel. This can be named however you wish, as a local (file://) or remote (http://) image. 
++        The following placeholders are available:<br>
++	<ul>
++		<li>%C - the transliterated channel name in ASCII (safe characters, no spaces etc.)</li>
++		<li>%c - the channel name (URL encoded ASCII)</li>
++	</ul>
++	Example: file:///tmp/icons/%C.png or http://example.com/%c.png</dd>
++  
++    <dt>Picon path</dt>
++    <dd>Path to a directory (folder) containing your picon collection. This can be named however 
++    you wish, as a local (file://) or remote (http://) location - however, remember that it's pointing 
++    to a directory as the picon names are automatically generated from the service parameters 
++    frequency, orbital position, etc.).<br>
++    Example: file:///home/hts/picons</dd>
++  </dl>
++  
++   <br><br>
++   <hr>
++   <b>HD to SD channels list</b>
++   <hr>
++
++   <dd>When your server allows to transcode channels, you may want to redirect people asking for a HD channel to its SD equivalent.
++   This will reduce the load of your server due to transcoding.
++
++   <dl>
++    <dt>Conversion file path</dt>
++    <dd>This is the path to the file that contains the HD to SD matching. Each line is format as HD_CHANNEL_NAME/SD_CHANNEL_NAME</dd>
++   </dl>
++
++  <br><br>
++  <hr>
++  <b>Image Caching</b>
++  <hr>
++
++  <dd>This will cache any channel icons or other images (such as
++  EPG metadata) to be served from the local webserver. This
++  can be useful for multi-client systems and, generally, to reduce hits on
++  upstream providers.</dd>
++
++  <dl>
++
++  <dt>Enabled
++  <dd>
++  Select whether or not to enable caching. Note: even with this disabled
++  you can still specify local (file://) icons and these will be served by
++  the built-in webserver.
++  
++  <dt>Re-fetch period (hours)
++  <dd>
++  How frequently the upstream provider is checked for changes.
++  
++  <dt>Re-try period (hours)
++  <dd>
++  How frequently it will re-try fetching an image that has failed to be
++  fetched.
++
++  <dt>Ignore invalid SSL certificates
++  <dd>Ignore invalid/unverifiable (expired, self-certified, etc.) certificates
++
++  </dl>
++
++  <br><br>
++  <hr>
++  <b>SAT&gt;IP Server</b>
++  <hr>
++
++  <dd>SAT&gt;IP Server is something like DVB network tuner. TVHeadend can
++  forward mpegts input streams including on-the-fly descramling to SAT&gt;IP
++  clients.</dd>
++
++  <dd>Only networks with the "SAT>IP Source" field set are exported
++  through the SAT&gt;IP protocol. This field is matched through the "src"
++  parameter asked from the SAT>IP client. Usually (and by default) this value is 1.
++  For satellite tuners, this value determines the satellite source (dish).
++  By specification position 1 = DiseqC AA, 2 = DiseqC AB, 3 = DiseqC BA,
++  4 = DiseqC BB, but any numbers may be used - depends on the SAT&gt;IP client.
++  Note that if you use a similar number for multiple networks, the first matched
++  network containing the mux with requested parameters will win
++  (also for unknown mux).</dd>
++
++  <dl>
++
++  <dt>RTSP Port
++  <dd>
++  Select RTSP port (TCP) for realtime commands from SAT&gt;IP clients. Usually
++  (as defined in the specification) this port is 554. But as extension,
++  TVHeadend can use any TCP port value (which is default 9983 for non-root
++  users). But the SAT&gt;IP client must allow to set this value (TVHeadend
++  client will obtain the RTSP port number automatically using the XML
++  description). If the RTSP port value is zero, the SAT&gt;IP server
++  functionality is not enabled.
++
++  <dt>Subscription Weight
++  <dd>
++  Subscription weight value. Default value is 100 (standard streaming). Note
++  that the default value for DVR is 300 (normal priority).
++
++  <dt>Descramble Services
++  <dd>
++  The maximum limit of services descrambled per a mux. If zero, the
++  descrambling functionality is disabled.
++
++  <dt>Muxes Handling
++  <dd>
++  When SAT&gt;IP client requests new mux configuration, tvheadend can handle it
++  in three ways. The auto (0) configuration means that if the mux does not exists,
++  a temporary mux is created and removed when the client closes the
++  connection. The keep (1) configuration will remember all successfuly scanned muxes.
++  The reject (2) configuration will reject unknown muxes.
++
++  <dt>Exported DVB-T/T2 Tuners
++  <dd>
++  Exported DVB-T/T2 tuners - streaming instances.
++
++  <dt>Exported DVB-S/S2 Tuners
++  <dd>
++  Exported DVB-S/S2 tuners - streaming instances.
++
++  <dt>Exported DVB-C/C2 Tuners
++  <dd>
++  Exported DVB-C/C2 tuners - streaming instances.
++
++  <dt>Exported ATSC/DVB-C(AnnexB) Tuners
++  <dd>
++  Exported ATSC/DVB-C(AnnexB) - streaming instances.
++
++  </dl>
++
++ </dl>  
++</div>
+diff -uNr a/docs/html/config_streamprofile.html b/docs/html/config_streamprofile.html
+--- a/docs/html/config_streamprofile.html	1970-01-01 01:00:00.000000000 +0100
++++ b/docs/html/config_streamprofile.html	2020-12-21 15:40:15.343177000 +0100
+@@ -0,0 +1,144 @@
++<div class="hts-doc-text">
++
++  <p>
++    This tab is used to configure streaming profiles.
++  </p>
++
++  <hr/>
++  <b>Stream Profile Types</b>
++  <hr/>
++  
++  <dl>
++    <dt>MPEG-TS Pass-through /build-in</dt>
++    <dd>
++      MPEG-TS pass through muxer (built-in)
++    </dd>
++    
++    <dt>Matroska (mkv) /build-in</dt>
++    <dd>
++      Matroska/WebM muxer (built-in)
++    </dd>
++    
++    <dt>HTSP Stream Profile</dt>
++    <dd>
++      HTSP Default Stream Settings
++    </dd>
++    
++    <dt>MPEG-TS /av-lib</dt>
++    <dd>
++      MPEG-TS stream muxer (libav)
++    </dd>
++    
++    <dt>Matroska /av-lib</dt>
++    <dd>
++      Matroska/WebM muxer (libav)
++    </dd>
++    
++    <dt>Transcode /av-lib</dt>
++    <dd>
++      Transcode video/audio/subtitles to different codecs and containers
++    </dd>
++  </dl>
++
++  <p> </p>
++  
++  <hr/>
++    <b>Transcoding Settings</b>
++  <hr/>
++    
++  <dl>
++
++     <dt><b>Convert to SD</b>
++     <dd>
++       If set, every channel requested will be redirected to its SD equivalent, based on the HD to SD channels conversion file.
++     </dd>
++
++    <dt>Container</dt>
++    <dd>
++      Container to use for transcoded streams.
++    </dd>
++    
++    <dt>Resolution</dt>
++    <dd>
++      Vertical resolution (height) of the output video stream. Horizontal resolution
++      is adjusted automatically to preserve aspect ratio.
++    </dd>
++    
++    <dt>Channels</dt>
++    <dd>
++      Channel layout for audio streams.
++    </dd>
++    
++    <dt>Language</dt>
++    <dd>
++      Currently unused.
++    </dd>
++    
++    <dt>Video Codec</dt>
++    <dd>
++      Codec for video stream.
++      <dl>
++        <dt>Do not use</dt>
++        <dd>Don't output a video stream.</dd>
++        
++        <dt>Copy codec type</dt>
++        <dd>Pass through video stream without transcoding.</dd>
++      </dl>
++    </dd>
++    
++    <dt>Video Bitrate</dt>
++    <dd>
++      Video quality/bitrate of the transcoded video stream.
++      <dl>
++        <dt>0: Automatic Setting (target quality)</dt>
++        <dd>
++          The automatic setting is dependent on the used codec. The respective
++          values used, are 5 for MPEG2 and 15 for H.264 and VP8.
++        </dd>
++        
++        <dt>1-63: Target Quality</dt>
++        <dd>
++          Use the given value to achieve average quality. A lower value results
++          in better quality. The resulting bitrate is dependent on the complexity
++          of the video stream.
++        </dd>
++        
++        <dt>&gt;63: Target Bitrate</dt>
++        <dd>
++          Use the given value to achieve average bitrate. The resulting quality
++          is dependent on the complexity of the video stream.
++        </dd>
++      </dl>
++    </dd>
++    
++    <dt>Audio Codec</dt>
++    <dd>
++      Codec for audio streams.
++      <dl>
++        <dt>Do not use</dt>
++        <dd>Don't output an audio stream.</dd>
++        
++        <dt>Copy codec type</dt>
++        <dd>Pass through audio streams without transcoding.</dd>
++      </dl>
++    </dd>
++    
++    <dt>Audio Bitrate</dt>
++    <dd>
++      Audio bitrate of the transcoded audio streams.
++    </dd>
++    
++    <dt>Subtitles Codec</dt>
++    <dd>
++      Codec for subtitles.
++      <dl>
++        <dt>Do not use</dt>
++        <dd>Don't output subtitles.</dd>
++        
++        <dt>Copy codec type</dt>
++        <dd>Pass through subtitles without transcoding.</dd>
++      </dl>
++    </dd>
++  </dl>
++
++</div>
+diff -uNr a/Makefile b/Makefile
+--- a/Makefile	2020-12-21 15:42:48.938650729 +0100
++++ b/Makefile	2020-12-21 15:40:15.335177000 +0100
+@@ -49,7 +49,7 @@
+ ifneq ($(CFLAGS_NO_WERROR),yes)
+ CFLAGS  += -Werror
+ endif
+-CFLAGS  += -Wall -Wwrite-strings -Wno-deprecated-declarations
++CFLAGS  += -Wall -Wwrite-strings -Wno-deprecated-declarations -Wno-stringop-truncation -Wno-error=stringop-overflow= -Wl,--allow-multiple-definition
+ CFLAGS  += -Wmissing-prototypes
+ CFLAGS  += -fms-extensions -funsigned-char -fno-strict-aliasing
+ ifeq ($(COMPILER), gcc)
+diff -uNr a/Makefile.ffmpeg b/Makefile.ffmpeg
+--- a/Makefile.ffmpeg	2020-12-21 15:42:48.938650729 +0100
++++ b/Makefile.ffmpeg	2020-12-21 15:40:41.787086000 +0100
+@@ -153,6 +153,10 @@
+ 	$(call LIBCACHEGET_TIMESTAMP)
+ 
+ 
++FFMPEG_DIFFS += ffmpeg.logs.diff
++FFMPEG_DIFFS += ffmpeg.logs2.diff
++FFMPEG_DIFFS += ffmpeg.crash.diff
++
+ # ##############################################################################
+ # Build Rules
+ # ##############################################################################
+diff -uNr a/src/access.c b/src/access.c
+--- a/src/access.c	2020-12-21 15:42:49.058650321 +0100
++++ b/src/access.c	2020-12-21 15:40:15.447177000 +0100
+@@ -470,7 +470,7 @@
+   int first;
+ 
+   tvh_strlcatf(buf, sizeof(buf), l,
+-    "%s:%s [%c%c%c%c%c%c%c%c%c%c%c], conn=%u:s%u:r%u:l%u%s",
++    "%s:%s [%c%c%c%c%c%c%c%c%c%c%c], conn=%u:s%u:r%u:ms%u:mr%u:l%u%s",
+     a->aa_representative ?: "<no-id>",
+     a->aa_username ?: "<no-user>",
+     a->aa_rights & ACCESS_STREAMING          ? 'S' : ' ',
+@@ -487,6 +487,8 @@
+     a->aa_conn_limit,
+     a->aa_conn_limit_streaming,
+     a->aa_conn_limit_dvr,
++    a->aa_max_streaming_sessions,
++    a->aa_max_dvr_sessions,
+     a->aa_uilevel,
+     a->aa_match ? ", matched" : "");
+ 
+@@ -582,6 +584,12 @@
+     }
+   }
+ 
++  if (a->aa_max_streaming_sessions < ae->ae_max_streaming_sessions)
++    a->aa_max_streaming_sessions = ae->ae_max_streaming_sessions;
++
++  if (a->aa_max_dvr_sessions < ae->ae_max_dvr_sessions)
++    a->aa_max_dvr_sessions = ae->ae_max_dvr_sessions;
++
+   if (ae->ae_change_uilevel) {
+     a->aa_uilevel = ae->ae_uilevel;
+     a->aa_uilevel_nochange = ae->ae_uilevel_nochange;
+@@ -1909,6 +1917,24 @@
+       .opts     = PO_EXPERT
+     },
+     {
++      .type     = PT_U32,
++      .id       = "max_streaming_sessions",
++      .name     = N_("Max streaming sessions"),
++      .desc     = N_("The number of streaming sessions this user can "
++                     "simulteanously use on the server."),
++      .off      = offsetof(access_entry_t, ae_max_streaming_sessions),
++      .opts     = PO_EXPERT
++    },
++    {
++      .type     = PT_U32,
++      .id       = "max_dvr_sessions",
++      .name     = N_("Max DVR sessions"),
++      .desc     = N_("The number of DVR sessions this user can "
++                     "simulteanously use on the server."),
++      .off      = offsetof(access_entry_t, ae_max_dvr_sessions),
++      .opts     = PO_EXPERT
++    },
++    {
+       .type     = PT_S64,
+       .intextra = CHANNEL_SPLIT,
+       .id       = "channel_min",
+diff -uNr a/src/access.h b/src/access.h
+--- a/src/access.h	2020-12-21 15:42:49.058650321 +0100
++++ b/src/access.h	2020-12-21 15:40:15.447177000 +0100
+@@ -136,6 +136,9 @@
+   uint32_t ae_conn_limit;
+   int ae_change_conn_limit;
+ 
++  uint32_t ae_max_streaming_sessions;
++  uint32_t ae_max_dvr_sessions;
++
+   int ae_xmltv_output_format;
+   int ae_change_xmltv_output_format;
+ 
+@@ -192,6 +195,8 @@
+   uint32_t  aa_conn_limit_dvr;
+   uint32_t  aa_conn_streaming;
+   uint32_t  aa_conn_dvr;
++  uint32_t  aa_max_streaming_sessions;
++  uint32_t  aa_max_dvr_sessions;
+   uint32_t  aa_xmltv_output_format;
+   uint32_t  aa_htsp_output_format;
+   int       aa_uilevel;
+diff -uNr a/src/api/api_mpegts.c b/src/api/api_mpegts.c
+--- a/src/api/api_mpegts.c	2020-12-21 15:42:49.058650321 +0100
++++ b/src/api/api_mpegts.c	2020-12-21 15:40:15.447177000 +0100
+@@ -423,7 +423,7 @@
+     { "mpegts/network/scan",       ACCESS_ADMIN, api_mpegts_network_scan, NULL },
+     { "mpegts/mux/grid",           ACCESS_ADMIN, api_idnode_grid,  api_mpegts_mux_grid },
+     { "mpegts/mux/class",          ACCESS_ADMIN, api_idnode_class, (void*)&mpegts_mux_class },
+-    { "mpegts/service/grid",       ACCESS_ADMIN, api_idnode_grid,  api_mpegts_service_grid },
++    { "mpegts/service/grid",       ACCESS_ADVANCED_STREAMING, api_idnode_grid,  api_mpegts_service_grid },
+     { "mpegts/service/class",      ACCESS_ADMIN, api_idnode_class, (void*)&mpegts_service_class },
+     { "mpegts/mux_sched/class",    ACCESS_ADMIN, api_idnode_class, (void*)&mpegts_mux_sched_class },
+     { "mpegts/mux_sched/grid",     ACCESS_ADMIN, api_idnode_grid, api_mpegts_mux_sched_grid },
+diff -uNr a/src/channels.c b/src/channels.c
+--- a/src/channels.c	2020-12-21 15:42:49.062650307 +0100
++++ b/src/channels.c	2020-12-21 15:40:15.451177000 +0100
+@@ -1998,7 +1998,8 @@
+   LIST_FOREACH(ilm, &ch->ch_services, ilm_in2_link) {
+     service = (const service_t*)ilm->ilm_in1;
+     if ((svf == PROFILE_SVF_SD && service_is_sdtv(service)) ||
+-        (svf == PROFILE_SVF_HD && service_is_hdtv(service)) ||
++        (svf == PROFILE_SVF_HD && service_is_hdtv(service, 0)) ||
++        (svf == PROFILE_SVF_HDPLUS && service_is_hdtv(service, 1)) ||
+         (svf == PROFILE_SVF_FHD && service_is_fhdtv(service)) ||
+         (svf == PROFILE_SVF_UHD && service_is_uhdtv(service))) {
+       return 1;
+diff -uNr a/src/descrambler/capmt.c b/src/descrambler/capmt.c
+--- a/src/descrambler/capmt.c	2020-12-21 15:42:49.062650307 +0100
++++ b/src/descrambler/capmt.c	2020-12-21 15:40:41.787086000 +0100
+@@ -105,7 +105,7 @@
+ #define CAPMT_PMTMODE_UNIVERSAL 2  // use fixed PC boxtype messages
+ 
+ // limits
+-#define MAX_CA       16
++#define MAX_CA       32
+ #define MAX_INDEX    128
+ #define MAX_FILTER   64
+ #define MAX_SOCKETS  16   // max sockets (simultaneous channels) per demux
+@@ -476,6 +476,8 @@
+   capmt_opaque_t *o;
+   int pid, i;
+ 
++  if (!capmt || adapter < 0 || adapter >= MAX_CA)
++    return;
+   tvhtrace(LS_CAPMT, "%s: pid flush for adapter %d", capmt_name(capmt), adapter);
+   ca = &capmt->capmt_adapters[adapter];
+   tuner = capmt->capmt_adapters[adapter].ca_tuner;
+@@ -2458,7 +2460,7 @@
+   th_descrambler_t *td;
+   mpegts_service_t *t = (mpegts_service_t*)s;
+   elementary_stream_t *st;
+-  int tuner = -1, i, change = 0;
++  int tuner = -1, i;
+   char buf[512];
+   caid_t *c, sca;
+   
+@@ -2534,15 +2536,13 @@
+       if (t->s_dvb_forcecaid && t->s_dvb_forcecaid != c->caid)
+         continue;
+       capmt_caid_add(ct, t, st->es_pid, c);
+-      change = 1;
+     }
+   }
+ 
+-  if (!change && t->s_dvb_forcecaid) {
++  if (t->s_dvb_forcecaid) {
+     memset(&sca, 0, sizeof(sca));
+     sca.caid = t->s_dvb_forcecaid;
+     capmt_caid_add(ct, t, 8191, &sca);
+-    change = 1;
+   }
+ 
+   td = (th_descrambler_t *)ct;
+@@ -2574,8 +2574,7 @@
+   tvh_mutex_unlock(&t->s_stream_mutex);
+   tvh_mutex_unlock(&capmt->capmt_mutex);
+ 
+-  if (change)
+-    capmt_notify_server(capmt, NULL, 0);
++  capmt_notify_server(capmt, NULL, 0);
+ }
+ 
+ 
+diff -uNr a/src/descrambler/cclient.c b/src/descrambler/cclient.c
+--- a/src/descrambler/cclient.c	2020-12-21 15:42:49.066650293 +0100
++++ b/src/descrambler/cclient.c	2020-12-21 15:40:15.455177000 +0100
+@@ -408,7 +408,7 @@
+                "%s: Can not descramble service \"%s\", access denied (seqno: %d "
+                "Req delay: %"PRId64" ms) from %s",
+                cc->cc_name, t->s_dvb_svcname, seq, delay, ct->td_nicename);
+-      descrambler_change_keystate((th_descrambler_t *)ct, DS_FORBIDDEN, 1);
++      descrambler_change_keystate((th_descrambler_t *)ct, DS_IDLE, 1);
+       ct->ecm_state = ECM_RESET;
+       /* this pid is not valid, force full scan */
+       if (t->s_dvb_prefcapid == ct->cs_capid &&
+diff -uNr a/src/descrambler/descrambler.c b/src/descrambler/descrambler.c
+--- a/src/descrambler/descrambler.c	2020-12-21 15:42:49.066650293 +0100
++++ b/src/descrambler/descrambler.c	2020-12-21 15:40:15.455177000 +0100
+@@ -422,9 +422,11 @@
+         count++;
+       }
+ 
++#if 0
+     /* Do not run descrambler on FTA channels */
+     if (count == 0)
+       return;
++#endif
+ 
+   } else {
+ 
+diff -uNr a/src/descrambler/emm_reass.c b/src/descrambler/emm_reass.c
+--- a/src/descrambler/emm_reass.c	2020-12-21 15:42:49.066650293 +0100
++++ b/src/descrambler/emm_reass.c	2020-12-21 15:40:15.455177000 +0100
+@@ -150,11 +150,12 @@
+   } else if (data[0] == 0x84) {  // shared emm
+     if (len >= 8) {
+       /* XXX this part is untested but should do no harm */
+-      PROVIDERS_FOREACH(ra, i, ep)
++      PROVIDERS_FOREACH(ra, i, ep) {
+         if (memcmp(&data[5], &ep->sa[4], 3) == 0) {
+           match = 1;
+           break;
+         }
++      }
+     }
+   } else if (data[0] == 0x83) {  // global emm -> seca3
+     match = 1;
+@@ -395,20 +396,79 @@
+   (emm_reass_t *ra, const uint8_t *data, int len, void *mux,
+    emm_send_t send, void *aux)
+ {
+-  int match = 0;
+-  uint8_t hexserial[4];
++  int i, match = 0;
++  emm_provider_t *ep;
+ 
+-  if (data[0] == 0x83) {        // unique|shared
+-    if (len >= 8) {
+-      hexserial[0] = data[5];
+-      hexserial[1] = data[4];
+-      hexserial[2] = data[3];
+-      hexserial[3] = data[6];
+-      if (memcmp(hexserial, &ra->ua[4], (data[7] == 0x10) ? 3 : 4) == 0)
+-        match = 1;
+-    }
+-  } else if (data[0] == 0x82) { // global
+-    match = 1;
++  switch (ra->caid)
++  {
++    case 0x1814:
++      switch (data[0])
++      {
++        // Unique
++        case 0x87:
++          if (len < 9)
++            break;
++          if (!memcmp(data+3, &ra->ua[2], 6)) {
++//            tvhinfo(ra->subsys, "EMM unique match %04X, ua [%02X%02X%02X%02X%02X%02X]", ra->caid,
++//              data[3], data[4], data[5], data[6], data[7], data[8]);
++            match = 1;
++          }
++          break;
++        // Shared
++        case 0x83:
++          if (len < 6)
++            break;
++          PROVIDERS_FOREACH(ra, i, ep) {
++            if (!memcmp(data+3, &ep->sa[4], 3)) {
++//              tvhinfo(ra->subsys, "EMM shared match %04X, sa [%02X%02X%02X]", ra->caid,
++//	        data[3], data[4], data[5]);
++              match = 1;
++            }
++          }
++          break;
++        // Global
++        case 0x84:
++          match = 1;
++          break;
++      }
++      break;
++    default:
++      switch (data[0])
++      {
++        // Unique
++        case 0x82:
++          if (len < 9)
++            break;
++          if (!memcmp(data+3, &ra->ua[2], 6)) {
++//            tvhinfo(ra->subsys, "EMM unique match %04X, ua [%02X%02X%02X%02X%02X%02X]", ra->caid,
++//              data[3], data[4], data[5], data[6], data[7], data[8]);
++            match = 1;
++          }
++          break;
++        // Shared
++        case 0x84:
++        {
++          uint32_t provid;
++          if (len < 8)
++            break;
++          provid = ((data[3]<<8)&0xFF00) | (data[4]&0xFF);
++          PROVIDERS_FOREACH(ra, i, ep) {
++            if (provid == ep->id || (provid == 0 && ep->id == 0xa811)) {
++              if (!memcmp(data+5, &ep->sa[4], 3)) {
++//                tvhinfo(ra->subsys, "EMM shared match %04X:%08X, sa [%02X%02X%02X]", ra->caid, provid,
++//                  data[5], data[6], data[7]);
++                match = 1;
++              }
++            }
++          }
++          break;
++        }
++        // Global
++        case 0x83:
++          match = 1;
++          break;
++      }
++      break;
+   }
+ 
+   if (match)
+diff -uNr a/src/dvr/dvr_autorec.c b/src/dvr/dvr_autorec.c
+--- a/src/dvr/dvr_autorec.c	2020-12-21 15:42:49.066650293 +0100
++++ b/src/dvr/dvr_autorec.c	2020-12-21 15:40:15.455177000 +0100
+@@ -390,6 +390,8 @@
+ {
+   dvr_autorec_entry_t *dae;
+ 
++  return NULL;
++
+   dae = calloc(1, sizeof(*dae));
+ 
+   if (idnode_insert(&dae->dae_id, uuid, &dvr_autorec_entry_class, 0)) {
+diff -uNr a/src/dvr/dvr_db.c b/src/dvr/dvr_db.c
+--- a/src/dvr/dvr_db.c	2020-12-21 15:42:49.070650280 +0100
++++ b/src/dvr/dvr_db.c	2020-12-21 15:40:15.459177000 +0100
+@@ -1738,7 +1738,6 @@
+     return NULL;
+ 
+   record = de->de_autorec->dae_record;
+-
+   switch (record) {
+     case DVR_AUTOREC_RECORD_ALL:
+       return NULL;
+diff -uNr a/src/dvr/dvr_rec.c b/src/dvr/dvr_rec.c
+--- a/src/dvr/dvr_rec.c	2020-12-21 15:42:49.070650280 +0100
++++ b/src/dvr/dvr_rec.c	2020-12-21 15:40:15.459177000 +0100
+@@ -80,7 +80,8 @@
+   struct sockaddr_storage sa;
+   access_t *aa = NULL;
+   uint32_t rec_count, net_count;
+-  int ret = 0, pri, c1, c2;
++  int pri, c1, c2;
++  idnode_list_mapping_t* ilm;
+   struct stat st;
+ 
+   assert(de->de_s == NULL);
+@@ -95,16 +96,15 @@
+ 
+   snprintf(buf, sizeof(buf), "DVR: %s", lang_str_get(de->de_title, NULL));
+ 
+-  if (de->de_owner && de->de_owner[0] != '\0') {
++  if (de->de_owner && de->de_owner[0] != '\0')
+     aa = access_get_by_username(de->de_owner);
+-  } else if (de->de_creator && de->de_creator[0] != '\0' &&
+-           tcp_get_ip_from_str(de->de_creator, &sa) != NULL) {
++  else if (de->de_creator && de->de_creator[0] != '\0' &&
++           tcp_get_ip_from_str(de->de_creator, &sa) != NULL)
+     aa = access_get_by_addr(&sa);
+-  } else {
++  else {
+     tvherror(LS_DVR, "unable to find access (owner '%s', creator '%s')",
+              de->de_owner, de->de_creator);
+-    ret = -EPERM;
+-    goto _return;
++    return -EPERM;
+   }
+ 
+   if (aa->aa_conn_limit || aa->aa_conn_limit_dvr) {
+@@ -119,18 +119,46 @@
+                       "(limit %u, dvr limit %u, active DVR %u, streaming %u)",
+                aa->aa_username ?: "", aa->aa_representative ?: "",
+                aa->aa_conn_limit, aa->aa_conn_limit_dvr, rec_count, net_count);
+-      ret = -EOVERFLOW;
+-      goto _return;
++      access_destroy(aa);
++      return -EOVERFLOW;
+     }
+   }
+ 
++  pro = de->de_config->dvr_profile;
++
++  ilm = LIST_FIRST(&de->de_channel->ch_services);
++  if (ilm)
++  {
++    service_t* ch_first_service = (service_t* )ilm->ilm_in1;
++    if (ch_first_service)
++    {
++      if (aa->aa_max_dvr_sessions)
++      {
++        int count;
++        count = subscription_get_user_count(de->de_creator, 1);
++        if (count >= aa->aa_max_dvr_sessions)
++        {
++          tvherror(LS_DVR, "user [%s] has already %d streaming(s) while the max is %d", de->de_creator?:"no-user", count, aa->aa_max_dvr_sessions);
++          access_destroy(aa);
++          return -EINVAL;
++        }
++      }
++      // Only pass profile for audio only channel
++      if (service_is_radio(ch_first_service))
++      {
++        tvhwarn(LS_WEBUI, "Forcing pass profile for audio only channels");
++        pro = profile_find_by_name("pass", "pass");
++      }
++    }
++  }
++
++  access_destroy(aa);
++
+   if(stat(de->de_config->dvr_storage, &st) || !S_ISDIR(st.st_mode)) {
+     tvherror(LS_DVR, "the directory '%s' is not accessible", de->de_config->dvr_storage);
+-    ret = -EIO;
+-    goto _return;
++    return -EIO;
+   }
+ 
+-  pro = de->de_config->dvr_profile;
+   prch = malloc(sizeof(*prch));
+   profile_chain_init(prch, pro, de->de_channel, 1);
+   if (profile_chain_open(prch, &de->de_config->dvr_muxcnf, NULL, 0, 0)) {
+@@ -142,19 +170,21 @@
+     if (profile_chain_open(prch, &de->de_config->dvr_muxcnf, NULL, 0, 0)) {
+       tvherror(LS_DVR, "unable to create channel streaming default chain '%s' for '%s'",
+                profile_get_name(pro), channel_get_name(de->de_channel, channel_blank_name));
+-      ret = -EINVAL;
+-      goto _return;
++      profile_chain_close(prch);
++      free(prch);
++      return -EINVAL;
+     }
+   }
+ 
+   de->de_s = subscription_create_from_channel(prch, NULL, weight,
+ 					      buf, prch->prch_flags,
+-					      NULL, aa->aa_username ?: "", NULL, NULL);
++					      NULL, 0, de->de_creator, NULL, NULL);
+   if (de->de_s == NULL) {
+     tvherror(LS_DVR, "unable to create new channel subcription for '%s' profile '%s'",
+              channel_get_name(de->de_channel, channel_blank_name), profile_get_name(pro));
+-    ret = -EINVAL;
+-    goto _return;
++    profile_chain_close(prch);
++    free(prch);
++    return -EINVAL;
+   }
+ 
+   de->de_chain = prch;
+@@ -166,15 +196,7 @@
+     dvr_spawn_cmd(de, de->de_config->dvr_preproc, NULL, 1);
+   if (de->de_config->dvr_fetch_artwork)
+     dvr_spawn_fetch_artwork(de);
+-
+-  access_destroy(aa);
+-  return ret;
+-
+-_return:
+-  profile_chain_close(prch);
+-  free(prch);
+-  access_destroy(aa);
+-  return ret;
++  return 0;
+ }
+ 
+ /**
+diff -uNr a/src/esstream.c b/src/esstream.c
+--- a/src/esstream.c	2020-12-21 15:42:49.074650266 +0100
++++ b/src/esstream.c	2020-12-21 15:40:15.463177000 +0100
+@@ -435,7 +435,7 @@
+             ca->use = 1;
+         } else {
+           LIST_FOREACH(ca, &st->es_caids, link)
+-            if (ca->filter & ESFM_USED)
++            if ((ca->filter & ESFM_USED) && !(ca->filter & ESFM_IGNORE))
+               ca->use = 1;
+         }
+       }
+diff -uNr a/src/htsp_server.c b/src/htsp_server.c
+--- a/src/htsp_server.c	2020-12-21 15:42:49.078650253 +0100
++++ b/src/htsp_server.c	2020-12-21 15:40:15.471177000 +0100
+@@ -125,6 +125,7 @@
+ 
+   char *htsp_logname;
+   char *htsp_peername;
++  int  htsp_peerport;
+   char *htsp_username;
+   char *htsp_clientname;
+   char *htsp_language; // for async updates
+@@ -779,7 +780,7 @@
+ 
+     hf->hf_subscription =
+       subscription_create_from_file("HTSP", charset, path,
+-                                    htsp->htsp_peername,
++                                    htsp->htsp_peername, htsp->htsp_peerport,
+                                     htsp->htsp_granted_access->aa_representative,
+                                     htsp->htsp_clientname);
+   }
+@@ -2497,6 +2498,7 @@
+   channel_t *ch;
+   htsp_subscription_t *hs;
+   profile_t *pro;
++  idnode_list_mapping_t* ilm;
+ 
+   if(htsmsg_get_u32(in, "subscriptionId", &sid))
+     return htsp_error(htsp, N_("Invalid arguments"));
+@@ -2548,6 +2550,32 @@
+   }
+ #endif
+ 
++  ilm = LIST_FIRST(&ch->ch_services);
++  if (ilm)
++  {
++    service_t* ch_first_service = (service_t* )ilm->ilm_in1;
++    if (ch_first_service)
++    {
++      if (htsp->htsp_granted_access && htsp->htsp_granted_access->aa_max_streaming_sessions)
++      {
++        int count;
++        count = subscription_get_user_count(htsp->htsp_username, 0);
++        if (count >= htsp->htsp_granted_access->aa_max_streaming_sessions)
++        {
++          tvherror(LS_HTSP, "user [%s] has already %d streaming(s) while the max is %d", htsp->htsp_username?:"no-user", count, htsp->htsp_granted_access->aa_max_streaming_sessions);
++          free(hs);
++          return htsp_error(htsp, "Stream setup error, reach max allowed sessions for streaming");
++        }
++      }
++      // Only pass or fullpass for UHD channels
++      if ((service_is_radio(ch_first_service) ) && profile_id && strcmp(profile_id, "htsp"))
++      {
++        tvhwarn(LS_HTSP, "Forcing htsp profile for audio only channels");
++        profile_id = "htsp";
++      }
++    }
++  }
++
+   pro = profile_find_by_list(htsp->htsp_granted_access->aa_profiles, profile_id,
+                              "htsp", SUBSCRIPTION_PACKET | SUBSCRIPTION_HTSP);
+   profile_chain_init(&hs->hs_prch, pro, ch, 1);
+@@ -2594,6 +2622,7 @@
+ 					      SUBSCRIPTION_PACKET |
+ 					      SUBSCRIPTION_STREAMING,
+ 					      htsp->htsp_peername,
++					      htsp->htsp_peerport,
+ 					      htsp->htsp_granted_access->aa_representative,
+ 					      htsp->htsp_clientname,
+ 					      NULL);
+@@ -3124,7 +3153,7 @@
+                         htsp_verify_callback, &vs);
+ 
+     if (rights->aa_rights == 0) {
+-      tvhinfo(LS_HTSP, "%s: Unauthorized access", htsp->htsp_logname);
++      tvhinfo(LS_HTSP, "%s: Unauthorized access (%s)", htsp->htsp_logname, username);
+       access_destroy(rights);
+       return 0;
+     }
+@@ -3213,7 +3242,7 @@
+   htsmsg_add_str(m, "type", "HTSP");
+   if (htsp->htsp_username) {
+     aa = htsp->htsp_granted_access;
+-    if (!strcmp(htsp->htsp_username, aa->aa_username ?: ""))
++    if (!strcmp(htsp->htsp_username, (aa && aa->aa_username) ?aa->aa_username: ""))
+       snprintf(buf, sizeof(buf), "%s", htsp->htsp_username);
+     else
+       snprintf(buf, sizeof(buf), "[%s]", htsp->htsp_username);
+@@ -3416,13 +3445,14 @@
+   htsp_connection_t htsp;
+   char buf[50];
+   htsp_subscription_t *s;
+-  
++  int port;
++
+   // Note: global_lock held on entry
+ 
+   if (config.dscp >= 0)
+     socket_set_dscp(fd, config.dscp, NULL, 0);
+ 
+-  tcp_get_str_from_ip(source, buf, 50);
++  tcp_get_str_from_ip_port(source, buf, 50, &port);
+ 
+   memset(&htsp, 0, sizeof(htsp_connection_t));
+   *opaque = &htsp;
+@@ -3434,6 +3464,7 @@
+   htsp_init_queue(&htsp.htsp_hmq_epg, 0);
+ 
+   htsp.htsp_peername = strdup(buf);
++  htsp.htsp_peerport = port;
+   htsp_update_logname(&htsp);
+ 
+   htsp.htsp_fd = fd;
+diff -uNr a/src/http.c b/src/http.c
+--- a/src/http.c	2020-12-21 15:42:49.078650253 +0100
++++ b/src/http.c	2020-12-21 15:40:15.471177000 +0100
+@@ -60,6 +60,9 @@
+   { "RTSP/1.0",        RTSP_VERSION_1_0 },
+ };
+ 
++
++static void http_log(http_connection_t *hc, http_path_t *hp);
++
+ /**
+  *
+  */
+@@ -858,7 +861,9 @@
+                hd->hd_data_size - hd->hd_data_off,
+                MSG_DONTWAIT | (TAILQ_NEXT(hd, hd_link) ? MSG_MORE : 0));
+       serr = errno;
+-    } while (r < 0 && serr == EINTR);
++      if (r < 0 && serr == EAGAIN)
++        tvh_safe_usleep(10000);
++    } while (r < 0 && (serr == EINTR || serr == EAGAIN));
+     if (r > 0 && r + hd->hd_data_off >= hd->hd_data_size) {
+       atomic_dec(&hc->hc_extra_chunks, 1);
+       htsbuf_data_free(&hc->hc_extra, hd);
+@@ -1244,6 +1249,7 @@
+       goto destroy;
+   }
+   err = hp->hp_callback(hc, remain, hp->hp_opaque);
++  http_log(hc, hp);
+ destroy:
+   access_destroy(hc->hc_access);
+   hc->hc_access = NULL;
+@@ -1416,6 +1422,8 @@
+   char *v, *argv[2];
+   int n, rval = -1;
+   char authbuf[150];
++  int port;
++  
+ 
+   hc->hc_url_orig = tvh_strdupa(hc->hc_url);
+ 
+@@ -1432,9 +1440,10 @@
+     }
+   }
+ 
+-  tcp_get_str_from_ip(hc->hc_peer, authbuf, sizeof(authbuf));
++  tcp_get_str_from_ip_port(hc->hc_peer, authbuf, sizeof(authbuf), &port);
+ 
+   hc->hc_peer_ipstr = tvh_strdupa(authbuf);
++  hc->hc_peer_port = port;
+   hc->hc_representative = hc->hc_peer_ipstr;
+   hc->hc_username = NULL;
+   hc->hc_password = NULL;
+@@ -2140,3 +2149,30 @@
+   }
+   tvh_mutex_unlock(&global_lock);
+ }
++
++static void http_log(http_connection_t *hc, http_path_t *hp)
++{
++  char buffer[512], t[128], path[512];
++  struct tm tm;
++  struct timeval time;
++  FILE *file = NULL;
++
++  if (hp && hp->hp_path && !strstr(hp->hp_path, "extjs"))
++	return;
++
++  hts_settings_buildpath(path, sizeof(path), "http_access.log");
++
++  file=fopen(path, "a");
++  if (file)
++  {
++    gettimeofday(&time, NULL);
++    localtime_r(&time.tv_sec, &tm);
++    strftime(t, sizeof(t), "%F %T", &tm); // %d %H:%M:%S", &tm);
++
++    sprintf(buffer, "%s#%s#%s@%d#%s#%s\n", t, hc->hc_username?:"", hc->hc_peer_ipstr?:"", hc->hc_peer_port, hp?(hp->hp_path?:""):"", config_get_server_name());
++
++    fwrite(buffer, strlen(buffer), 1, file);
++    fclose(file);
++  }
++}
++
+diff -uNr a/src/http.h b/src/http.h
+--- a/src/http.h	2020-12-21 15:42:49.078650253 +0100
++++ b/src/http.h	2020-12-21 15:40:15.471177000 +0100
+@@ -143,6 +143,7 @@
+   int hc_fd;
+   struct sockaddr_storage *hc_peer;
+   char *hc_peer_ipstr;
++  int hc_peer_port;
+   struct sockaddr_storage *hc_self;
+   char *hc_representative;
+   struct sockaddr_storage *hc_proxy_ip;
+diff -uNr a/src/input/mpegts/iptv/iptv_libav.c b/src/input/mpegts/iptv/iptv_libav.c
+--- a/src/input/mpegts/iptv/iptv_libav.c	2020-12-21 15:42:49.086650226 +0100
++++ b/src/input/mpegts/iptv/iptv_libav.c	2020-12-21 15:40:15.475177000 +0100
+@@ -120,14 +120,14 @@
+       tvherror(LS_IPTV, "libav: Failed allocating output stream");
+       goto fail;
+     }
+-    ret = avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
++    ret = avcodec_copy_context(out_stream->codec, in_stream->codec);
+     if (ret < 0) {
+       tvherror(LS_IPTV, "libav: Failed to copy context from input to output stream codec context: %s", av_err2str(ret));
+       goto fail;
+     }
+     out_stream->codec->codec_tag = 0;
+-    if (la->octx->oformat->flags & AVFMT_GLOBALHEADER)
+-      out_stream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
++/*    if (la->octx->oformat->flags & AVFMT_GLOBALHEADER)
++      out_stream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;*/
+   }
+ 
+   ret = avformat_write_header(la->octx, NULL);
+diff -uNr a/src/input/mpegts/linuxdvb/linuxdvb_adapter.c b/src/input/mpegts/linuxdvb/linuxdvb_adapter.c
+--- a/src/input/mpegts/linuxdvb/linuxdvb_adapter.c	2020-12-21 15:42:49.086650226 +0100
++++ b/src/input/mpegts/linuxdvb/linuxdvb_adapter.c	2020-12-21 15:40:15.479177000 +0100
+@@ -347,7 +347,7 @@
+ static void
+ linuxdvb_adapter_add ( const char *path )
+ {
+-  extern int linuxdvb_adapter_mask;
++  extern uint64_t linuxdvb_adapter_mask;
+   int a, i, j, r, fd;
+   char fe_path[512], dmx_path[512], dvr_path[512], name[132];
+ #if ENABLE_LINUXDVB_CA
+@@ -371,6 +371,7 @@
+   dvb_fe_type_t fetypes[DVB_TYPE_LAST+1];
+   struct dtv_property cmd;
+ #endif
++  uint64_t one = 1;
+ 
+   tvhtrace(LS_LINUXDVB, "scanning adapter %s", path);
+ 
+@@ -378,7 +379,7 @@
+   if (sscanf(path, "/dev/dvb/adapter%d", &a) != 1)
+     return;
+ 
+-  if (a >= 0 && a < 32 && (linuxdvb_adapter_mask & (1 << a)) == 0)
++  if (a >= 0 && a < 64 && (linuxdvb_adapter_mask & (one << a)) == 0)
+     return;
+ 
+   /* Note: some of the below can take a while, so we relinquish the lock
+diff -uNr a/src/input/mpegts/linuxdvb/linuxdvb.c b/src/input/mpegts/linuxdvb/linuxdvb.c
+--- a/src/input/mpegts/linuxdvb/linuxdvb.c	2020-12-21 15:42:49.086650226 +0100
++++ b/src/input/mpegts/linuxdvb/linuxdvb.c	2020-12-21 15:40:15.479177000 +0100
+@@ -22,9 +22,9 @@
+ #include "settings.h"
+ #include "linuxdvb_private.h"
+ 
+-int linuxdvb_adapter_mask;
++uint64_t linuxdvb_adapter_mask;
+ 
+-void linuxdvb_init ( int adapter_mask )
++void linuxdvb_init ( uint64_t adapter_mask )
+ {
+   linuxdvb_adapter_mask = adapter_mask;
+ 
+diff -uNr a/src/input/mpegts/linuxdvb.h b/src/input/mpegts/linuxdvb.h
+--- a/src/input/mpegts/linuxdvb.h	2020-12-21 15:42:49.086650226 +0100
++++ b/src/input/mpegts/linuxdvb.h	2020-12-21 15:40:15.479177000 +0100
+@@ -20,7 +20,7 @@
+ #ifndef __TVH_LINUX_DVB_H__
+ #define __TVH_LINUX_DVB_H__
+ 
+-void linuxdvb_init ( int mask );
++void linuxdvb_init ( uint64_t mask );
+ 
+ void linuxdvb_done ( void );
+ 
+diff -uNr a/src/input/mpegts/mpegts_input.c b/src/input/mpegts/mpegts_input.c
+--- a/src/input/mpegts/mpegts_input.c	2020-12-21 15:42:49.090650212 +0100
++++ b/src/input/mpegts/mpegts_input.c	2020-12-21 15:40:15.479177000 +0100
+@@ -1177,7 +1177,7 @@
+ 
+   tvh_mutex_lock(&mi->mi_input_lock);
+   if (mmi->mmi_mux->mm_active == mmi) {
+-    if (mi->mi_input_queue_size < 50*1024*1024) {
++    if (mi->mi_input_queue_size < 128*1024*1024) {
+       mi->mi_input_queue_size += len;
+       memoryinfo_alloc(&mpegts_input_queue_memoryinfo, sizeof(mpegts_packet_t) + len);
+       mpegts_mux_grab(mp->mp_mux);
+diff -uNr a/src/input/mpegts/mpegts_service.c b/src/input/mpegts/mpegts_service.c
+--- a/src/input/mpegts/mpegts_service.c	2020-12-21 15:42:49.090650212 +0100
++++ b/src/input/mpegts/mpegts_service.c	2020-12-21 15:40:15.483177000 +0100
+@@ -260,6 +260,7 @@
+       .off      = offsetof(mpegts_service_t, s_dvb_last_seen),
+       .opts     = PO_ADVANCED | PO_RDONLY,
+     },
++
+     {},
+   }
+ };
+@@ -349,14 +350,13 @@
+     /* Set weight to -1 (forced) for already active mux */
+     if (mmi->mmi_mux->mm_active == mmi) {
+       w = -1;
+-      p = -1;
+     } else {
+       w = mi->mi_get_weight(mi, mmi->mmi_mux, flags, weight);
+-      p = mi->mi_get_priority(mi, mmi->mmi_mux, flags);
+       if (w > 0 && mi->mi_free_weight &&
+           weight >= mi->mi_free_weight && w < mi->mi_free_weight)
+         w = 0;
+     }
++    p = mi->mi_get_priority(mi, mmi->mmi_mux, flags);
+ 
+     service_instance_add(sil, t, mi->mi_instance, mi->mi_name, p, w);
+     added++;
+diff -uNr a/src/input/mpegts/satip/satip_frontend.c b/src/input/mpegts/satip/satip_frontend.c
+--- a/src/input/mpegts/satip/satip_frontend.c	2020-12-21 15:42:49.090650212 +0100
++++ b/src/input/mpegts/satip/satip_frontend.c	2020-12-21 15:40:41.779086000 +0100
+@@ -1012,20 +1012,23 @@
+    */
+   tvh_mutex_lock(&mmi->tii_stats_mutex);
+   while (len >= 12) {
+-    if ((rtcp[0] & 0xc0) != 0x80)	        /* protocol version: v2 */
++    if ((rtcp[0] & 0xc0) != 0x80 && rtcp[0] != '$')            /* protocol version: v2 */
+       goto fail;
+-    l = (((rtcp[2] << 8) | rtcp[3]) + 1) * 4;   /* length of payload */
+-    if (rtcp[1]  ==  204 && l > 20 &&           /* packet type */
++    // Compute size differently when TCP mode is activated 
++    if (rtcp[1]  ==  1)
++      l = ((rtcp[2] << 8) | rtcp[3])+4;   /* length of payload */
++    else
++      l = (((rtcp[2] << 8) | rtcp[3]) + 1) * 4;   /* length of payload */
++    if ((rtcp[1]  ==  204 || rtcp[1]  == 1 ) && l > 20 &&           /* packet type */
+         rtcp[8]  == 'S'  && rtcp[9]  == 'E' &&
+         rtcp[10] == 'S'  && rtcp[11] == '1') {
+-      /* workaround for broken minisatip */
+       if (l > len && l - 4 != len)
+         goto fail;
+       sl = (rtcp[14] << 8) | rtcp[15];
+       if (sl > 0 && l - 16 >= sl) {
+         rtcp[sl + 16] = '\0';
+         s = (char *)rtcp + 16;
+-        tvhtrace(LS_SATIP, "Status string: '%s'", s);
++        tvhdebug(LS_SATIP, "Status string: '%s'", s);
+         status = SIGNAL_NONE;
+         if (strncmp(s, "ver=1.2;src=1;tuner=", 20) == 0) {
+           /* broken FritzBox 6490/6590 */
+@@ -1037,6 +1040,7 @@
+ __ver12:
+           if (n < 4)
+             goto fail;
++	  // TODO: To comment ??
+           if (atoi(argv[0]) != lfe->sf_number && device->sd_sig_tunerno)
+             goto fail;
+           mmi->tii_stats.signal =
+@@ -1062,6 +1066,7 @@
+           n = http_tokenize(s, argv, ARRAY_SIZE(argv), ',');
+           if (n < 4)
+             goto fail;
++	  // TODO: To comment ??
+           if (atoi(argv[0]) != lfe->sf_number && device->sd_sig_tunerno)
+             goto fail;
+           mmi->tii_stats.signal =
+@@ -1078,6 +1083,7 @@
+           n = http_tokenize(s + 14, argv, 4, ',');
+           if (n < 4)
+             goto fail;
++	  // TODO: To comment ??
+           if (atoi(argv[0]) != lfe->sf_number && device->sd_sig_tunerno)
+             goto fail;
+           mmi->tii_stats.signal =
+@@ -1553,8 +1559,8 @@
+   } else if (b[1] == 1) {
+ 
+     /* note: satip_frontend_decode_rtcp puts '\0' at the end (string termination) */
+-    len -= 4;
+-    memmove(b, b + 4, len);
++//    len -= 4;
++//    memmove(b, b + 4, len);
+ 
+     tvh_mutex_lock(&lfe->sf_dvr_lock);
+     if (lfe->sf_req == lfe->sf_req_thread)
+diff -uNr a/src/input/mpegts/tsdemux.c b/src/input/mpegts/tsdemux.c
+--- a/src/input/mpegts/tsdemux.c	2020-12-21 15:42:49.094650198 +0100
++++ b/src/input/mpegts/tsdemux.c	2020-12-21 15:40:15.487177000 +0100
+@@ -55,13 +55,15 @@
+       cc = tsb2[3] & 0xf;
+       if(st->es_cc != -1 && cc != st->es_cc) {
+         /* Let the hardware to stabilize and don't flood the log */
+-        if (t->s_start_time + sec2mono(1) < mclk() &&
++        if (t->s_start_time + sec2mono(5) < mclk() &&
+             tvhlog_limit(&st->es_cc_log, 10))
++        {
+           tvhwarn(LS_TS, "%s Continuity counter error (total %zi)",
+                          st->es_nicename, st->es_cc_log.count);
+-        if (!error)
+-          errors++;
+-        error |= 2;
++          if (!error)
++            errors++;
++          error |= 2;
++        }
+       }
+       st->es_cc = (cc + 1) & 0xf;
+     }
+diff -uNr a/src/input/mpegts.c b/src/input/mpegts.c
+--- a/src/input/mpegts.c	2020-12-21 15:42:49.082650239 +0100
++++ b/src/input/mpegts.c	2020-12-21 15:40:15.471177000 +0100
+@@ -26,7 +26,7 @@
+ extern memoryinfo_t mpegts_input_table_memoryinfo;
+ 
+ void
+-mpegts_init ( int linuxdvb_mask, int nosatip, str_list_t *satip_client,
++mpegts_init ( uint64_t linuxdvb_mask, int nosatip, str_list_t *satip_client,
+               str_list_t *tsfiles, int tstuners )
+ {
+   /* Register classes (avoid API 400 errors due to not yet defined) */
+diff -uNr a/src/input/mpegts.h b/src/input/mpegts.h
+--- a/src/input/mpegts.h	2020-12-21 15:42:49.082650239 +0100
++++ b/src/input/mpegts.h	2020-12-21 15:40:15.471177000 +0100
+@@ -75,7 +75,7 @@
+  * Setup / Tear down
+  * *************************************************************************/
+ 
+-void mpegts_init ( int linuxdvb_mask, int nosatip, str_list_t *satip_client,
++void mpegts_init ( uint64_t linuxdvb_mask, int nosatip, str_list_t *satip_client,
+                    str_list_t *tsfiles, int tstuners );
+ void mpegts_done ( void );
+ 
+diff -uNr a/src/main.c b/src/main.c
+--- a/src/main.c	2020-12-21 15:42:49.094650198 +0100
++++ b/src/main.c	2020-12-21 15:40:15.491177000 +0100
+@@ -787,7 +787,7 @@
+   int i;
+   sigset_t set;
+ #if ENABLE_MPEGTS
+-  uint32_t adapter_mask = 0;
++  uint64_t adapter_mask = 0;
+ #endif
+   int  log_level   = LOG_INFO;
+   int  log_options = TVHLOG_OPT_MILLIS | TVHLOG_OPT_STDERR | TVHLOG_OPT_SYSLOG;
+@@ -1035,7 +1035,7 @@
+     p = strtok_r(dvb_adapters, ",", &r);
+     while (p) {
+       int a = strtol(p, &e, 10);
+-      if (*e != 0 || a > 31) {
++      if (*e != 0 || a > 63) {
+         fprintf(stderr, _("Invalid adapter number '%s'\n"), p);
+         free(dvb_adapters);
+         return 1;
+@@ -1043,8 +1043,10 @@
+       i = 1;
+       if (a < 0)
+         adapter_mask = 0;
+-      else
+-        adapter_mask |= (1 << a);
++      else {
++        uint64_t one = 1;
++        adapter_mask |= (one << a);
++      }
+       p = strtok_r(NULL, ",", &r);
+     }
+     free(dvb_adapters);
+diff -uNr a/src/plumbing/tsfix.c b/src/plumbing/tsfix.c
+--- a/src/plumbing/tsfix.c	2020-12-21 15:42:49.098650184 +0100
++++ b/src/plumbing/tsfix.c	2020-12-21 15:40:15.499177000 +0100
+@@ -266,11 +266,11 @@
+         }
+ 	tfs->tfs_bad_dts++;
+         if (tfs->tfs_bad_dts < 5) {
+-	  tvherror(LS_TSFIX,
++/*	  tvherror(LS_TSFIX,
+ 		   "transport stream %s, DTS discontinuity. "
+ 		   "DTS = %" PRId64 ", last = %" PRId64,
+ 		   streaming_component_type2txt(tfs->tfs_type),
+-		   dts, tfs->tfs_last_dts_norm);
++		   dts, tfs->tfs_last_dts_norm); */
+ 	}
+       } else {
+ 	/* DTS wrapped, increase upper bits */
+@@ -371,7 +371,7 @@
+   } else if (tfs->tfs_type == SCT_TELETEXT) {
+     diff = tsfix_ts_diff(tf->tf_tsref, pkt->pkt_dts);
+     if (diff > 2 * 90000) {
+-      tvhwarn(LS_TSFIX, "The timediff for TELETEXT is big (%"PRId64"), using current dts", diff);
++      //tvhwarn(LS_TSFIX, "The timediff for TELETEXT is big (%"PRId64"), using current dts", diff);
+       tfs->tfs_local_ref = pkt->pkt_dts;
+     } else {
+       tfs->tfs_local_ref = tf->tf_tsref;
+diff -uNr a/src/profile.c b/src/profile.c
+--- a/src/profile.c	2020-12-21 15:42:49.102650171 +0100
++++ b/src/profile.c	2020-12-21 15:40:15.499177000 +0100
+@@ -272,12 +272,47 @@
+     { N_("None"),                       PROFILE_SVF_NONE },
+     { N_("SD: standard definition"),    PROFILE_SVF_SD },
+     { N_("HD: high definition"),        PROFILE_SVF_HD },
++    { N_("HDPLUS: high definition"),     PROFILE_SVF_HDPLUS },
+     { N_("FHD: full high definition"), PROFILE_SVF_FHD },
+     { N_("UHD: ultra high definition"), PROFILE_SVF_UHD },
+   };
+   return strtab2htsmsg(tab, 1, lang);
+ }
+ 
++static idnode_slist_t profile_class_svignore_slist[] = {
++  { .id = "none", .name = N_("None"), .off = offsetof(profile_t, pro_svignore_none) },
++  { .id = "sd", .name = N_("SD: standard definition"), .off = offsetof(profile_t, pro_svignore_sd) },
++  { .id = "hd", .name = N_("HD: high definition"), .off = offsetof(profile_t, pro_svignore_hd) },
++  { .id = "hdplus", .name = N_("HD+: high+ definition"), .off = offsetof(profile_t, pro_svignore_hdplus) },
++  { .id = "fhd", .name = N_("FHD: full high definition"), .off = offsetof(profile_t, pro_svignore_fhd) },
++  { .id = "uhd", .name = N_("UHD: ultra high definition"), .off = offsetof(profile_t, pro_svignore_uhd) },
++  {}
++};
++
++static htsmsg_t *
++profile_class_svignore_enum ( void *obj, const char *lang )
++{
++  return idnode_slist_enum(obj, profile_class_svignore_slist, lang);
++}
++
++static const void *
++profile_class_svignore_get ( void *obj )
++{
++  return idnode_slist_get(obj, profile_class_svignore_slist);
++}
++
++static char *
++profile_class_svignore_rend ( void *obj, const char *lang )
++{
++  return idnode_slist_rend(obj, profile_class_svignore_slist, lang);
++}
++
++static int
++profile_class_svignore_set ( void *obj, const void *p )
++{
++  return idnode_slist_set(obj, profile_class_svignore_slist, p);
++}
++
+ CLASS_DOC(profile)
+ 
+ const idclass_t profile_class =
+@@ -439,6 +474,19 @@
+       .def.i    = PROFILE_SVF_NONE,
+       .group    = 1
+     },
++    {
++      .type     = PT_STR,
++      .islist   = 1,
++      .id       = "svignore",
++      .name     = N_("Ignore service video types"),
++      .desc     = N_("The selected video type will be ignored."),
++      .list     = profile_class_svignore_enum,
++      .set      = profile_class_svignore_set,
++      .get      = profile_class_svignore_get,
++      .rend     = profile_class_svignore_rend,
++      .opts     = PO_SORTKEY | PO_ADVANCED | PO_DOC_NLIST,
++      .group    = 1
++    },
+     { }
+   }
+ };
+diff -uNr a/src/profile.h b/src/profile.h
+--- a/src/profile.h	2020-12-21 15:42:49.102650171 +0100
++++ b/src/profile.h	2020-12-21 15:40:15.499177000 +0100
+@@ -41,6 +41,7 @@
+   PROFILE_SVF_NONE = 0,
+   PROFILE_SVF_SD,
+   PROFILE_SVF_HD,
++  PROFILE_SVF_HDPLUS,
+   PROFILE_SVF_FHD,
+   PROFILE_SVF_UHD
+ } profile_svfilter_t;
+@@ -125,6 +126,13 @@
+   int pro_swservice;
+   int pro_svfilter;
+ 
++  int pro_svignore_none;
++  int pro_svignore_sd;
++  int pro_svignore_hd;
++  int pro_svignore_hdplus;
++  int pro_svignore_fhd;
++  int pro_svignore_uhd;
++
+   void (*pro_free)(struct profile *pro);
+   void (*pro_conf_changed)(struct profile *pro);
+ 
+diff -uNr a/src/satip/rtp.c b/src/satip/rtp.c
+--- a/src/satip/rtp.c	2020-12-21 15:42:49.102650171 +0100
++++ b/src/satip/rtp.c	2020-12-21 15:40:15.503177000 +0100
+@@ -386,6 +386,11 @@
+   tvhdebug(LS_SATIPS, "RTP streaming to %s:%d open", peername,
+            tcp ? ntohs(IP_PORT(rtp->peer)) : rtp->port);
+ 
++  if (!sq) {
++    tvherror(LS_SATIPS, "RTP sq NULL error!");
++    return NULL;
++  }
++
+   tvh_mutex_lock(&sq->sq_mutex);
+   while (rtp->sq && !fatal) {
+     sm = TAILQ_FIRST(&sq->sq_queue);
+@@ -963,7 +968,6 @@
+           tcp_get_str_from_ip(&rtp->peer2, addrbuf, sizeof(addrbuf));
+           tvhwarn(LS_SATIPS, "RTCP send to error %s:%d : %s",
+                   addrbuf, ntohs(IP_PORT(rtp->peer2)), strerror(err));
+-        } else {
+           rtp->disable_rtcp = 1;
+         }
+       }
+diff -uNr a/src/service.c b/src/service.c
+--- a/src/service.c	2020-12-21 15:42:49.102650171 +0100
++++ b/src/service.c	2020-12-21 15:40:15.503177000 +0100
+@@ -41,6 +41,7 @@
+ static htsmsg_t *service_class_save(struct idnode *self, char *filename, size_t fsize);
+ static void service_class_load(struct idnode *self, htsmsg_t *conf);
+ static int service_make_nicename0(service_t *t, char *buf, size_t len, int adapter);
++static int service_is_allowed(service_t *t, profile_t *pro);
+ 
+ struct service_queue service_all;
+ struct service_queue service_raw_all;
+@@ -148,6 +149,7 @@
+     { N_("Radio"),             ST_RADIO },
+     { N_("SD TV"),             ST_SDTV  },
+     { N_("HD TV"),             ST_HDTV  },
++    { N_("HD+ TV"),            ST_HDTVPLUS  },
+     { N_("FHD TV"),            ST_FHDTV },
+     { N_("UHD TV"),            ST_UHDTV }
+   };
+@@ -259,7 +261,8 @@
+ 
+   t->s_stop_feed(t);
+ 
+-  descrambler_service_stop(t);
++  // Now done in subscription_unlink_service0 to avoid crash to due NC server threads
++  // descrambler_service_stop(t);
+ 
+   tvh_mutex_lock(&t->s_stream_mutex);
+ 
+@@ -385,6 +388,9 @@
+       }
+     }
+   }
++
++  /* Fix hd prio mode */
++#if 1
+   TAILQ_FOREACH(si, sil, si_link) {
+     si->si_mark = 1;
+     if (r && (flags & SUBSCRIPTION_SWSERVICE) != 0) {
+@@ -393,6 +399,7 @@
+           next->si_error = MAX(next->si_error, si->si_error);
+     }
+   }
++#endif
+ 
+   r = 0;
+   if (ch) {
+@@ -400,13 +407,15 @@
+       *error = SM_CODE_SVC_NOT_ENABLED;
+       return NULL;
+     }
++#if 0
+     LIST_FOREACH(ilm, &ch->ch_services, ilm_in2_link) {
+       s = (service_t *)ilm->ilm_in1;
+-      if (s->s_is_enabled(s, flags)) {
++      if (s->s_is_enabled(s, flags) && service_is_allowed(s, pro)) {
+         if (pro == NULL ||
+             pro->pro_svfilter == PROFILE_SVF_NONE ||
+             (pro->pro_svfilter == PROFILE_SVF_SD && service_is_sdtv(s)) ||
+-            (pro->pro_svfilter == PROFILE_SVF_HD && service_is_hdtv(s)) ||
++            (pro->pro_svfilter == PROFILE_SVF_HD && service_is_hdtv(s, 0)) ||
++            (pro->pro_svfilter == PROFILE_SVF_HDPLUS && service_is_hdtv(s, 1)) ||
+             (pro->pro_svfilter == PROFILE_SVF_FHD && service_is_fhdtv(s)) ||
+             (pro->pro_svfilter == PROFILE_SVF_UHD && service_is_uhdtv(s))) {
+           r1 = s->s_enlist(s, ti, sil, flags, weight);
+@@ -415,6 +424,7 @@
+         }
+       }
+     }
++
+     /* find a valid instance, no error and "user" idle */
+     TAILQ_FOREACH(si, sil, si_link)
+       if (si->si_weight < SUBSCRIPTION_PRIO_MIN && si->si_error == 0) break;
+@@ -423,7 +433,7 @@
+         pro->pro_svfilter == PROFILE_SVF_SD) {
+       LIST_FOREACH(ilm, &ch->ch_services, ilm_in2_link) {
+         s = (service_t *)ilm->ilm_in1;
+-        if (s->s_is_enabled(s, flags) && service_is_hdtv(s)) {
++        if (s->s_is_enabled(s, flags) && service_is_hdtv(s, 0) && service_is_allowed(s, pro)) {
+           r1 = s->s_enlist(s, ti, sil, flags, weight);
+           if (r1 && r == 0)
+             r = r1;
+@@ -480,11 +490,12 @@
+       TAILQ_FOREACH(si, sil, si_link)
+         if (si->si_weight < SUBSCRIPTION_PRIO_MIN && si->si_error == 0) break;
+     }
++#endif
+     /* fallback, enlist all instances */
+     if (si == NULL) {
+       LIST_FOREACH(ilm, &ch->ch_services, ilm_in2_link) {
+         s = (service_t *)ilm->ilm_in1;
+-        if (s->s_is_enabled(s, flags)) {
++        if (s->s_is_enabled(s, flags) && service_is_allowed(s, pro)) {
+           r1 = s->s_enlist(s, ti, sil, flags, weight);
+           if (r1 && r == 0)
+             r = r1;
+@@ -496,13 +507,14 @@
+         r = 0;
+         break;
+       }
+-  } else {
++  } else if (!service_is_allowed(s, pro) || !s->s_is_enabled(s, flags)) {
+     if (!s->s_is_enabled(s, flags)) {
+       *error = SM_CODE_SVC_NOT_ENABLED;
+       return NULL;
+     }
+-    r = s->s_enlist(s, ti, sil, flags, weight);
+   }
++  else
++    r = s->s_enlist(s, ti, sil, flags, weight);
+ 
+   /* Clean */
+   for(si = TAILQ_FIRST(sil); si != NULL; si = next) {
+@@ -533,39 +545,71 @@
+              si->si_error, streaming_code2txt(si->si_error));
+   }
+ 
++#if 0
+   /* Already running? */
+   TAILQ_FOREACH(si, sil, si_link)
+     if (si->si_s->s_status == SERVICE_RUNNING && si->si_error == 0) {
+       tvhtrace(LS_SERVICE, "return already running %p", si);
+       return si;
+     }
++#endif
+ 
+   /* Forced, handle priority settings */
+   si = NULL;
+-  TAILQ_FOREACH(next, sil, si_link)
++/*  TAILQ_FOREACH(next, sil, si_link)
+     if (next->si_weight < 0 && next->si_error == 0)
+       if (si == NULL || next->si_prio > si->si_prio)
+-        si = next;
++        si = next;*/
+ 
++#if 0
+   /* Idle */
+   if (!si) {
++    tvhtrace(LS_SERVICE, "DECISION: Will use a service in IDLE mode");
+     TAILQ_FOREACH_REVERSE(si, sil, service_instance_list, si_link)
+-      if (si->si_weight == 0 && si->si_error == 0)
++      if (si->si_weight <= 0 && si->si_error == 0)
+         break;
+   }
++#endif
+ 
+   /* Bump the one with lowest weight or bigger priority */
+   if (!si) {
++    tvhtrace(LS_SERVICE, "DECISION: Will choose based on priority");
++
++    TAILQ_FOREACH(si, sil, si_link) {
++      const char *name = ch ? channel_get_name(ch, NULL) : NULL;
++      if (!name && s) name = s->s_nicename;
++      tvhtrace(LS_SERVICE, "Check Profile force: %d: %s si %p %s weight %d prio %d error %d",
++             si->si_instance, name, si, si->si_source, si->si_weight, si->si_prio,
++             si->si_error);
++      /* Increase priority when profile requests it */
++      if ( pro && si && si->si_s && ((pro->pro_svfilter == PROFILE_SVF_SD && service_is_sdtv(si->si_s)) ||
++             (pro->pro_svfilter == PROFILE_SVF_HD && service_is_hdtv(si->si_s, 0)) ||
++             (pro->pro_svfilter == PROFILE_SVF_HDPLUS && service_is_hdtv(si->si_s, 1)) ||
++             (pro->pro_svfilter == PROFILE_SVF_UHD && service_is_uhdtv(si->si_s))))
++        si->si_prio *= 20;
++      if ( pro && si && si->si_s && ((pro->pro_svfilter == PROFILE_SVF_HDPLUS || pro->pro_svfilter == PROFILE_SVF_UHD) && service_is_hdtv(si->si_s, 0)))
++        si->si_prio *= 10;
++    }
++
+     next = NULL;
+     TAILQ_FOREACH(si, sil, si_link) {
++      const char *name = ch ? channel_get_name(ch, NULL) : NULL;
++      if (!name && s) name = s->s_nicename;
++      tvhtrace(LS_SERVICE, "Checking: %d: %s si %p %s weight %d prio %d error %d",
++             si->si_instance, name, si, si->si_source, si->si_weight, si->si_prio,
++             si->si_error);
+       if (si->si_error) continue;
+       if (next == NULL) {
+         if (si->si_weight < weight)
+           next = si;
+       } else {
+-        if ((si->si_weight < next->si_weight) ||
+-            (si->si_weight == next->si_weight && si->si_prio > next->si_prio))
++        if (	(si->si_prio > next->si_prio)
++	||   (	(si->si_prio  == next->si_prio) && (si->si_weight < next->si_weight) )
++	)
++        {
++	  tvhtrace(LS_SERVICE, "NEW best");
+           next = si;
++        }
+       }
+     }
+     si = next;
+@@ -578,14 +622,17 @@
+     return NULL;
+   }
+ 
+-  /* Start */
+-  tvhtrace(LS_SERVICE, "will start new instance %d", si->si_instance);
+-  if (service_start(si->si_s, si->si_instance, weight, flags, timeout, postpone)) {
+-    tvhtrace(LS_SERVICE, "tuning failed");
+-    si->si_error = SM_CODE_TUNING_FAILED;
+-    if (*error < SM_CODE_TUNING_FAILED)
+-      *error = SM_CODE_TUNING_FAILED;
+-    si = NULL;
++  if (si->si_s->s_status != SERVICE_RUNNING)
++  {
++    /* Start */
++    tvhtrace(LS_SERVICE, "will start new instance %d", si->si_instance);
++    if (service_start(si->si_s, si->si_instance, weight, flags, timeout, postpone)) {
++      tvhtrace(LS_SERVICE, "tuning failed");
++      si->si_error = SM_CODE_TUNING_FAILED;
++      if (*error < SM_CODE_TUNING_FAILED)
++        *error = SM_CODE_TUNING_FAILED;
++      si = NULL;
++    }
+   }
+   return si;
+ }
+@@ -855,6 +902,23 @@
+                    sec2mono(t->s_timeout));
+ }
+ 
++static int
++service_is_allowed(service_t *t, profile_t *pro)
++{
++  if (service_is_sdtv(t) && pro->pro_svignore_sd)
++    return 0;
++  if (service_is_hdtv(t, 0) && pro->pro_svignore_hd)
++    return 0;
++  if (service_is_hdtv(t, 1) && pro->pro_svignore_hdplus)
++    return 0;
++  if (service_is_fhdtv(t) && pro->pro_svignore_fhd)
++    return 0;
++  if (service_is_uhdtv(t) && pro->pro_svignore_uhd)
++    return 0;
++
++  return 1;
++}
++
+ int
+ service_is_sdtv(const service_t *t)
+ {
+@@ -875,22 +939,26 @@
+ }
+ 
+ int
+-service_is_hdtv(const service_t *t)
++service_is_hdtv(const service_t *t, char plus)
+ {
+   char s_type;
+   if(t->s_type_user == ST_UNSET)
+     s_type = t->s_servicetype;
+   else
+     s_type = t->s_type_user;
+-  if (s_type == ST_HDTV)
++  if ((plus && (s_type == ST_HDTVPLUS)) || (!plus && (s_type == ST_HDTV)))
++  {
++    tvhtrace(LS_SERVICE, "This is an HDTV channel s_type=%d, s_type_user=%d", s_type, t->s_type_user);
+     return 1;
++  }
+   else if (s_type == ST_NONE) {
+     elementary_stream_t *st;
+     TAILQ_FOREACH(st, &t->s_components.set_all, es_link)
+       if (SCT_ISVIDEO(st->es_type) &&
+-          st->es_height >= 720 && st->es_height < 1080)
++          st->es_height >= 720 && st->es_height <= 1080)
+         return 1;
+   }
++  tvhtrace(LS_SERVICE, "Not an HD channel s_type=%d, s_type_user=%d, plus=%d", s_type, t->s_type_user, plus);
+   return 0;
+ }
+ 
+@@ -982,14 +1050,15 @@
+ service_servicetype_txt ( service_t *s )
+ {
+   static const char *types[] = {
+-    "HDTV", "SDTV", "Radio", "FHDTV", "UHDTV", "Other"
++    "HDTV", "HDTVPLUS", "SDTV", "Radio", "FHDTV", "UHDTV", "Other"
+   };
+-  if (service_is_hdtv(s))  return types[0];
+-  if (service_is_sdtv(s))  return types[1];
+-  if (service_is_radio(s)) return types[2];
+-  if (service_is_fhdtv(s)) return types[3];
+-  if (service_is_uhdtv(s)) return types[4];
+-  return types[5];
++  if (service_is_hdtv(s, 0))  return types[0];
++  if (service_is_hdtv(s, 1))  return types[1];
++  if (service_is_sdtv(s))  return types[2];
++  if (service_is_radio(s)) return types[3];
++  if (service_is_fhdtv(s)) return types[4];
++  if (service_is_uhdtv(s)) return types[5];
++  return types[4];
+ }
+ 
+ 
+@@ -1000,7 +1069,7 @@
+ service_send_streaming_status(service_t *t)
+ {
+   streaming_message_t *sm;
+-  lock_assert(&t->s_stream_mutex);
++  // lock_assert(&t->s_stream_mutex);
+ 
+   sm = streaming_msg_create_code(SMT_SERVICE_STATUS, t->s_streaming_status);
+   streaming_service_deliver(t, sm);
+@@ -1012,7 +1081,7 @@
+ void
+ service_set_streaming_status_flags_(service_t *t, int set)
+ {
+-  lock_assert(&t->s_stream_mutex);
++  // lock_assert(&t->s_stream_mutex);
+ 
+   if(set == t->s_streaming_status)
+     return; // Already set
+@@ -1429,7 +1498,7 @@
+   r = a->si_prio - b->si_prio;
+ 
+   if (!r)
+-    r = a->si_weight - b->si_weight;
++    r = b->si_weight - a->si_weight;
+   return r;
+ }
+ 
+diff -uNr a/src/service.h b/src/service.h
+--- a/src/service.h	2020-12-21 15:42:49.102650171 +0100
++++ b/src/service.h	2020-12-21 15:40:15.503177000 +0100
+@@ -184,6 +184,7 @@
+     ST_SDTV,
+     ST_HDTV,
+     ST_FHDTV,
++    ST_HDTVPLUS,
+     ST_UHDTV,
+     ST_RADIO
+   } s_servicetype;
+@@ -435,10 +436,10 @@
+ int service_is_sdtv(const service_t *t);
+ int service_is_uhdtv(const service_t *t);
+ int service_is_fhdtv(const service_t *t);
+-int service_is_hdtv(const service_t *t);
++int service_is_hdtv(const service_t *t, char plus);
+ int service_is_radio(const service_t *t);
+ static inline int service_is_tv( const service_t *s)
+-  { return service_is_hdtv(s) || service_is_sdtv(s) || service_is_uhdtv(s) || service_is_fhdtv(s); }
++  { return service_is_hdtv(s, 0) || service_is_hdtv(s, 1) || service_is_sdtv(s) || service_is_uhdtv(s) || service_is_fhdtv(s); }
+ static inline int service_is_other(const service_t *t)
+   { return !service_is_tv(t) && !service_is_radio(t); }
+ 
+diff -uNr a/src/service_mapper.c b/src/service_mapper.c
+--- a/src/service_mapper.c	2020-12-21 15:42:49.102650171 +0100
++++ b/src/service_mapper.c	2020-12-21 15:40:15.507177000 +0100
+@@ -300,10 +300,13 @@
+       if (service_is_uhdtv(s)) {
+         channel_tag_map(channel_tag_find_by_name("TV channels", 1), chn, chn);
+         channel_tag_map(channel_tag_find_by_name("UHDTV", 1), chn, chn);
++      } else if (service_is_hdtv(s, 1)) {
++        channel_tag_map(channel_tag_find_by_name("TV channels", 1), chn, chn);
++        channel_tag_map(channel_tag_find_by_name("HDTV+", 1), chn, chn);
+       } else if (service_is_fhdtv(s)) {
+         channel_tag_map(channel_tag_find_by_name("TV channels", 1), chn, chn);
+         channel_tag_map(channel_tag_find_by_name("FHDTV", 1), chn, chn);
+-      } else if (service_is_hdtv(s)) {
++      } else if (service_is_hdtv(s, 0)) {
+         channel_tag_map(channel_tag_find_by_name("TV channels", 1), chn, chn);
+         channel_tag_map(channel_tag_find_by_name("HDTV", 1), chn, chn);
+       } else if (service_is_sdtv(s)) {
+diff -uNr a/src/streaming.c b/src/streaming.c
+--- a/src/streaming.c	2020-12-21 15:42:49.102650171 +0100
++++ b/src/streaming.c	2020-12-21 15:40:15.507177000 +0100
+@@ -409,6 +409,9 @@
+ {
+   streaming_target_t *st, *next, *run = NULL;
+ 
++  if (!sp || !sm)
++    return;
++
+   for (st = LIST_FIRST(&sp->sp_targets); st; st = next) {
+     next = LIST_NEXT(st, st_link);
+     assert(next != st);
+diff -uNr a/src/subscriptions.c b/src/subscriptions.c
+--- a/src/subscriptions.c	2020-12-21 15:42:49.106650157 +0100
++++ b/src/subscriptions.c	2020-12-21 15:40:15.507177000 +0100
+@@ -29,6 +29,7 @@
+ #include "input.h"
+ #include "intlconv.h"
+ #include "dbus.h"
++#include "config.h"
+ 
+ struct th_subscription_list subscriptions;
+ struct th_subscription_list subscriptions_remove;
+@@ -128,6 +129,7 @@
+ {
+   streaming_message_t *sm;
+   service_t *t = s->ths_service;
++  uint8_t descrambler_stopped = 0;
+ 
+   /* Ignore - not actually linked */
+   if (!s->ths_current_instance) goto stop;
+@@ -160,8 +162,11 @@
+     mtimer_arm_rel(&s->ths_remove_timer, subscription_unsubscribe_cb, s, 0);
+ 
+ stop:
+-  if(resched || LIST_FIRST(&t->s_subscriptions) == NULL)
++  if(resched || LIST_FIRST(&t->s_subscriptions) == NULL) {
++    if (!descrambler_stopped)
++      descrambler_service_stop(t);
+     service_stop(t);
++  }
+   return 1;
+ }
+ 
+@@ -732,6 +737,8 @@
+   tvhlog((flags & UNSUBSCRIBE_QUIET) != 0 ? LOG_TRACE : LOG_INFO,
+          LS_SUBSCRIPTION, "%04X: %s", shortid(s), buf);
+ 
++  subscription_log(s, 0);
++
+   if (t)
+     service_remove_subscriber(t, s, SM_CODE_OK);
+ 
+@@ -763,7 +770,7 @@
+ th_subscription_t *
+ subscription_create
+   (profile_chain_t *prch, int weight, const char *name,
+-   int flags, streaming_ops_t *ops, const char *hostname,
++   int flags, streaming_ops_t *ops, const char *hostname, int port,
+    const char *username, const char *client)
+ {
+   th_subscription_t *s = calloc(1, sizeof(th_subscription_t));
+@@ -784,6 +791,7 @@
+   s->ths_prch              = prch && prch->prch_st ? prch : NULL;
+   s->ths_title             = strdup(name);
+   s->ths_hostname          = hostname ? strdup(hostname) : NULL;
++  s->ths_port              = port;
+   s->ths_username          = username ? strdup(username) : NULL;
+   s->ths_client            = client   ? strdup(client)   : NULL;
+   s->ths_output            = st;
+@@ -832,6 +840,7 @@
+                                             const char *name,
+                                             int flags,
+                                             const char *hostname,
++					    int port,
+                                             const char *username,
+                                             const char *client,
+                                             int *error,
+@@ -853,7 +862,7 @@
+     ch = prch->prch_id;
+ 
+   s = subscription_create(prch, weight, name, flags, &subscription_input_ops,
+-                          hostname, username, client);
++                          hostname, port, username, client);
+   if (tvhtrace_enabled()) {
+     const char *pro_name = prch->prch_pro ? profile_get_name(prch->prch_pro) : "<none>";
+     if (ch)
+@@ -869,6 +878,8 @@
+   if (ch)
+     LIST_INSERT_HEAD(&ch->ch_subscriptions, s, ths_channel_link);
+ 
++  subscription_log(s, 1);
++
+ #if ENABLE_MPEGTS
+   if (service && service->s_type == STYPE_RAW) {
+     mpegts_mux_t *mm = prch->prch_id;
+@@ -897,13 +908,14 @@
+ 				 const char *name,
+ 				 int flags,
+ 				 const char *hostname,
++				 int port,
+ 				 const char *username,
+ 				 const char *client,
+ 				 int *error)
+ {
+   assert(flags == SUBSCRIPTION_NONE || prch->prch_st);
+   return subscription_create_from_channel_or_service
+-           (prch, ti, weight, name, flags, hostname, username, client,
++           (prch, ti, weight, name, flags, hostname, port, username, client,
+             error, NULL);
+ }
+ 
+@@ -923,7 +935,7 @@
+ {
+   assert(flags == SUBSCRIPTION_NONE || prch->prch_st);
+   return subscription_create_from_channel_or_service
+-           (prch, ti, weight, name, flags, hostname, username, client,
++           (prch, ti, weight, name, flags, hostname, 0, username, client,
+             error, prch->prch_id);
+ }
+ 
+@@ -949,7 +961,7 @@
+     return NULL;
+ 
+   return subscription_create_from_channel_or_service
+-    (prch, ti, weight, name, flags, hostname, username, client,
++    (prch, ti, weight, name, flags, hostname, 0, username, client,
+      error, (service_t *)s);
+ }
+ #endif
+@@ -962,6 +974,7 @@
+                               const char *charset,
+                               const char *filename,
+ 			      const char *hostname,
++                              int port,
+ 			      const char *username,
+ 			      const char *client)
+ {
+@@ -970,7 +983,7 @@
+ 
+   ts = subscription_create(NULL, 1, name,
+                            SUBSCRIPTION_NONE, NULL,
+-                           hostname, username, client);
++                           hostname, port, username, client);
+   if (ts == NULL)
+     return NULL;
+   str = intlconv_to_utf8safestr(charset, filename, strlen(filename) * 3);
+@@ -1325,3 +1338,84 @@
+ 
+   tvhnotice(LS_SUBSCRIPTION, "%04X: Dummy join %s ok", shortid(s), id);
+ }
++
++
++void subscription_log(th_subscription_t *s, int on)
++{
++  char buffer[512], t[128], path[512];
++  struct tm tm;
++  struct timeval time;
++  FILE *file = NULL;
++
++  if (s->ths_username && !strcmp(s->ths_username, "tester"))
++	return;
++
++  hts_settings_buildpath(path, sizeof(path), "subscription.log");
++
++  file=fopen(path, "a");
++  if (file)
++  {
++    gettimeofday(&time, NULL);
++    localtime_r(&time.tv_sec, &tm);
++    strftime(t, sizeof(t), "%F %T", &tm);// %d %H:%M:%S", &tm);
++
++    sprintf(buffer, "%s#%s#%s#%s#%s@%d#%s#%04X#%s#%s#%s#%s#%d\n", t, on?"ON":"OFF",
++              s->ths_username?:"no-user", s->ths_client?:"", s->ths_hostname?:"",s->ths_port,
++              s->ths_title?:"", shortid(s), s->ths_channel ? channel_get_name(s->ths_channel, NULL) : (s->ths_dvrfile?:"N/A"),
++              ((s->ths_prch && s->ths_prch->prch_pro)?s->ths_prch->prch_pro->pro_name:NULL)?:"", config_get_server_name(),
++              s->ths_service ? s->ths_service->s_nicename : "N/A", s->ths_total_err);
++
++    fwrite(buffer, strlen(buffer), 1, file);
++    fclose(file);
++  }
++}
++
++int subscription_get_user_count(char *username, int is_dvr)
++{
++  th_subscription_t *s;
++  int count = 0;
++
++  LIST_FOREACH(s, &subscriptions, ths_global_link) {
++      if (s->ths_username && username && !strcmp(username, s->ths_username)) {
++        if (is_dvr) {
++         if (strstr(s->ths_title, "DVR"))
++          count++;
++        }
++        else {
++         if (!strstr(s->ths_title, "DVR"))
++           count++;
++        }
++    }
++  }
++
++  return count;
++}
++/*
++int subscription_get_count_on_network(tvh_uuid_t network_uuid)
++{
++  th_subscription_t *s;
++  int count;
++
++  count = 0;
++
++  LIST_FOREACH(s, &subscriptions, ths_global_link) {
++    if (s->ths_service) {
++      source_info_t si;
++      s->ths_service->s_setsourceinfo(s->ths_service, &si);
++      if (s->ths_username && username && !strcmp(username, s->ths_username) && uuid_cmp(&si.si_network_uuid, &si_network_uuid)) {
++        if (is_dvr) {
++         if (strstr(s->ths_title, "DVR"))
++           count++;
++        }
++        else {
++         if (!strstr(s->ths_title, "DVR"))
++           count++;
++        }
++      }
++      service_source_info_free(&si);
++    }
++  }
++
++  return count;
++}
++*/
+diff -uNr a/src/subscriptions.h b/src/subscriptions.h
+--- a/src/subscriptions.h	2020-12-21 15:42:49.106650157 +0100
++++ b/src/subscriptions.h	2020-12-21 15:40:15.507177000 +0100
+@@ -121,6 +121,7 @@
+   streaming_message_t *ths_start_message;
+ 
+   char *ths_hostname;
++  int ths_port;
+   char *ths_username;
+   char *ths_client;
+   char *ths_dvrfile;
+@@ -169,6 +170,7 @@
+ 				 const char *name,
+ 				 int flags,
+ 				 const char *hostname,
++				 int port,
+ 				 const char *username,
+ 				 const char *client,
+ 				 int *error);
+@@ -204,6 +206,7 @@
+                               const char *charset,
+                               const char *filename,
+                               const char *hostname,
++                              int port,
+                               const char *username,
+                               const char *client);
+ 
+@@ -211,6 +214,7 @@
+                                        int weight, const char *name,
+ 				       int flags, streaming_ops_t *ops,
+ 				       const char *hostname,
++				       int port,
+ 				       const char *username,
+ 				       const char *client);
+ 
+@@ -229,6 +233,8 @@
+ 
+ void subscription_dummy_join(const char *id, int first);
+ 
++void subscription_log(th_subscription_t *s, int on);
++
+ void subscription_add_bytes_in(th_subscription_t *s, size_t in);
+ 
+ void subscription_add_bytes_out(th_subscription_t *s, size_t out);
+@@ -239,4 +245,6 @@
+ struct htsmsg;
+ struct htsmsg *subscription_create_msg(th_subscription_t *s, const char *lang);
+ 
++int subscription_get_user_count(char *username, int is_dvr);
++
+ #endif /* SUBSCRIPTIONS_H */
+diff -uNr a/src/tcp.c b/src/tcp.c
+--- a/src/tcp.c	2020-12-21 15:42:49.106650157 +0100
++++ b/src/tcp.c	2020-12-21 15:40:15.507177000 +0100
+@@ -482,6 +482,34 @@
+ /**
+  *
+  */
++char *
++tcp_get_str_from_ip_port(const struct sockaddr_storage *sa, char *dst, size_t maxlen, int* port)
++{
++  if (sa == NULL || dst == NULL)
++    return NULL;
++
++  *port = 0;
++
++  switch(sa->ss_family)
++  {
++    case AF_INET:
++      inet_ntop(AF_INET, &(((struct sockaddr_in*)sa)->sin_addr), dst, maxlen);
++      *port = (int) ntohs(((struct sockaddr_in*)sa)->sin_port);
++      break;
++    case AF_INET6:
++      inet_ntop(AF_INET6, &(((struct sockaddr_in6*)sa)->sin6_addr), dst, maxlen);
++      break;
++    default:
++      strncpy(dst, "Unknown AF", maxlen);
++      return NULL;
++  }
++
++  return dst;
++}
++
++/**
++ *
++ */
+ struct sockaddr_storage *
+ tcp_get_ip_from_str(const char *src, struct sockaddr_storage *sa)
+ {
+@@ -504,6 +532,29 @@
+ }
+ 
+ /**
++ * 
++ */
++int
++tcp_get_sockaddr(struct sockaddr_storage *sa, const char *s)
++{
++  if(sa == NULL || s == NULL)
++	return -1;
++
++  struct sockaddr_in *sin = (struct sockaddr_in*)sa;
++  struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)sa;
++
++  if (inet_pton(AF_INET, s, &sin->sin_addr) == 1)
++    sa->ss_family = AF_INET;
++  else if (inet_pton(AF_INET6, s, &sin6->sin6_addr) == 1)
++    sa->ss_family = AF_INET6;
++  else
++    return -1;
++
++  return 0;
++}
++
++
++/**
+  *
+  */
+ static tvhpoll_t *tcp_server_poll;
+diff -uNr a/src/tcp.h b/src/tcp.h
+--- a/src/tcp.h	2020-12-21 15:42:49.106650157 +0100
++++ b/src/tcp.h	2020-12-21 15:40:15.507177000 +0100
+@@ -147,9 +147,12 @@
+ int tcp_read_timeout(int fd, void *buf, size_t len, int timeout);
+ 
+ char *tcp_get_str_from_ip(const struct sockaddr_storage *sa, char *dst, size_t maxlen);
++char *tcp_get_str_from_ip_port(const struct sockaddr_storage *sa, char *dst, size_t maxlen, int* port);
+ 
+ struct sockaddr_storage *tcp_get_ip_from_str(const char *str, struct sockaddr_storage *sa);
+ 
++int tcp_get_sockaddr(struct sockaddr_storage *sa, const char *s);
++
+ int tcp_socket_dead(int fd);
+ 
+ struct access;
+diff -uNr a/src/timeshift/timeshift_reader.c b/src/timeshift/timeshift_reader.c
+--- a/src/timeshift/timeshift_reader.c	2020-12-21 15:42:49.106650157 +0100
++++ b/src/timeshift/timeshift_reader.c	2020-12-21 15:40:15.511177000 +0100
+@@ -600,7 +600,7 @@
+ 
+               /* Set position */
+               } else {
+-                tvhdebug(LS_TIMESHIFT, "ts %d enter timeshift mode", ts->id);
++                tvhinfo(LS_TIMESHIFT, "ts %d enter timeshift mode", ts->id);
+                 ts->dobuf = 1;
+                 _seek_reset(seek);
+                 tmp_file = timeshift_filemgr_newest(ts);
+@@ -625,7 +625,7 @@
+             /* Check keyframe mode */
+             keyframe      = (speed < 0) || (speed > 400);
+             if (keyframe != keyframe_mode) {
+-              tvhdebug(LS_TIMESHIFT, "using keyframe mode? %s", keyframe ? "yes" : "no");
++              tvhinfo(LS_TIMESHIFT, "using keyframe mode? %s", keyframe ? "yes" : "no");
+               keyframe_mode = keyframe;
+               if (keyframe)
+                 seek->frame = NULL;
+diff -uNr a/src/utils.c b/src/utils.c
+--- a/src/utils.c	2020-12-21 15:42:49.110650144 +0100
++++ b/src/utils.c	2020-12-21 15:40:15.519177000 +0100
+@@ -785,10 +785,10 @@
+   char v, *d = s;
+ 
+   while(*s) {
+-    if(*s == '+') {
++/*    if(*s == '+') {
+       *d++ = ' ';
+       s++;
+-    } else if(*s == '%') {
++    } else */if(*s == '%') {
+       s++;
+       switch(*s) {
+       case '0' ... '9':
+diff -uNr a/src/webui/static/app/acleditor.js b/src/webui/static/app/acleditor.js
+--- a/src/webui/static/app/acleditor.js	2020-12-21 15:42:49.114650130 +0100
++++ b/src/webui/static/app/acleditor.js	2020-12-21 15:40:15.519177000 +0100
+@@ -7,12 +7,14 @@
+     var list = 'enabled,username,password,prefix,change,' +
+                'lang,webui,uilevel,uilevel_nochange,admin,' +
+                'streaming,profile,conn_limit_type,conn_limit,' +
++               'max_streaming_sessions,max_dvr_sessions,' +
+                'dvr,dvr_config,channel_min,channel_max,' +
+-	       'channel_tag_exclude,channel_tag,comment';
++               'channel_tag_exclude,channel_tag,comment';
+ 
+     var list2 = 'enabled,username,password,prefix,change,' +
+                 'lang,webui,themeui,langui,uilevel,uilevel_nochange,admin,' +
+                 'streaming,profile,conn_limit_type,conn_limit,' +
++                'max_streaming_sessions,max_dvr_sessions,' +
+                 'dvr,htsp_anonymize,dvr_config,' +
+                 'channel_min,channel_max,channel_tag_exclude,' +
+                 'channel_tag,xmltv_output_format,htsp_output_format,comment';
+@@ -35,6 +37,8 @@
+             admin:          { width: 100 },
+             conn_limit_type:{ width: 160 },
+             conn_limit:     { width: 160 },
++            max_streaming_sessions:{ width: 160 },
++            max_dvr_sessions:{ width: 160 },
+             channel_min:    { width: 160 },
+             channel_max:    { width: 160 }
+         },
+diff -uNr a/src/webui/static/app/dvr.js b/src/webui/static/app/dvr.js
+--- a/src/webui/static/app/dvr.js	2020-12-21 15:42:49.114650130 +0100
++++ b/src/webui/static/app/dvr.js	2020-12-21 15:40:15.523177000 +0100
+@@ -1360,7 +1360,7 @@
+     tvheadend.dvr_finished(p, 1);
+     tvheadend.dvr_failed(p, 2);
+     tvheadend.dvr_removed(p, 3);
+-    tvheadend.autorec_editor(p, 4);
++    //tvheadend.autorec_editor(p, 4);
+     tvheadend.timerec_editor(p, 5);
+     return p;
+ }
+diff -uNr a/src/webui/static/app/epg.js b/src/webui/static/app/epg.js
+--- a/src/webui/static/app/epg.js	2020-12-21 15:42:49.114650130 +0100
++++ b/src/webui/static/app/epg.js	2020-12-21 15:40:15.523177000 +0100
+@@ -420,13 +420,14 @@
+                 text: _('Record')
+             }));
+           }
++/*
+           buttons.push(new Ext.Button({
+               handler: recordSeries,
+               iconCls: 'autoRec',
+               tooltip: _('Create an automatic recording rule to record all future programs that match the current query.'),
+               text: event.serieslinkUri ? _("Record series") : _("Autorec")
+           }));
+-
++*/
+           var eventId = event.eventId;
+           buttons.push(new Ext.Toolbar.Button({
+               handler: function() { epgAlternativeShowingsDialog(eventId, true) },
+@@ -1270,14 +1271,14 @@
+             }
+         }
+     });
+-
++/*
+     tvheadend.autorecButton = new Ext.Button({
+         text: _('Create AutoRec'),
+         iconCls: 'autoRec',
+         tooltip: _('Create an automatic recording rule to record all future programs that match the current query.'),
+         handler: createAutoRec
+     });
+-
++*/
+     var tbar = [
+         epgMode, '-',
+         epgFilterTitle, { text: _('Fulltext') }, epgFilterFulltext, { text: _('New only') }, epgFilterNewOnly, '-',
+@@ -1301,7 +1302,7 @@
+             }
+         },
+         '-',
+-        tvheadend.autorecButton,
++//        tvheadend.autorecButton,
+         '-',
+         {
+             text: _('Help'),
+diff -uNr a/src/webui/webui.c b/src/webui/webui.c
+--- a/src/webui/webui.c	2020-12-21 15:42:49.146650021 +0100
++++ b/src/webui/webui.c	2020-12-21 15:40:15.563177000 +0100
+@@ -1127,6 +1127,7 @@
+   void *tcp_id;
+   int res = HTTP_STATUS_SERVICE;
+   int flags, eflags = 0;
++  const char* pro_string;
+ 
+   if(http_access_verify(hc, ACCESS_ADVANCED_STREAMING))
+     return http_noaccess_code(hc);
+@@ -1142,9 +1143,19 @@
+   flags = SUBSCRIPTION_MPEGTS | eflags;
+   if ((eflags & SUBSCRIPTION_NODESCR) == 0)
+     flags |= SUBSCRIPTION_PACKET;
++
++  pro_string = http_arg_get(&hc->hc_req_args, "profile");
++
++  // Only pass profile for audio only channel
++  if ((service_is_radio(service)) && pro_string && strcmp(pro_string, "pass") && strcmp(pro_string, "pass-hd") && strcmp(pro_string, "fullpass"))
++  {
++    tvhwarn(LS_WEBUI, "Forcing pass profile for audio only channels");
++    pro_string = "pass";
++  }
++
+   if(!(pro = profile_find_by_list(hc->hc_access->aa_profiles,
+-                                  http_arg_get(&hc->hc_req_args, "profile"),
+-                                  "service", flags)))
++                                  pro_string,
++                                  "pass", flags)))
+     return HTTP_STATUS_NOT_ALLOWED;
+ 
+   if((tcp_id = http_stream_preop(hc)) == NULL)
+@@ -1279,15 +1290,14 @@
+   const char *name;
+   void *tcp_id;
+   int res = HTTP_STATUS_SERVICE;
++  idnode_list_mapping_t* ilm;
++  service_t* ch_first_service;
++  const char* pro_string;
+ 
+   if (http_access_verify_channel(hc, ACCESS_STREAMING, ch))
+     return http_noaccess_code(hc);
+ 
+-  if(!(pro = profile_find_by_list(hc->hc_access->aa_profiles,
+-                                  http_arg_get(&hc->hc_req_args, "profile"),
+-                                  "channel",
+-                                  SUBSCRIPTION_PACKET | SUBSCRIPTION_MPEGTS)))
+-    return HTTP_STATUS_NOT_ALLOWED;
++  pro_string = http_arg_get(&hc->hc_req_args, "profile");
+ 
+   if((tcp_id = http_stream_preop(hc)) == NULL)
+     return HTTP_STATUS_NOT_ALLOWED;
+@@ -1297,6 +1307,41 @@
+   else
+     qsize = 1500000;
+ 
++  ilm = LIST_FIRST(&ch->ch_services);
++  if (ilm)
++  {
++    ch_first_service = (service_t* )ilm->ilm_in1;
++    if (ch_first_service)
++    {
++      if (hc->hc_access && hc->hc_access->aa_max_streaming_sessions)
++      {
++        int count;
++        count = subscription_get_user_count(hc->hc_username?:(hc->hc_access?hc->hc_access->aa_username:NULL), 0);
++        if (count >= hc->hc_access->aa_max_streaming_sessions)
++        {
++          tvherror(LS_WEBUI, "user [%s] has already %d streaming(s) while the max is %d",
++             hc->hc_username?:(hc->hc_access?hc->hc_access->aa_username:"no-user"), count, hc->hc_access->aa_max_streaming_sessions);
++          http_stream_postop(tcp_id);
++          return HTTP_STATUS_UNAUTHORIZED;;
++        }
++      }
++
++      // Only pass profile for audio only channel
++      if ((service_is_radio(ch_first_service)) && pro_string && strcmp(pro_string, "pass") && strcmp(pro_string, "pass-hd") && strcmp(pro_string, "fullpass"))
++      {
++        tvhwarn(LS_WEBUI, "Forcing pass profile for audio only channels");
++        pro_string = "pass";
++      }
++    }
++  }
++
++  if(!(pro = profile_find_by_list(hc->hc_access->aa_profiles,
++                                  pro_string,
++                                  "pass",
++                                  SUBSCRIPTION_PACKET | SUBSCRIPTION_MPEGTS)))
++    return HTTP_STATUS_NOT_ALLOWED;
++
++
+   hints = muxer_hints_create(http_arg_get(&hc->hc_args, "User-Agent"));
+ 
+   profile_chain_init(&prch, pro, ch, 1);
+@@ -1305,7 +1350,7 @@
+     s = subscription_create_from_channel(&prch,
+                  NULL, weight, "HTTP",
+                  prch.prch_flags | SUBSCRIPTION_STREAMING,
+-                 hc->hc_peer_ipstr, http_username(hc),
++                 hc->hc_peer_ipstr, hc->hc_peer_port, http_username(hc),
+                  http_arg_get(&hc->hc_args, "User-Agent"),
+                  NULL);
+ 
+@@ -1850,7 +1895,7 @@
+   priv->sub = NULL;
+   if (priv->tcp_id && !hc->hc_no_output && content_len > 64*1024) {
+     priv->sub = subscription_create_from_file("HTTP", priv->charset,
+-                                              priv->fname, hc->hc_peer_ipstr,
++                                              priv->fname, hc->hc_peer_ipstr,  hc->hc_peer_port,
+                                               http_username(hc),
+                                               http_arg_get(&hc->hc_args, "User-Agent"));
+     if (priv->sub == NULL) {
+diff -uNr a/support/patches/ffmpeg.crash.diff b/support/patches/ffmpeg.crash.diff
+--- a/support/patches/ffmpeg.crash.diff	1970-01-01 01:00:00.000000000 +0100
++++ b/support/patches/ffmpeg.crash.diff	2020-12-21 15:40:15.567177000 +0100
+@@ -0,0 +1,12 @@
++--- ../../ffmpeg-4.1.5.orig/libavformat/rtmpproto.c	2020-10-28 15:23:07.435838657 +0100
+++++ libavformat/rtmpproto.c				2020-10-28 14:22:52.520426065 +0100
++@@ -1912,6 +1912,9 @@
++     GetByteContext gbc;
++     int ret;
++ 
+++    if (!rt)
+++       return AVERROR_INVALIDDATA;
+++
++     bytestream2_init(&gbc, p, pkt->size);
++     if (ff_amf_read_string(&gbc, command, sizeof(command),
++                            &stringlen)) {
+diff -uNr a/support/patches/ffmpeg.logs2.diff b/support/patches/ffmpeg.logs2.diff
+--- a/support/patches/ffmpeg.logs2.diff	1970-01-01 01:00:00.000000000 +0100
++++ b/support/patches/ffmpeg.logs2.diff	2020-12-21 15:40:15.571177000 +0100
+@@ -0,0 +1,11 @@
++--- ../ffmpeg-4.1.5.orig/libavcodec/ac3dec.c	2020-10-15 07:39:28.899332562 +0200
+++++ libavcodec/ac3dec.c	2020-10-15 07:39:55.762933936 +0200
++@@ -1505,7 +1505,7 @@
++     if (err) {
++         switch (err) {
++         case AAC_AC3_PARSE_ERROR_SYNC:
++-            av_log(avctx, AV_LOG_ERROR, "frame sync error\n");
+++            //av_log(avctx, AV_LOG_ERROR, "frame sync error\n");
++             return AVERROR_INVALIDDATA;
++         case AAC_AC3_PARSE_ERROR_BSID:
++             av_log(avctx, AV_LOG_ERROR, "invalid bitstream id\n");
+diff -uNr a/support/patches/ffmpeg.logs.diff b/support/patches/ffmpeg.logs.diff
+--- a/support/patches/ffmpeg.logs.diff	1970-01-01 01:00:00.000000000 +0100
++++ b/support/patches/ffmpeg.logs.diff	2020-12-21 15:40:15.567177000 +0100
+@@ -0,0 +1,11 @@
++--- libavcodec/h264_refs.c	2020-09-01 15:01:59.299217269 +0200
+++++ ../ffmpeg-4.1.5.orig/libavcodec/h264_refs.c	2020-09-01 14:50:49.251320412 +0200
++@@ -643,7 +643,7 @@
++                 if (mmco[i].opcode != MMCO_SHORT2LONG ||
++                     !h->long_ref[mmco[i].long_arg]    ||
++                     h->long_ref[mmco[i].long_arg]->frame_num != frame_num) {
++-                    av_log(h->avctx, h->short_ref_count ? AV_LOG_ERROR : AV_LOG_DEBUG, "mmco: unref short failure\n");
+++//                    av_log(h->avctx, h->short_ref_count ? AV_LOG_ERROR : AV_LOG_DEBUG, "mmco: unref short failure\n");
++                     err = AVERROR_INVALIDDATA;
++                 }
++                 continue;

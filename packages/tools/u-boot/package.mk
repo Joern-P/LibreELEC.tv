@@ -25,6 +25,7 @@ case "$PROJECT" in
   Rockchip)
     PKG_VERSION="v2020.10"
     PKG_SHA256=""
+    https://github.com/friendlyarm/uboot-rockchip.git
     PKG_URL="https://github.com/u-boot/u-boot/archive/$PKG_VERSION.tar.gz"
     PKG_PATCH_DIRS="2020.10"
     ;;

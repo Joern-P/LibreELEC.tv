@@ -9,6 +9,7 @@ PKG_SITE="https://github.com/Perlmint/glew-cmake"
 PKG_URL="https://github.com/Perlmint/glew-cmake/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libXi glu"
 PKG_LONGDESC="The OpenGL Extension Wrangler Library (GLEW) is a cross-platform open-source C/C++ extension loading library."
+PKG_BUILD_FLAGS="-lto"
 
 PKG_CMAKE_OPTS_TARGET="-D glew-cmake_BUILD_STATIC=off \
                        -D glew-cmake_BUILD_MULTI_CONTEXT=off \
