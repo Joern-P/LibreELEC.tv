@@ -34,6 +34,8 @@ configure_package() {
   # OpenGLES Support
   if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+    CXXFLAGS+=" -DGL_USE_DLSYM"
+    LDFLAGS+=" -ldl"
   fi
 }
 
@@ -99,6 +101,7 @@ pre_configure_target() {
     fi
   fi
 }
+
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro

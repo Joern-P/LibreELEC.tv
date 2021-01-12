@@ -144,3 +144,4 @@ post_makeinstall_target() {
   sed -e "s:\(['=\" ]\)/usr:\\1${SYSROOT_PREFIX}/usr:g" -i ${SYSROOT_PREFIX}/usr/bin/sdl2-config
   rm -rf ${INSTALL}/usr/bin
 }
+

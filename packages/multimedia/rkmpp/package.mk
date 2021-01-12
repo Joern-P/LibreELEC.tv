@@ -2,7 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rkmpp"
-PKG_VERSION="b5a5bb84e2622e7131040bcbeed708ca50af1207"
+PKG_VERSION="2e5ea77cb2969a1b240d8154fe42f33d898546f5"
 PKG_SHA256=""
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="APL"

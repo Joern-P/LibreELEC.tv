@@ -7,7 +7,7 @@ index d026527e..ab7b0d4e 100644
  			trips {
  				threshold: trip-point-0 {
 -					temperature = <70000>; /* millicelsius */
-+					temperature = <75000>; /* millicelsius */
++					temperature = <80000>; /* millicelsius */
  					hysteresis = <2000>; /* millicelsius */
  					type = "passive";
  				};
