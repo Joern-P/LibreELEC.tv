@@ -2,11 +2,11 @@
 # Copyright (C) 2019-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="libvpx-system"
-PKG_VERSION="1.9.0"
+PKG_VERSION="ecbb0e0e2a9b0500db432922b436d1f59ae9b011"
 PKG_SHA256=""
 PKG_LICENSE="BSD"
 PKG_SITE="https://www.webmproject.org"
-PKG_URL="https://github.com/webmproject/libvpx/archive/v${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/webmproject/libvpx/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="WebM VP8/VP9 Codec"
 
