@@ -1,0 +1,27 @@
+From 12be3a4cd1a53d87e37095383705a22dec167d30 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Thu, 28 Jan 2021 11:48:32 +0800
+Subject: [PATCH] avcodec/rkmppdec: Increase max frames to 21
+
+From mpp comment:
+For H.264/H.265 20+ buffers will be enough.
+For other codec 10 buffers will be enough.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ libavcodec/rkmppdec.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index b74658f1f331..7c44c617adbc 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -45,7 +45,7 @@
+ #endif
+ 
+ #define RECEIVE_FRAME_TIMEOUT   100
+-#define FRAMEGROUP_MAX_FRAMES   24
++#define FRAMEGROUP_MAX_FRAMES   21
+ #define INPUT_MAX_PACKETS       4
+ 
+ #define FPS_UPDATE_INTERVAL     120
