@@ -261,19 +261,6 @@ diff --git a/drivers/usb/gadget/composite.c b/drivers/usb/gadget/composite.c
 index 10f8fde7d6a63..5688df02d9ab9 100644
 --- a/drivers/usb/gadget/composite.c
 +++ b/drivers/usb/gadget/composite.c
-@@ -293,8 +293,11 @@ int usb_function_deactivate(struct usb_function *function)
- 
- 	spin_lock_irqsave(&cdev->lock, flags);
- 
--	if (cdev->deactivations == 0)
-+	if (cdev->deactivations == 0) {
-+		spin_unlock_irqrestore(&cdev->lock, flags);
- 		status = usb_gadget_deactivate(cdev->gadget);
-+		spin_lock_irqsave(&cdev->lock, flags);
-+	}
- 	if (status == 0)
- 		cdev->deactivations++;
- 
 @@ -325,8 +328,11 @@ int usb_function_activate(struct usb_function *function)
  		status = -EINVAL;
  	else {
@@ -340,7 +327,7 @@ index 24c8fbda1a54e..81af315774c62 100644
 @@ -766,7 +766,7 @@ static struct usb_endpoint_descriptor fs_epout_desc = {
  
  	.bEndpointAddress = USB_DIR_OUT,
- 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC,
+ 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE,
 -	.wMaxPacketSize = cpu_to_le16(1023),
 +	/* .wMaxPacketSize = DYNAMIC */
  	.bInterval = 1,
@@ -349,7 +336,7 @@ index 24c8fbda1a54e..81af315774c62 100644
 @@ -775,7 +775,7 @@ static struct usb_endpoint_descriptor hs_epout_desc = {
  	.bDescriptorType = USB_DT_ENDPOINT,
  
- 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC,
+ 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ADAPTIVE,
 -	.wMaxPacketSize = cpu_to_le16(1024),
 +	/* .wMaxPacketSize = DYNAMIC */
  	.bInterval = 4,
@@ -358,7 +345,7 @@ index 24c8fbda1a54e..81af315774c62 100644
 @@ -843,7 +843,7 @@ static struct usb_endpoint_descriptor fs_epin_desc = {
  
  	.bEndpointAddress = USB_DIR_IN,
- 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC,
+ 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_SYNC,
 -	.wMaxPacketSize = cpu_to_le16(1023),
 +	/* .wMaxPacketSize = DYNAMIC */
  	.bInterval = 1,
@@ -367,25 +354,26 @@ index 24c8fbda1a54e..81af315774c62 100644
 @@ -852,7 +852,7 @@ static struct usb_endpoint_descriptor hs_epin_desc = {
  	.bDescriptorType = USB_DT_ENDPOINT,
  
- 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_ASYNC,
+ 	.bmAttributes = USB_ENDPOINT_XFER_ISOC | USB_ENDPOINT_SYNC_SYNC,
 -	.wMaxPacketSize = cpu_to_le16(1024),
 +	/* .wMaxPacketSize = DYNAMIC */
  	.bInterval = 4,
  };
  
-@@ -963,12 +963,28 @@ free_ep(struct uac2_rtd_params *prm, struct usb_ep *ep)
- 			"%s:%d Error!\n", __func__, __LINE__);
- }
+@@ -530,13 +530,29 @@
+ 	struct cntrl_range_lay3 r[UAC_MAX_RATES];
+ } __packed;
  
--static void set_ep_max_packet_size(const struct f_uac2_opts *uac2_opts,
-+static int set_ep_max_packet_size(const struct f_uac2_opts *uac2_opts,
+-static void set_ep_max_packet_size(const struct f_uac_opts *uac2_opts,
++static int set_ep_max_packet_size(const struct f_uac_opts *uac2_opts,
  	struct usb_endpoint_descriptor *ep_desc,
 -	unsigned int factor, bool is_playback)
 +	enum usb_device_speed speed, bool is_playback)
  {
- 	int chmask, srate, ssize;
+ 	int chmask, srate = 0, ssize;
 -	u16 max_packet_size;
 +	u16 max_size_bw, max_size_ep;
+ 	int i;
 +	unsigned int factor;
 +
 +	switch (speed) {
@@ -401,7 +389,7 @@ index 24c8fbda1a54e..81af315774c62 100644
 +
 +	default:
 +		return -EINVAL;
-+	}
++	}	
  
  	if (is_playback) {
  		chmask = uac2_opts->p_chmask;

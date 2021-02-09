@@ -1,7 +1,75 @@
-diff -uNr a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
---- a/drivers/hid/hid-core.c	2020-11-09 15:12:38.325087000 +0100
-+++ b/drivers/hid/hid-core.c	2020-11-09 15:10:40.837746000 +0100
-@@ -2147,6 +2147,10 @@
+From d3a08b79050b30e3fcf99caeb5c2872826ff34d3 Mon Sep 17 00:00:00 2001
+From: MrFixIt2001 <mrfixit2001@gmail.com>
+Date: Tue, 2 Feb 2021 17:52:18 -0500
+Subject: [PATCH] Add Nintendo HID Controller Driver
+
+---
+ MAINTAINERS                |    6 +
+ drivers/hid/Kconfig        |   12 +
+ drivers/hid/Makefile       |    1 +
+ drivers/hid/hid-core.c     |    4 +
+ drivers/hid/hid-ids.h      |    3 +
+ drivers/hid/hid-nintendo.c | 1169 ++++++++++++++++++++++++++++++++++++
+ 6 files changed, 1195 insertions(+)
+ create mode 100644 drivers/hid/hid-nintendo.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2d945a912f..c8906484c7 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7642,6 +7642,12 @@ S:	Maintained
+ F:	Documentation/scsi/NinjaSCSI.txt
+ F:	drivers/scsi/nsp32*
+ 
++NINTENDO HID DRIVER
++M:	Daniel J. Ogorchock <djogorchock@gmail.com>
++L:	linux-input@vger.kernel.org
++S:	Maintained
++F:	drivers/hid/hid-nintendo*
++
+ NIOS2 ARCHITECTURE
+ M:	Ley Foon Tan <lftan@altera.com>
+ L:	nios2-dev@lists.rocketboards.org (moderated for non-subscribers)
+diff --git a/drivers/hid/Kconfig b/drivers/hid/Kconfig
+index d9fcd0983c..725436d695 100644
+--- a/drivers/hid/Kconfig
++++ b/drivers/hid/Kconfig
+@@ -862,6 +862,18 @@ config HID_WIIMOTE
+ 
+ 	To compile this driver as a module, choose M here: the
+ 	module will be called hid-wiimote.
++	
++config HID_NINTENDO
++	tristate "Nintendo Joy-Con and Pro Controller support"
++	depends on HID
++	select POWER_SUPPLY
++	help
++	Adds support for the Nintendo Switch Joy-Cons and Pro Controller.
++	All controllers support bluetooth, and the Pro Controller also supports
++	its USB mode.
++
++	To compile this driver as a module, choose M here: the
++	module will be called hid-nintendo.
+ 
+ config HID_XINMO
+ 	tristate "Xin-Mo non-fully compliant devices"
+diff --git a/drivers/hid/Makefile b/drivers/hid/Makefile
+index 1c902dad72..16c90b6262 100644
+--- a/drivers/hid/Makefile
++++ b/drivers/hid/Makefile
+@@ -102,6 +102,7 @@ wacom-objs			:= wacom_wac.o wacom_sys.o
+ obj-$(CONFIG_HID_WACOM)		+= wacom.o
+ obj-$(CONFIG_HID_WALTOP)	+= hid-waltop.o
+ obj-$(CONFIG_HID_WIIMOTE)	+= hid-wiimote.o
++obj-$(CONFIG_HID_NINTENDO)	+= hid-nintendo.o
+ obj-$(CONFIG_HID_SENSOR_HUB)	+= hid-sensor-hub.o
+ obj-$(CONFIG_HID_SENSOR_CUSTOM_SENSOR)	+= hid-sensor-custom.o
+ obj-$(CONFIG_HID_RKVR)		+= hid-rkvr.o
+diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+index 11af138eac..cd55747242 100644
+--- a/drivers/hid/hid-core.c
++++ b/drivers/hid/hid-core.c
+@@ -2149,6 +2149,10 @@ static const struct hid_device_id hid_have_special_driver[] = {
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_BT) },
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO, USB_DEVICE_ID_NINTENDO_WIIMOTE) },
  	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_NINTENDO, USB_DEVICE_ID_NINTENDO_WIIMOTE2) },
@@ -12,10 +80,11 @@ diff -uNr a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
  	{ HID_USB_DEVICE(USB_VENDOR_ID_RAZER, USB_DEVICE_ID_RAZER_BLADE_14) },
  	{ }
  };
-diff -uNr a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
---- a/drivers/hid/hid-ids.h	2020-11-09 15:12:37.885089000 +0100
-+++ b/drivers/hid/hid-ids.h	2020-11-09 15:10:40.421749000 +0100
-@@ -737,6 +737,9 @@
+diff --git a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
+index 38f2162f92..d4c5b69060 100644
+--- a/drivers/hid/hid-ids.h
++++ b/drivers/hid/hid-ids.h
+@@ -739,6 +739,9 @@
  #define USB_VENDOR_ID_NINTENDO		0x057e
  #define USB_DEVICE_ID_NINTENDO_WIIMOTE	0x0306
  #define USB_DEVICE_ID_NINTENDO_WIIMOTE2	0x0330
@@ -25,9 +94,11 @@ diff -uNr a/drivers/hid/hid-ids.h b/drivers/hid/hid-ids.h
  
  #define USB_VENDOR_ID_NOVATEK		0x0603
  #define USB_DEVICE_ID_NOVATEK_PCT	0x0600
-diff -uNr a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
---- a/drivers/hid/hid-nintendo.c	1970-01-01 01:00:00.000000000 +0100
-+++ b/drivers/hid/hid-nintendo.c	2020-11-09 15:10:39.289755000 +0100
+diff --git a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
+new file mode 100644
+index 0000000000..441c1b7327
+--- /dev/null
++++ b/drivers/hid/hid-nintendo.c
 @@ -0,0 +1,1169 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
@@ -1198,69 +1269,4 @@ diff -uNr a/drivers/hid/hid-nintendo.c b/drivers/hid/hid-nintendo.c
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Daniel J. Ogorchock <djogorchock@gmail.com>");
 +MODULE_DESCRIPTION("Driver for Nintendo Switch Controllers");
-diff -uNr a/drivers/hid/Kconfig b/drivers/hid/Kconfig
---- a/drivers/hid/Kconfig	2020-10-10 20:07:38.000000000 +0200
-+++ b/drivers/hid/Kconfig	2020-11-09 15:10:39.289755000 +0100
-@@ -862,6 +862,18 @@
- 
- 	To compile this driver as a module, choose M here: the
- 	module will be called hid-wiimote.
-+	
-+config HID_NINTENDO
-+	tristate "Nintendo Joy-Con and Pro Controller support"
-+	depends on HID
-+	select POWER_SUPPLY
-+	help
-+	Adds support for the Nintendo Switch Joy-Cons and Pro Controller.
-+	All controllers support bluetooth, and the Pro Controller also supports
-+	its USB mode.
-+
-+	To compile this driver as a module, choose M here: the
-+	module will be called hid-nintendo.
- 
- config HID_XINMO
- 	tristate "Xin-Mo non-fully compliant devices"
-diff -uNr a/drivers/hid/Makefile b/drivers/hid/Makefile
---- a/drivers/hid/Makefile	2020-10-10 20:07:38.000000000 +0200
-+++ b/drivers/hid/Makefile	2020-11-09 15:10:39.277755000 +0100
-@@ -102,6 +102,7 @@
- obj-$(CONFIG_HID_WACOM)		+= wacom.o
- obj-$(CONFIG_HID_WALTOP)	+= hid-waltop.o
- obj-$(CONFIG_HID_WIIMOTE)	+= hid-wiimote.o
-+obj-$(CONFIG_HID_NINTENDO)	+= hid-nintendo.o
- obj-$(CONFIG_HID_SENSOR_HUB)	+= hid-sensor-hub.o
- obj-$(CONFIG_HID_SENSOR_CUSTOM_SENSOR)	+= hid-sensor-custom.o
- obj-$(CONFIG_HID_RKVR)		+= hid-rkvr.o
-diff -uNr a/MAINTAINERS b/MAINTAINERS
---- a/MAINTAINERS	2020-11-09 15:12:36.597097000 +0100
-+++ b/MAINTAINERS	2020-11-09 15:10:39.277755000 +0100
-@@ -7629,6 +7629,12 @@
- F:	Documentation/scsi/NinjaSCSI.txt
- F:	drivers/scsi/nsp32*
- 
-+NINTENDO HID DRIVER
-+M:	Daniel J. Ogorchock <djogorchock@gmail.com>
-+L:	linux-input@vger.kernel.org
-+S:	Maintained
-+F:	drivers/hid/hid-nintendo*
-+
- NIOS2 ARCHITECTURE
- M:	Ley Foon Tan <lftan@altera.com>
- L:	nios2-dev@lists.rocketboards.org (moderated for non-subscribers)
-diff -uNr a/MAINTAINERS.orig b/MAINTAINERS.orig
---- a/MAINTAINERS.orig	2020-10-10 20:07:38.000000000 +0200
-+++ b/MAINTAINERS.orig	2020-11-09 15:10:39.077756000 +0100
-@@ -11231,13 +11231,6 @@
- S:	Maintained
- F:	drivers/net/usb/dm9601.c
- 
--USB DIAMOND RIO500 DRIVER
--M:	Cesar Miquel <miquel@df.uba.ar>
--L:	rio500-users@lists.sourceforge.net
--W:	http://rio500.sourceforge.net
--S:	Maintained
--F:	drivers/usb/misc/rio500*
--
- USB EHCI DRIVER
- M:	Alan Stern <stern@rowland.harvard.edu>
- L:	linux-usb@vger.kernel.org
+
