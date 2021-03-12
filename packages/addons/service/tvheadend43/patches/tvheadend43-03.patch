@@ -584,20 +584,6 @@ diff -uNr a/src/descrambler/descrambler.c b/src/descrambler/descrambler.c
 diff -uNr a/src/descrambler/emm_reass.c b/src/descrambler/emm_reass.c
 --- a/src/descrambler/emm_reass.c	2020-12-21 15:42:49.066650293 +0100
 +++ b/src/descrambler/emm_reass.c	2020-12-21 15:40:15.455177000 +0100
-@@ -150,11 +150,12 @@
-   } else if (data[0] == 0x84) {  // shared emm
-     if (len >= 8) {
-       /* XXX this part is untested but should do no harm */
--      PROVIDERS_FOREACH(ra, i, ep)
-+      PROVIDERS_FOREACH(ra, i, ep) {
-         if (memcmp(&data[5], &ep->sa[4], 3) == 0) {
-           match = 1;
-           break;
-         }
-+      }
-     }
-   } else if (data[0] == 0x83) {  // global emm -> seca3
-     match = 1;
 @@ -395,20 +396,79 @@
    (emm_reass_t *ra, const uint8_t *data, int len, void *mux,
     emm_send_t send, void *aux)

@@ -2,16 +2,16 @@
 # Copyright (C) 2018-present Team CoreELEC (https://coreelec.org)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="52b255940f9eb71904b9ac01c733cad090cd061a"
-PKG_SHA256=""
-PKG_VERSION_NUMBER="52b25594"
-PKG_REV="110"
+PKG_VERSION="fe0e5f1f9c8fa175183cede9b3182fb25de2d367"
+PKG_SHA256="64f006c76f6bb6f17bc5420ff42b7d9ca2530ae9fdd1a835afa91c8acecad3b7"
+PKG_VERSION_NUMBER="4.3-1940"
+PKG_REV="112"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain avahi comskip curl dvb-apps ffmpegx libdvbcsa libhdhomerun \
-                    libiconv openssl pngquant:host Python3:host tvh-dtv-scan-tables"
+                    libiconv openssl pcre2 pngquant:host Python3:host tvh-dtv-scan-tables"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
 PKG_LONGDESC="Tvheadend ($PKG_VERSION_NUMBER): is a TV streaming server for Linux supporting DVB-S/S2, DVB-C, DVB-T/T2, IPTV, SAT>IP, ATSC and ISDB-T"
@@ -103,8 +103,9 @@ post_make_target() {
   $CC -O -fbuiltin -fomit-frame-pointer -fPIC -shared -o capmt_ca.so src/extra/capmt_ca.c -ldl
 }
 
-makeinstall_target() {
-  :
+post_makeinstall_target() {
+  mkdir -p ${INSTALL}/usr/lib
+  cp -p capmt_ca.so ${INSTALL}/usr/lib
 }
 
 addon() {

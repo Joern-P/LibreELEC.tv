@@ -2,12 +2,12 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rkmpp"
-PKG_VERSION="8dd7e8f37fd2fcb3084e2bf1d2e622c4c5ce6a6e"
+PKG_VERSION="f2231d147366bdfe070f51b54d268ea3ad6f1d49"
 PKG_SHA256=""
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="APL"
 PKG_SITE="https://github.com/rockchip-linux/mpp"
-PKG_URL="https://github.com/JeffyCN/mirrors/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/JeffyCN/rockchip_mirrors/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libdrm"
 PKG_LONGDESC="rkmpp: Rockchip Media Process Platform (MPP) module"
 
