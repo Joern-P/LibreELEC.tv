@@ -1,0 +1,42 @@
+This patch enables clk initialisation of rk3399 cpu in u-boot proper.
+
+Normally it should only be initialised in SPL as it is "time consuming".
+Doing so however leaves cpus clocked to low frequencies
+for Rockchip's DDR/loader/trust with mainline u-boot scenario
+which does not involve SPL phase.
+
+diff --git a/drivers/clk/rockchip/clk_rk3399.c b/drivers/clk/rockchip/clk_rk3399.c
+index 3fd863e7..41c5a2a7 100644
+--- a/drivers/clk/rockchip/clk_rk3399.c
++++ b/drivers/clk/rockchip/clk_rk3399.c
+@@ -54,9 +54,7 @@ struct pll_div {
+ 
+ static const struct pll_div gpll_init_cfg = PLL_DIVISORS(GPLL_HZ, 2, 2, 1);
+ static const struct pll_div cpll_init_cfg = PLL_DIVISORS(CPLL_HZ, 1, 2, 2);
+-#if !defined(CONFIG_SPL_BUILD)
+ static const struct pll_div ppll_init_cfg = PLL_DIVISORS(PPLL_HZ, 2, 2, 1);
+-#endif
+ 
+ static const struct pll_div apll_l_1600_cfg = PLL_DIVISORS(1600 * MHz, 3, 1, 1);
+ static const struct pll_div apll_l_600_cfg = PLL_DIVISORS(600 * MHz, 1, 2, 1);
+@@ -1382,19 +1380,7 @@ static int rk3399_clk_probe(struct udevice *dev)
+ 
+ 	priv->cru = map_sysmem(plat->dtd.reg[0], plat->dtd.reg[1]);
+ #endif
+-
+-#if defined(CONFIG_SPL_BUILD)
+-	init_clocks = true;
+-#elif CONFIG_IS_ENABLED(HANDOFF)
+-	if (!(gd->flags & GD_FLG_RELOC)) {
+-		if (!(gd->spl_handoff))
+-			init_clocks = true;
+-	}
+-#endif
+-
+-	if (init_clocks)
+-		rkclk_init(priv->cru);
+-
++	rkclk_init(priv->cru);
+ 	return 0;
+ }
+ 
