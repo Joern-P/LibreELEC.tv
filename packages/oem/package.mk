@@ -6,7 +6,7 @@ PKG_VERSION=""
 PKG_LICENSE="various"
 PKG_SITE="http://www.libreelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain emulationstation retroarch flycast mame2010 dosbox-staging snes9x2010 mupen64plus-nx libretro-vice rr-config-tool gstreamer-rockchip amiberry duckstation"
+PKG_DEPENDS_TARGET="toolchain emulationstation retroarch flycast mame2010 dosbox-staging snes9x2010 mupen64plus-nx libretro-vice rr-config-tool amiberry duckstation"
 PKG_LONGDESC="OEM: Metapackage for various OEM packages"
 PKG_TOOLCHAIN="manual"
 

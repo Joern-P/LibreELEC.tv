@@ -123,6 +123,8 @@ pre_configure_target() {
       PKG_CONFIGURE_OPTS_TARGET+=" --enable-kms \
       				    --disable-x11 \
       				    --disable-wayland"
+      CFLAGS+=" -DMESA_EGL_NO_X11_HEADERS"
+      CXXFLAGS+=" -DMESA_EGL_NO_X11_HEADERS" 				    
     fi
   fi
 

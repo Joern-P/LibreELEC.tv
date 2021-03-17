@@ -1,0 +1,20 @@
+diff --git a/Makefile b/Makefile
+index d981ee83..3895ff07 100644
+--- a/Makefile
++++ b/Makefile
+@@ -338,14 +338,10 @@
+       GLES3 = 1
+    endif
+ 
+-   ifneq (,$(findstring mesa,$(platform)))
+-      COREFLAGS += -DEGL_NO_X11
+-   endif
+-
+    GL_LIB := -lGLESv2
+    HAVE_NEON = 1
+    WITH_DYNAREC=arm
+-   COREFLAGS += -DUSE_GENERIC_GLESV2 -DOS_LINUX
++   COREFLAGS += -DUSE_GENERIC_GLESV2 -DOS_LINUX -DEGL_NO_X11
+    ASFLAGS = -f elf -d ELF_TYPE
+ 
+ # OS X

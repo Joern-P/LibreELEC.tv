@@ -1321,8 +1321,8 @@ diff -uNr a/src/plumbing/tsfix.c b/src/plumbing/tsfix.c
          }
  	tfs->tfs_bad_dts++;
          if (tfs->tfs_bad_dts < 5) {
--	  tvherror(LS_TSFIX,
-+/*	  tvherror(LS_TSFIX,
+-	  tvhwarn(LS_TSFIX,
++/*	  tvhwarn(LS_TSFIX,
  		   "transport stream %s, DTS discontinuity. "
  		   "DTS = %" PRId64 ", last = %" PRId64,
  		   streaming_component_type2txt(tfs->tfs_type),

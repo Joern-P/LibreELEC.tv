@@ -1,0 +1,195 @@
+From 615acf5433f323d16051eee5b7667baee51bd687 Mon Sep 17 00:00:00 2001
+From: MrFixIt2001 <mrfixit2001@gmail.com>
+Date: Wed, 3 Jun 2020 17:26:06 -0400
+Subject: [PATCH] Some enhancements to HDMI and CEC A few custom things, a few
+ things based on upstream, and then include two kwiboo commits:
+ https://github.com/Kwiboo/linux-rockchip/commit/2bbf6c78e9e6cbc699c3795faf5e6ab07d6fd31d
+ https://github.com/Kwiboo/linux-rockchip/commit/e60c4631b8208d58656fac962fb4f8987cc9b3ad
+
+---
+ arch/arm64/boot/dts/rockchip/rk3399.dtsi      |   7 +-
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c |  18 +-
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c     | 159 +++++++++++-------
+ drivers/media/cec/cec-core.c                  |   4 +
+ drivers/media/cec/cec-notifier.c              |  23 ++-
+ drivers/media/cec/cec-priv.h                  |   1 +
+ 6 files changed, 145 insertions(+), 67 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+index 7a1e84b36c..f7d1e58294 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
++++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+@@ -2045,8 +2045,9 @@
+ 	hdmi: hdmi@ff940000 {
+ 		compatible = "rockchip,rk3399-dw-hdmi";
+ 		reg = <0x0 0xff940000 0x0 0x20000>;
+-		pinctrl-names = "default";
++		pinctrl-names = "default", "gpio";
+ 		pinctrl-0 = <&hdmi_i2c_xfer>, <&hdmi_cec>;
++		pinctrl-1 = <&i2c3_gpio>;
+ 		interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH 0>;
+ 		clocks = <&cru PCLK_HDMI_CTRL>,
+ 			 <&cru SCLK_HDMI_SFR>,
+@@ -2054,6 +2055,8 @@
+ 			 <&cru PCLK_VIO_GRF>,
+ 			 <&cru SCLK_HDMI_CEC>;
+ 		clock-names = "iahb", "isfr", "vpll", "grf", "cec";
++		resets = <&cru SRST_HDMI_CTRL>;
++		reset-names = "hdmi";
+ 		power-domains = <&power RK3399_PD_HDCP>;
+ 		reg-io-width = <4>;
+ 		rockchip,grf = <&grf>;
+@@ -2548,7 +2551,7 @@
+ 					<4 16 RK_FUNC_1 &pcfg_pull_none>;
+ 			};
+ 
+-			i2c3_gpio: i2c3_gpio {
++			i2c3_gpio: i2c3-gpio {
+ 				rockchip,pins =
+ 					<4 17 RK_FUNC_GPIO &pcfg_pull_none>,
+ 					<4 16 RK_FUNC_GPIO &pcfg_pull_none>;
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c
+index 6c323510f1..b5a1a85c87 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-cec.c
+@@ -7,6 +7,7 @@
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
+  */
++#include <linux/delay.h>
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+ #include <linux/module.h>
+@@ -132,8 +133,15 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
+ 
+ 	dw_hdmi_write(cec, stat, HDMI_IH_CEC_STAT0);
+ 
+-	if (stat & CEC_STAT_ERROR_INIT) {
+-		cec->tx_status = CEC_TX_STATUS_ERROR;
++	/* Status with both done and error_initiator bits have been seen
++	 * on Rockchip RK3328 devices, transmit attempt seems to have failed
++	 * when this happens, report as low drive and block cec-framework
++	 * 100ms before core retransmits the failed message, this seems to
++	 * mitigate the issue with failed transmit attempts.
++	 */
++	if ((stat & (CEC_STAT_DONE|CEC_STAT_ERROR_INIT)) == (CEC_STAT_DONE|CEC_STAT_ERROR_INIT)) {
++		pr_info("dw_hdmi_cec_hardirq: stat=%02x LOW_DRIVE\n", stat);
++		cec->tx_status = CEC_TX_STATUS_LOW_DRIVE;
+ 		cec->tx_done = true;
+ 		ret = IRQ_WAKE_THREAD;
+ 	} else if (stat & CEC_STAT_DONE) {
+@@ -144,6 +152,10 @@ static irqreturn_t dw_hdmi_cec_hardirq(int irq, void *data)
+ 		cec->tx_status = CEC_TX_STATUS_NACK;
+ 		cec->tx_done = true;
+ 		ret = IRQ_WAKE_THREAD;
++	} else if (stat & CEC_STAT_ERROR_INIT) {
++		cec->tx_status = CEC_TX_STATUS_ERROR;
++		cec->tx_done = true;
++		ret = IRQ_WAKE_THREAD;
+ 	}
+ 
+ 	if (stat & CEC_STAT_EOM) {
+@@ -176,6 +188,8 @@ static irqreturn_t dw_hdmi_cec_thread(int irq, void *data)
+ 
+ 	if (cec->tx_done) {
+ 		cec->tx_done = false;
++		if (cec->tx_status == CEC_TX_STATUS_LOW_DRIVE)
++			msleep(100);
+ 		cec_transmit_attempt_done(adap, cec->tx_status);
+ 	}
+ 	if (cec->rx_done) {
+diff --git a/drivers/media/cec/cec-core.c b/drivers/media/cec/cec-core.c
+index 118a016370..cf6411db05 100644
+--- a/drivers/media/cec/cec-core.c
++++ b/drivers/media/cec/cec-core.c
+@@ -40,6 +40,10 @@ static bool debug_phys_addr;
+ module_param(debug_phys_addr, bool, 0644);
+ MODULE_PARM_DESC(debug_phys_addr, "add CEC_CAP_PHYS_ADDR if set");
+ 
++int cec_debounce;
++module_param_named(debounce, cec_debounce, int, 0644);
++MODULE_PARM_DESC(debounce, "debounce invalid phys addr");
++
+ static dev_t cec_dev_t;
+ 
+ /* Active devices */
+diff --git a/drivers/media/cec/cec-notifier.c b/drivers/media/cec/cec-notifier.c
+index f457d2465b..fdd882ba42 100644
+--- a/drivers/media/cec/cec-notifier.c
++++ b/drivers/media/cec/cec-notifier.c
+@@ -23,11 +23,14 @@
+ #include <linux/slab.h>
+ #include <linux/list.h>
+ #include <linux/kref.h>
++#include <linux/workqueue.h>
+ 
+ #include <media/cec.h>
+ #include <media/cec-notifier.h>
+ #include <drm/drm_edid.h>
+ 
++#include "cec-priv.h"
++
+ struct cec_notifier {
+ 	struct mutex lock;
+ 	struct list_head head;
+@@ -37,11 +40,25 @@ struct cec_notifier {
+ 	void (*callback)(struct cec_adapter *adap, u16 pa);
+ 
+ 	u16 phys_addr;
++	struct delayed_work work;
+ };
+ 
+ static LIST_HEAD(cec_notifiers);
+ static DEFINE_MUTEX(cec_notifiers_lock);
+ 
++static void cec_notifier_delayed_work(struct work_struct *work)
++{
++	struct cec_notifier *n =
++		container_of(to_delayed_work(work), struct cec_notifier, work);
++
++	mutex_lock(&n->lock);
++	if (n->callback)
++		n->callback(n->cec_adap, n->phys_addr);
++	else if (n->cec_adap)
++		cec_s_phys_addr(n->cec_adap, n->phys_addr, false);
++	mutex_unlock(&n->lock);
++}
++
+ struct cec_notifier *cec_notifier_get(struct device *dev)
+ {
+ 	struct cec_notifier *n;
+@@ -59,6 +76,7 @@ struct cec_notifier *cec_notifier_get(struct device *dev)
+ 		goto unlock;
+ 	n->dev = dev;
+ 	n->phys_addr = CEC_PHYS_ADDR_INVALID;
++	INIT_DELAYED_WORK(&n->work, cec_notifier_delayed_work);
+ 	mutex_init(&n->lock);
+ 	kref_init(&n->kref);
+ 	list_add_tail(&n->head, &cec_notifiers);
+@@ -90,9 +108,12 @@ void cec_notifier_set_phys_addr(struct cec_notifier *n, u16 pa)
+ 	if (n == NULL)
+ 		return;
+ 
++	cancel_delayed_work_sync(&n->work);
+ 	mutex_lock(&n->lock);
+ 	n->phys_addr = pa;
+-	if (n->callback)
++	if (cec_debounce > 0 && pa == CEC_PHYS_ADDR_INVALID)
++		schedule_delayed_work(&n->work, msecs_to_jiffies(cec_debounce));
++	else if (n->callback)
+ 		n->callback(n->cec_adap, n->phys_addr);
+ 	mutex_unlock(&n->lock);
+ }
+diff --git a/drivers/media/cec/cec-priv.h b/drivers/media/cec/cec-priv.h
+index daf597643a..50cd797028 100644
+--- a/drivers/media/cec/cec-priv.h
++++ b/drivers/media/cec/cec-priv.h
+@@ -34,6 +34,7 @@
+ 
+ /* cec-core.c */
+ extern int cec_debug;
++extern int cec_debounce;
+ int cec_get_device(struct cec_devnode *devnode);
+ void cec_put_device(struct cec_devnode *devnode);
+ 
+

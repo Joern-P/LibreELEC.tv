@@ -2,7 +2,7 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="wireguard-tools"
-PKG_VERSION="v1.0.20210223"
+PKG_VERSION="v1.0.20210315"
 PKG_SHA256=""
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://www.wireguard.com"

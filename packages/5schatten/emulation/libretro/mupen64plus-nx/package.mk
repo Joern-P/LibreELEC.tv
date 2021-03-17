@@ -2,17 +2,18 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="mupen64plus-nx"
-PKG_VERSION="a6df6b9bfd1b4552bcd27152b791ec6c3df6ffbb"
-PKG_SHA256=""
-PKG_LICENSE="GPLv2"
+PKG_VERSION="8fb474275aaca2e92e025c6a60af3e47cfdd185c"
+PKG_SHA256="cdd98d2b6eb1f957d8315c2176b2ddb50a9d9cccd778d8e754d6db27daeb76f5"
+PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_URL="https://github.com/libretro/mupen64plus-libretro-nx/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain linux glibc zlib libpng"
 PKG_LONGDESC="Mupen64Plus is mupen64plus + GLideN64 + libretro"
 PKG_TOOLCHAIN="make"
+PKG_BUILD_FLAGS="-sysroot"
 
 if [ "${ARCH}" = "arm" ]; then
-  PKG_BUILD_FLAGS="+lto"
+  PKG_BUILD_FLAGS+=" +lto"
 fi
 
 PKG_LIBNAME="mupen64plus_next_libretro.so"
@@ -34,74 +35,56 @@ configure_package() {
   # OpenGLES Support
   if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-    CXXFLAGS+=" -DGL_USE_DLSYM"
-    LDFLAGS+=" -ldl"
   fi
 }
 
 pre_configure_target() {
   # Set project specific platform flags
-  if [ "${PROJECT}" = "RPi" ]; then
-    case ${DEVICE} in
-      RPi)
-        PKG_MAKE_OPTS_TARGET+=" platform=rpi"
-        ;;
-      RPi2)
-        PKG_MAKE_OPTS_TARGET+=" platform=rpi2"
-        ;;
-      RPi3)
-        PKG_MAKE_OPTS_TARGET+=" platform=rpi3"
-        ;;
-      RPi4)
-        PKG_MAKE_OPTS_TARGET+=" platform=rpi4"
-        ;;
-    esac
-  elif [ "${PROJECT}" = "Amlogic" ]; then
-    case ${DEVICE} in
-      AMLG12)
-        PKG_MAKE_OPTS_TARGET+=" platform=AMLG12B GLES=1"
-        ;;
-      AMLGX*)
-        PKG_MAKE_OPTS_TARGET+=" platform=AMLGX"
-        if [ "${OPENGLES}" = "mesa" ]; then
-          PKG_MAKE_OPTS_TARGET+="-mesa"
+  case ${PROJECT} in
+    Amlogic)
+      PKG_MAKE_OPTS_TARGET+=" platform=${DEVICE}"
+      ;;
+    RPi)
+      case ${DEVICE} in
+        RPi)
+          PKG_MAKE_OPTS_TARGET+=" platform=rpi"
+          ;;
+        RPi2)
+          PKG_MAKE_OPTS_TARGET+=" platform=rpi2"
+          ;;
+        RPi4)
+          PKG_MAKE_OPTS_TARGET+=" platform=rpi4"
+          ;;
+      esac
+      ;;
+    Rockchip)
+      PKG_MAKE_OPTS_TARGET+=" platform=${DEVICE}"
+      ;;
+    *)
+      # Arch ARM
+      if [ "${ARCH}" = "arm" ]; then
+        PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=arm platform=armv"
+        # NEON Support
+        if target_has_feature neon; then
+          PKG_MAKE_OPTS_TARGET+="-neon"
         fi
-        ;;
-    esac
-  elif [ "${PROJECT}" = "Rockchip" ]; then
-    case ${DEVICE} in
-      RK3328)
-        PKG_MAKE_OPTS_TARGET+=" platform=RK3328"
-        ;;
-      RK3399)
-        PKG_MAKE_OPTS_TARGET+=" platform=RK3399"
-        ;;
-      TinkerBoard|MiQi)
-        PKG_MAKE_OPTS_TARGET+=" platform=RK3288"
-        ;;
-    esac
-  else
-    # OpenGLES 2.0/3.0 Support
-    if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-      if [ "${OPENGLES}" = "libmali" ]; then
-        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
-      else
-        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES=1"
       fi
-    fi
-    # Dynarec
-    if [ "${ARCH}" = "arm" ]; then
-      PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=arm"
-    elif [ "${ARCH}" = "x86_64" ]; then
-      PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=x86_64"
-    fi
-    # NEON Support
-    if target_has_feature neon; then
-      PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1"
-    fi
+
+      # OpenGL ES Support
+      if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+        PKG_MAKE_OPTS_TARGET+=" FORCE_GLES3=1"
+      fi
+      # Dynarec x86_64    
+      if [ "${ARCH}" = "x86_64" ]; then
+        PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=x86_64"
+      fi
+    ;;
+  esac
+  # Fix Mesa 3D based OpenGL ES builds
+  if [ "${OPENGLES}" = "mesa" ]; then
+    PKG_MAKE_OPTS_TARGET+="-mesa"
   fi
 }
-
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro

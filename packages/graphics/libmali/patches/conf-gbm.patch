@@ -1,0 +1,42 @@
+diff -uNr a/postinst.sh b/postinst.sh
+--- a/postinst.sh	2021-01-29 21:44:34.000000000 +0100
++++ b/postinst.sh	2021-03-16 19:34:45.602344967 +0100
+@@ -6,5 +6,19 @@
+ LIBMALI="$(basename $2)"
+ 
+ cd $LIB_DIR && \
+-	cp "$LIBMALI" libmali.so && \
+-	ln -sf libmali.so "$LIBMALI"
++	ln -sf "$LIBMALI" libmali.so 
++	ln -sf libmali.so libmali.so.1.9.0
++	ln -sf libmali.so libMali.so 
++	ln -sf libmali.so libMali.so.1 
++	ln -sf libmali.so libEGL.so
++	ln -sf libmali.so libEGL.so.1
++	ln -sf libmali.so libGLESv1_CM.so
++	ln -sf libmali.so libGLESv1_CM.so.1
++	ln -sf libmali.so libGLESv2.so 
++	ln -sf libmali.so libGLESv2.so.2
++	ln -sf libmali.so libgbm.so
++	ln -sf libmali.so libgbm.so.1
++	ln -sf libmali.so libMaliOpenCL.so
++	ln -sf libmali.so libOpenCL.so
++	ln -sf libmali.so libMaliOpenCL.so.1
++	ln -sf libmali.so libOpenCL.so.1
+diff -uNr a/meson_options.txt b/meson_options.txt
+--- a/meson_options.txt	2021-01-29 21:44:34.000000000 +0100
++++ b/meson_options.txt	2021-03-16 13:54:10.620595791 +0100
+@@ -7,10 +7,10 @@
+ option('subversion', type: 'string', value: 'none',
+        description: 'subversion (default: none)')
+ option('platform', type: 'combo', choices: ['x11', 'gbm', 'wayland', 'only-cl', 'dummy'],
+-       value: 'x11', description: 'platform (default: x11)')
++       value: 'gbm', description: 'platform (default: gbm)')
+ option('with-overlay', type: 'boolean', value: 'false',
+        description: 'install overlay (default: false)')
+ option('opencl-icd', type: 'boolean', value: 'true',
+        description: 'OpenCL Installable Client Driver (ICD) (default: true)')
+-option('khr-header', type: 'boolean', value: 'false',
+-       description: 'Install KHR header (default: false)')
++option('khr-header', type: 'boolean', value: 'true',
++       description: 'Install KHR header (default: true)')

@@ -7,7 +7,7 @@ PKG_SHA256="632acd0ddce1639327be9bcfa0e1c5e389c2bdd9df0e4c73349e11a6b7f00570"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.libsdl.org/"
 PKG_URL="https://github.com/spurious/SDL-mirror/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain alsa-lib systemd dbus glu"
+PKG_DEPENDS_TARGET="toolchain alsa-lib systemd dbus"
 PKG_LONGDESC="Simple DirectMedia Layer is a cross-platform development library for portable low-level access to a video framebuffer, audio output, mouse, and keyboard."
 
 configure_package() {
