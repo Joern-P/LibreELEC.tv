@@ -1,12 +1,10 @@
-# SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
-
 PKG_NAME="dvb-latest"
-PKG_VERSION="d121a2bedf6dd541c6182041142ec54fd94760ab"
-PKG_SHA256="45dcd91f283ee9cfd7a75b291ab40c6b25d054362960c63d5a806db9b9489f70"
+PKG_VERSION="e0136eadb6f4c24b7f8fcb50ef4d4d5ffb2af31d"
+PKG_SHA256=""
 PKG_LICENSE="GPL"
 PKG_SITE="http://git.linuxtv.org/media_build.git"
-PKG_URL="https://git.linuxtv.org/media_build.git/snapshot/${PKG_VERSION}.tar.gz"
+PKG_URL="https://git.linuxtv.org/media_build.git"
+GET_HANDLER_SUPPORT="git"
 PKG_DEPENDS_TARGET="toolchain linux media_tree"
 PKG_NEED_UNPACK="$LINUX_DEPENDS $(get_pkg_directory media_tree)"
 PKG_SECTION="driver.dvb"
@@ -25,14 +23,21 @@ pre_make_target() {
 }
 
 make_target() {
-  cp -RP $(get_build_dir media_tree)/* $PKG_BUILD/linux
-
+  cp -RP $(get_build_dir media_tree)/* ${PKG_BUILD}/linux
+  
   # make config all
   kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path) allyesconfig
 
+  # hack to workaround media_build bug
+  if [ "$PROJECT" = Rockchip ]; then
+    sed -e 's/CONFIG_DVB_CXD2820R=m/# CONFIG_DVB_CXD2820R is not set/g' -i v4l/.config
+    sed -e 's/CONFIG_DVB_LGDT3306A=m/# CONFIG_DVB_LGDT3306A is not set/g' -i v4l/.config
+  fi
+
+  # add menuconfig to edit .config
   kernel_make VER=$KERNEL_VER SRCDIR=$(kernel_path)
 }
 
 makeinstall_target() {
-  install_driver_addon_files "$PKG_BUILD/v4l/"
+  install_driver_addon_files "${PKG_BUILD}/v4l/"
 }

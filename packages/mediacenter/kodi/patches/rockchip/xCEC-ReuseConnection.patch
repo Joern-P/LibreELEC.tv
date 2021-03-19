@@ -1,0 +1,66 @@
+From 02f19e1d8a4055341884078f9bcc842d2f3d8baa Mon Sep 17 00:00:00 2001
+From: Portisch <hugo.portisch@yahoo.de>
+Date: Mon, 18 Jan 2021 16:30:25 +0100
+Subject: [PATCH] PeripheralCecAdapter: reuse open CEC adapter connection on
+ suspend resume After suspend the CEC master (TV) should still be available.
+ So no extra ReopenConnection should be needed.
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 1871397ac4..b468e94169 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -177,12 +177,12 @@ void CPeripheralCecAdapter::Announce(ANNOUNCEMENT::AnnouncementFlag flag, const
+   }
+   else if (flag == ANNOUNCEMENT::System && !strcmp(sender, "xbmc") && !strcmp(message, "OnWake"))
+   {
+-    CLog::Log(LOGDEBUG, "%s - reconnecting to the CEC adapter after standby mode", __FUNCTION__);
+-    if (ReopenConnection())
++    CSingleLock lock(m_critSection);
++    if (m_bStarted)
+     {
++      CLog::Log(LOGDEBUG, "%s - reuse open CEC adapter connection after standby mode", __FUNCTION__);
+       bool bActivate(false);
+       {
+-        CSingleLock lock(m_critSection);
+         bActivate = m_bActiveSourceBeforeStandby;
+         m_bActiveSourceBeforeStandby = false;
+       }
+From a3378ccb4b280b116944bf277455ff39c3faa0e0 Mon Sep 17 00:00:00 2001
+From: Portisch <hugo.portisch@yahoo.de>
+Date: Sat, 6 Feb 2021 16:17:25 +0100
+Subject: [PATCH] PeripheralCecAdapter: do reset m_bStarted only on closing
+ adapter connection
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index b468e94169..f4765616d9 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -556,19 +556,15 @@ void CPeripheralCecAdapter::OnTvStandby(void)
+   switch (iActionOnTvStandby)
+   {
+   case LOCALISED_ID_POWEROFF:
+-    m_bStarted = false;
+     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_SHUTDOWN);
+     break;
+   case LOCALISED_ID_SUSPEND:
+-    m_bStarted = false;
+     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_SUSPEND);
+     break;
+   case LOCALISED_ID_HIBERNATE:
+-    m_bStarted = false;
+     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_HIBERNATE);
+     break;
+   case LOCALISED_ID_QUIT:
+-    m_bStarted = false;
+     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_QUIT);
+     break;
+   case LOCALISED_ID_PAUSE:
+

@@ -35,6 +35,10 @@ configure_package() {
   # OpenGLES Support
   if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+        if [ "$OPENGLES" = "libmali" ]; then
+    		CXXFLAGS+=" -DGL_USE_DLSYM"
+    		LDFLAGS+=" -ldl"
+  	fi
   fi
 }
 
