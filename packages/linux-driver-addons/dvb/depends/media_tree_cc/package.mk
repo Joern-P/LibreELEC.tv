@@ -2,11 +2,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="media_tree_cc"
-PKG_VERSION="2019-05-12"
-PKG_SHA256="55bd8b54c83110a30d8ad44761e888a4bad4745f1ae4765dcf44f2752fc96419"
+PKG_VERSION="2021-02-16"
+PKG_SHA256="a4bc981015d48fda009f5588c001dbce6f67e11055efc7e58d3abceef95188fd"
 PKG_LICENSE="GPL"
-PKG_SITE="https://bitbucket.org/CrazyCat/media_build/downloads/"
-PKG_URL="$DISTRO_SRC/$PKG_NAME-$PKG_VERSION.tar.bz2"
+PKG_SITE="https://github.com/crazycat69/linux_media"
+PKG_URL="${DISTRO_SRC}/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_NEED_UNPACK="$LINUX_DEPENDS"
 PKG_LONGDESC="Source of Linux Kernel media_tree subsystem to build with media_build."

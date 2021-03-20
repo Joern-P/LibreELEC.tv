@@ -1,6 +1,6 @@
 --- a/v4l/scripts/make_kconfig.pl
 +++ b/v4l/scripts/make_kconfig.pl
-@@ -626,6 +626,14 @@ ($$)
+@@ -626,6 +626,19 @@ ($$)
  close OUT;
  
  # These options should default to off
@@ -12,6 +12,11 @@
 +disable_config('VIDEO_CX25840');
 +disable_config('VIDEO_SAA7146');
 +disable_config('VIDEO_SAA7146_VV');
++disable_config('VIDEO_MSP3400');
++disable_config('VIDEO_ET8EK8');
++disable_config('VIDEO_M5MOLS');
++disable_config('VIDEO_TDA7432');
++disable_config('VIDEO_ROCKCHIP_ISP1'); 
  disable_config('DVB_AV7110_FIRMWARE');
  disable_config('DVB_CINERGYT2_TUNING');
  disable_config('VIDEO_HELPER_CHIPS_AUTO');

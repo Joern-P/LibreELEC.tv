@@ -1,0 +1,37 @@
+diff -uNr a/backports/backports.txt b/backports/backports.txt
+--- a/backports/backports.txt	2021-03-20 20:11:47.371470000 +0100
++++ b/backports/backports.txt	2021-03-20 20:21:43.291518521 +0100
+@@ -122,6 +122,7 @@
+ [4.4.275]
+ add v4.4_gpio_chip_parent.patch
+ add v4.4_user_pages_flag.patch
++add fix-v4l2-compat-ioctl32.patch
+ 
+ [4.3.255]
+ delete v4.4_user_pages_flag.patch
+diff -uNr a/backports/fix-v4l2-compat-ioctl32.patch b/backports/fix-v4l2-compat-ioctl32.patch
+--- a/backports/fix-v4l2-compat-ioctl32.patch	1970-01-01 01:00:00.000000000 +0100
++++ b/backports/fix-v4l2-compat-ioctl32.patch	2021-03-20 20:18:40.448793469 +0100
+@@ -0,0 +1,22 @@
++diff --git a/drivers/media/v4l2-core/v4l2-compat-ioctl32.c b/drivers/media/v4l2-core/v4l2-compat-ioctl32.c
++index 0ca75f6784c5..1ecefa4a229b 100644
++--- a/drivers/media/v4l2-core/v4l2-compat-ioctl32.c
+++++ b/drivers/media/v4l2-core/v4l2-compat-ioctl32.c
++@@ -780,7 +780,7 @@
++ 	__u32				reserved[8];
++ };
++ #endif
++-
+++#ifdef CONFIG_X86_64
++ static int put_v4l2_event32(struct v4l2_event *p64,
++ 			    struct v4l2_event32 __user *p32)
++ {
++@@ -795,7 +795,7 @@
++ 		return -EFAULT;
++ 	return 0;
++ }
++-
+++#endif
++ #if 0
++ static int put_v4l2_event32_time32(struct v4l2_event *p64,
++ 				   struct v4l2_event32_time32 __user *p32)
