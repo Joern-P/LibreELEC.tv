@@ -2,10 +2,10 @@
 # Copyright (C) 2018-present Team CoreELEC (https://coreelec.org)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="6c537b1fddc40ce84eb032a06e2a846a366aa30b"
+PKG_VERSION="dbaa0f850394af8ab845df802f5f781ac0218ec4"
 PKG_SHA256=""
-PKG_VERSION_NUMBER="4.3-1950"
-PKG_REV="113"
+PKG_VERSION_NUMBER="4.3-1960"
+PKG_REV="114"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -113,12 +113,7 @@ addon() {
 
   cp $PKG_DIR/addon.xml $ADDON_BUILD/$PKG_ADDON_ID
 
-  # copy gnutls lib that is needed for ffmpeg
-  mkdir -p $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir gnutls)/.INSTALL_PKG/usr/lib/libgnutls.so.30 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libnettle.so.8 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir nettle)/.install_pkg/usr/lib/libhogweed.so.6 $ADDON_BUILD/$PKG_ADDON_ID/lib
-  cp -PL $(get_build_dir gmp)/.install_pkg/usr/lib/libgmp.so.10 $ADDON_BUILD/$PKG_ADDON_ID/lib
+
 
   # set only version (revision will be added by buildsystem)
   sed -e "s|@ADDON_VERSION@|$ADDON_VERSION|g" \

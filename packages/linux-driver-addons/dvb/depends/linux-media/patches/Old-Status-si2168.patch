@@ -1,0 +1,396 @@
+diff -uNr a/drivers/media/dvb-frontends/si2168.c b/drivers/media/dvb-frontends/si2168.c
+--- a/drivers/media/dvb-frontends/si2168.c	2020-04-14 14:28:53.000000000 +0200
++++ b/drivers/media/dvb-frontends/si2168.c	2021-03-22 03:34:04.000000000 +0100
+@@ -127,13 +127,18 @@
+ 		goto err;
+ 	}
+ 
+-	switch (c->delivery_system) {
++	switch (dev->delivery_system) {
+ 	case SYS_DVBT:
+ 		cmd_init(&cmd, "\xa0\x01", 2, 13);
+ 		break;
+ 	case SYS_DVBC_ANNEX_A:
+ 		cmd_init(&cmd, "\x90\x01", 2, 9);
+ 		break;
++	case SYS_DVBC_ANNEX_B:
++		memcpy(cmd.args, "\x98\x01", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 10;
++		break;
+ 	case SYS_DVBT2:
+ 		cmd_init(&cmd, "\x50\x01", 2, 14);
+ 		break;
+@@ -159,9 +164,11 @@
+ 	dev->fe_status = *status;
+ 
+ 	if (*status & FE_HAS_LOCK) {
+-		c->cnr.len = 1;
++		c->cnr.len = 2;
+ 		c->cnr.stat[0].scale = FE_SCALE_DECIBEL;
+-		c->cnr.stat[0].svalue = cmd.args[3] * 1000 / 4;
++		c->cnr.stat[0].svalue = (s64)cmd.args[3] * 250;
++		c->cnr.stat[1].scale = FE_SCALE_RELATIVE;
++		c->cnr.stat[1].uvalue = (s64)cmd.args[3] * 328;
+ 	} else {
+ 		c->cnr.len = 1;
+ 		c->cnr.stat[0].scale = FE_SCALE_NOT_AVAILABLE;
+@@ -227,6 +234,85 @@
+ 	return ret;
+ }
+ 
++static int si2168_read_snr(struct dvb_frontend *fe, u16 *snr)
++{
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int i;
++
++	*snr = 0;
++	for (i=0; i < c->cnr.len; i++)
++		if (c->cnr.stat[i].scale == FE_SCALE_RELATIVE)
++		  *snr = (u16)c->cnr.stat[i].uvalue;
++	return 0;
++}
++
++static int si2168_read_signal_strength(struct dvb_frontend *fe, u16 *strength)
++{
++	struct dtv_frontend_properties *c = &fe->dtv_property_cache;
++	int i;
++
++	*strength = 0;
++	for (i=0; i < c->strength.len; i++)
++	{
++		if (c->strength.stat[i].scale == FE_SCALE_RELATIVE)
++			*strength = (u16)c->strength.stat[i].uvalue;
++		else if (c->strength.stat[i].scale == FE_SCALE_DECIBEL)
++			*strength = ((100000 + (s32)c->strength.stat[i].svalue)/1000) * 656;
++	}
++	return 0;
++}
++
++static int si2168_read_ber(struct dvb_frontend *fe, u32 *ber)
++{
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct si2168_cmd cmd;
++	int ret;
++	
++	if (dev->fe_status & FE_HAS_LOCK) {
++		memcpy(cmd.args, "\x82\x00", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 3;
++		ret = si2168_cmd_execute(client, &cmd);
++		if (ret) {
++			dev_err(&client->dev, "read_ber fe%d cmd_exec failed=%d\n", fe->id, ret);
++			goto err;
++		}
++		*ber = (u32)cmd.args[2] * cmd.args[1] & 0xf;
++	} else *ber = 1;
++
++	return 0;
++err:
++	dev_err(&client->dev, "read_ber failed=%d\n", ret);
++	return ret;
++}
++
++static int si2168_read_ucblocks(struct dvb_frontend *fe, u32 *ucblocks)
++{
++	struct i2c_client *client = fe->demodulator_priv;
++	struct si2168_dev *dev = i2c_get_clientdata(client);
++	struct si2168_cmd cmd;
++	int ret;
++	
++	if (dev->stat_resp & 0x10) {
++		memcpy(cmd.args, "\x84\x00", 2);
++		cmd.wlen = 2;
++		cmd.rlen = 3;
++		ret = si2168_cmd_execute(client, &cmd);
++		if (ret) {
++		dev_err(&client->dev, "read_ucblocks fe%d cmd_exec failed=%d\n", fe->id, ret);
++			goto err;
++		}
++
++		*ucblocks = (u16)cmd.args[2] << 8 | cmd.args[1];
++	} else 	*ucblocks = 0;
++
++	return 0;
++err:
++	dev_err(&client->dev, "read_ucblocks failed=%d\n", ret);
++	return ret;
++}
++
+ static int si2168_set_frontend(struct dvb_frontend *fe)
+ {
+ 	struct i2c_client *client = fe->demodulator_priv;
+@@ -248,11 +334,23 @@
+ 	}
+ 
+ 	switch (c->delivery_system) {
++	case SYS_DVBC_ANNEX_B:
++		delivery_system = 0x10;
++		if( c->modulation==QAM_256)
++			 c->symbol_rate=5361000;
++		if( c->modulation==QAM_64)
++			 c->symbol_rate=5057000;	
++		break;
+ 	case SYS_DVBT:
+ 		delivery_system = 0x20;
+ 		break;
+ 	case SYS_DVBC_ANNEX_A:
+ 		delivery_system = 0x30;
++		//if (c->symbol_rate < 6000000) {
++		//	delivery_system = 0x10;
++		//	c->delivery_system = SYS_DVBC_ANNEX_B;
++		//	c->bandwidth_hz = 6000000;
++		//}
+ 		break;
+ 	case SYS_DVBT2:
+ 		delivery_system = 0x70;
+@@ -359,6 +457,16 @@
+ 		if (ret)
+ 			goto err;
+ 	}
++	else if (c->delivery_system == SYS_DVBC_ANNEX_B) {
++		memcpy(cmd.args, "\x14\x00\x02\x16", 4);
++		cmd.args[4] = ((c->symbol_rate / 1000) >> 0) & 0xff;
++		cmd.args[5] = ((c->symbol_rate / 1000) >> 8) & 0xff;
++		cmd.wlen = 6;
++		cmd.rlen = 4;
++		ret = si2168_cmd_execute(client, &cmd);
++		if (ret)
++			goto err;
++	}
+ 
+ 	cmd_init(&cmd, "\x14\x00\x0f\x10\x10\x00", 6, 4);
+ 	ret = si2168_cmd_execute(client, &cmd);
+@@ -372,7 +480,9 @@
+ 		goto err;
+ 
+ 	cmd_init(&cmd, "\x14\x00\x08\x10\xd7\x05", 6, 4);
+-	cmd.args[5] |= dev->ts_clock_inv ? 0x00 : 0x10;
++	//cmd.args[5] |= dev->ts_clock_inv ? 0x00 : 0x10;
++	cmd.args[4] = dev->ts_clock_inv ? 0xd7 : 0xcf;
++	cmd.args[5] = dev->ts_clock_inv ? 0x05 : 0x33;
+ 	ret = si2168_cmd_execute(client, &cmd);
+ 	if (ret)
+ 		goto err;
+@@ -415,6 +525,9 @@
+ 	struct si2168_cmd cmd;
+ 
+ 	dev_dbg(&client->dev, "\n");
++	
++	if (dev->active)
++		return 0;	
+ 
+ 	/* initialize */
+ 	cmd_init(&cmd, "\xc0\x12\x00\x0c\x00\x0d\x16\x00\x00\x00\x00\x00\x00",
+@@ -521,6 +634,56 @@
+ 		 dev->version >> 24 & 0xff, dev->version >> 16 & 0xff,
+ 		 dev->version >> 8 & 0xff, dev->version >> 0 & 0xff);
+ 
++	/* TER FEF */
++	memcpy(cmd.args, "\x51\x00", 2);
++	cmd.wlen = 2;
++	cmd.rlen = 12;
++	cmd.args[1] = (dev->fef_inv & 1) << 3 | (dev->fef_pin & 7);
++	dev_dbg(&client->dev, "args=%*ph\n", cmd.wlen, cmd.args);
++	
++	ret = si2168_cmd_execute(client, &cmd);
++	if (ret) {
++		dev_err(&client->dev, "err set fef pip\n");
++	}
++
++	/* MP DEFAULTS */
++	memcpy(cmd.args, "\x88\x01\x01\x01\x01", 5);
++	cmd.wlen = 5;
++	cmd.rlen = 2;
++	switch (dev->fef_pin)
++	{
++	case SI2168_MP_A:
++		cmd.args[1] = dev->fef_inv ? 3 : 2;
++		break;
++	case SI2168_MP_B:
++		cmd.args[2] = dev->fef_inv ? 3 : 2;
++		break;
++	case SI2168_MP_C:
++		cmd.args[3] = dev->fef_inv ? 3 : 2;
++		break;
++	case SI2168_MP_D:
++		cmd.args[4] = dev->fef_inv ? 3 : 2;
++		break;
++	}
++	dev_dbg(&client->dev, "args=%*ph\n", cmd.wlen, cmd.args);
++	
++	ret = si2168_cmd_execute(client, &cmd);
++	if (ret) {
++		dev_err(&client->dev, "err set mp defaults\n");
++	}
++
++	/* AGC */
++	memcpy(cmd.args, "\x89\x01\x06\x12\x00\x00", 6);
++	cmd.wlen = 6;
++	cmd.rlen = 3;
++	cmd.args[1] |= (dev->agc_inv & 1) << 7 | (dev->agc_pin & 7) << 4;
++	dev_dbg(&client->dev, "args=%*ph\n", cmd.wlen, cmd.args);
++
++	ret = si2168_cmd_execute(client, &cmd);
++	if (ret) {
++		dev_err(&client->dev, "err set ter agc\n");
++	}
++
+ 	/* set ts mode */
+ 	ret = si2168_ts_bus_ctrl(fe, 1);
+ 	if (ret)
+@@ -624,7 +787,7 @@
+ }
+ 
+ static const struct dvb_frontend_ops si2168_ops = {
+-	.delsys = {SYS_DVBT, SYS_DVBT2, SYS_DVBC_ANNEX_A},
++	.delsys = {SYS_DVBT, SYS_DVBT2, SYS_DVBC_ANNEX_A, SYS_DVBC_ANNEX_B},
+ 	.info = {
+ 		.name = "Silicon Labs Si2168",
+ 		.frequency_min_hz      =  48 * MHz,
+@@ -661,6 +824,10 @@
+ 	.set_frontend = si2168_set_frontend,
+ 
+ 	.read_status = si2168_read_status,
++	.read_signal_strength	= si2168_read_signal_strength,
++	.read_snr		= si2168_read_snr,
++	.read_ber		= si2168_read_ber,
++	.read_ucblocks		= si2168_read_ucblocks,
+ };
+ 
+ static int si2168_probe(struct i2c_client *client,
+@@ -748,6 +915,14 @@
+ 	dev->ts_mode = config->ts_mode;
+ 	dev->ts_clock_inv = config->ts_clock_inv;
+ 	dev->ts_clock_gapped = config->ts_clock_gapped;
++	dev->fef_pin = config->fef_pin;
++	dev->fef_inv = config->fef_inv;
++	dev->agc_pin = config->agc_pin;
++	dev->agc_inv = config->agc_inv;
++
++	if (!dev->agc_pin) dev->agc_pin = SI2168_MP_A;
++	if (!dev->fef_pin) dev->fef_pin = SI2168_MP_B;
++
+ 	dev->spectral_inversion = config->spectral_inversion;
+ 
+ 	dev_info(&client->dev, "Silicon Labs Si2168-%c%d%d successfully identified\n",
+diff -uNr a/drivers/media/dvb-frontends/si2168.h b/drivers/media/dvb-frontends/si2168.h
+--- a/drivers/media/dvb-frontends/si2168.h	2020-04-14 14:28:53.000000000 +0200
++++ b/drivers/media/dvb-frontends/si2168.h	2021-03-22 03:34:04.000000000 +0100
+@@ -42,6 +42,16 @@
+ #define SI2168_TS_CLK_MANUAL	0x20
+ 	u8 ts_mode;
+ 
++	/* Tuner control pins */
++#define SI2168_MP_NOT_USED	1
++#define SI2168_MP_A		2
++#define SI2168_MP_B		3
++#define SI2168_MP_C		4
++#define SI2168_MP_D		5
++	int agc_pin;
++	bool agc_inv;
++	int fef_pin;
++	bool fef_inv;
+ 	/* Flags */
+ 	unsigned int ts_clock_inv:1;
+ 	unsigned int ts_clock_gapped:1;
+diff -uNr a/drivers/media/dvb-frontends/si2168_priv.h b/drivers/media/dvb-frontends/si2168_priv.h
+--- a/drivers/media/dvb-frontends/si2168_priv.h	2020-04-14 14:28:53.000000000 +0200
++++ b/drivers/media/dvb-frontends/si2168_priv.h	2021-03-22 03:34:04.000000000 +0100
+@@ -27,6 +27,7 @@
+ 	struct dvb_frontend fe;
+ 	enum fe_delivery_system delivery_system;
+ 	enum fe_status fe_status;
++	u8 stat_resp;
+ 	#define SI2168_CHIP_ID_A20 ('A' << 24 | 68 << 16 | '2' << 8 | '0' << 0)
+ 	#define SI2168_CHIP_ID_A30 ('A' << 24 | 68 << 16 | '3' << 8 | '0' << 0)
+ 	#define SI2168_CHIP_ID_B40 ('B' << 24 | 68 << 16 | '4' << 8 | '0' << 0)
+@@ -35,6 +36,10 @@
+ 	unsigned int version;
+ 	const char *firmware_name;
+ 	u8 ts_mode;
++	int fef_pin;
++	bool fef_inv;
++	int agc_pin;
++	bool agc_inv;
+ 	unsigned int active:1;
+ 	unsigned int warm:1;
+ 	unsigned int ts_clock_inv:1;
+diff -uNr a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
+--- a/drivers/media/tuners/si2157.c	2020-04-30 07:40:24.000000000 +0200
++++ b/drivers/media/tuners/si2157.c	2021-03-22 03:34:04.000000000 +0100
+@@ -35,7 +35,7 @@
+ 
+ 	if (cmd->rlen) {
+ 		/* wait cmd execution terminate */
+-		#define TIMEOUT 80
++		#define TIMEOUT 500
+ 		timeout = jiffies + msecs_to_jiffies(TIMEOUT);
+ 		while (!time_after(jiffies, timeout)) {
+ 			ret = i2c_master_recv(client, cmd->args, cmd->rlen);
+@@ -422,23 +422,28 @@
+ 
+ 	switch (c->delivery_system) {
+ 	case SYS_ATSC:
+-			delivery_system = 0x00;
+-			if_frequency = 3250000;
+-			break;
+-	case SYS_DVBC_ANNEX_B:
+-			delivery_system = 0x10;
+-			if_frequency = 4000000;
+-			break;
++		delivery_system = 0x00;
++		if_frequency = 3250000;
++		break;
+ 	case SYS_DVBT:
+ 	case SYS_DVBT2: /* it seems DVB-T and DVB-T2 both are 0x20 here */
+-			delivery_system = 0x20;
+-			break;
++		delivery_system = 0x20;
++		break;
+ 	case SYS_DVBC_ANNEX_A:
+-			delivery_system = 0x30;
+-			break;
++		delivery_system = 0x30;
++		break;
++	case SYS_DVBC_ANNEX_B:
++		delivery_system = 0x10;
++		break;
++	case SYS_ISDBT:
++		delivery_system = 0x40;
++		break;
++	case SYS_DTMB:
++		delivery_system = 0x60;
++		break;
+ 	default:
+-			ret = -EINVAL;
+-			goto err;
++		ret = -EINVAL;
++		goto err;
+ 	}
+ 
+ 	memcpy(cmd.args, "\x14\x00\x03\x07\x00\x00", 6);
+@@ -838,7 +843,21 @@
+ 	INIT_DELAYED_WORK(&dev->stat_work, si2157_stat_work);
+ 
+ 	/* check if the tuner is there */
+-	cmd.wlen = 0;
++	/* wake tuner */
++	switch (dev->chiptype)
++	{
++	case SI2157_CHIPTYPE_SI2141:
++		memcpy(cmd.args, "\xc0\x08\x01\x02\x00\x08\x01", 7);
++		cmd.wlen = 7;
++		break;
++	case SI2157_CHIPTYPE_SI2146:
++		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
++		cmd.wlen = 9;
++		break;
++	default:
++		memcpy(cmd.args, "\xc0\x00\x0c\x00\x00\x01\x01\x01\x01\x01\x01\x02\x00\x00\x01", 15);
++		cmd.wlen = 15;
++	}
+ 	cmd.rlen = 1;
+ 	ret = si2157_cmd_execute(client, &cmd);
+ 	if (ret && ret != -EAGAIN)
