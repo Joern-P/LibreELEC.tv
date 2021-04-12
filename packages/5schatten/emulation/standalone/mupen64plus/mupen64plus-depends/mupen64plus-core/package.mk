@@ -2,14 +2,15 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="mupen64plus-core"
-PKG_VERSION="2.5.9"
-PKG_SHA256="5d3348b8bd44474e71297769e96aa70fdcc1c5e022519a3f8b1e5173e74a145a"
-PKG_LICENSE="GPLv2"
+PKG_VERSION="af812317fe99c51184d02981939d147e73dd07cc"
+PKG_SHA256="b98391abd0ce5af0c4afc00415bb45918d30a10ea4215047ef83883e122180e9"
+PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/mupen64plus/mupen64plus-core"
-PKG_URL="https://github.com/mupen64plus/mupen64plus-core/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/mupen64plus/mupen64plus-core/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain SDL2-system freetype libpng zlib"
 PKG_LONGDESC="Core module of the Mupen64Plus project"
 PKG_TOOLCHAIN="make"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_MAKE_OPTS_TARGET="-C projects/unix SRCDIR=../../src all NEW_DYNAREC=1 SHAREDIR=/usr/config/mupen64plus"
 
@@ -21,7 +22,7 @@ configure_package() {
 }
 
 pre_configure_target() {
-  export SYSROOT_PREFIX=$SYSROOT_PREFIX
+  export SYSROOT_PREFIX=${SYSROOT_PREFIX}
 
   # ARCH arm
   if [ "${ARCH}" = "arm" ]; then
@@ -44,5 +45,5 @@ pre_configure_target() {
 }
 
 makeinstall_target() {
-  mv $PKG_BUILD/projects/unix/*.so* $PKG_BUILD/
+  mv ${PKG_BUILD}/projects/unix/*.so* ${PKG_BUILD}/
 }
