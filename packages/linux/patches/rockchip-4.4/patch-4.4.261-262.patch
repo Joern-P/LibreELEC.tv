@@ -2841,19 +2841,6 @@ index e5ee349a5382b..53d2f02e18a32 100644
  	/* control interfaces without any protocol set */
  	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,
  		USB_CDC_PROTO_NONE) },
-diff --git a/drivers/usb/gadget/function/f_uac2.c b/drivers/usb/gadget/function/f_uac2.c
-index 81af315774c62..6903d02a933f5 100644
---- a/drivers/usb/gadget/function/f_uac2.c
-+++ b/drivers/usb/gadget/function/f_uac2.c
-@@ -997,7 +997,7 @@ static int set_ep_max_packet_size(const struct f_uac2_opts *uac2_opts,
- 	}
- 
- 	max_size_bw = num_channels(chmask) * ssize *
--		DIV_ROUND_UP(srate, factor / (1 << (ep_desc->bInterval - 1)));
-+		((srate / (factor / (1 << (ep_desc->bInterval - 1)))) + 1);
- 	ep_desc->wMaxPacketSize = cpu_to_le16(min_t(u16, max_size_bw,
- 						    max_size_ep));
- 
 diff --git a/drivers/usb/host/xhci.c b/drivers/usb/host/xhci.c
 index e7dee8e3ca8b1..bd6e3555c0479 100644
 --- a/drivers/usb/host/xhci.c

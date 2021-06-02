@@ -163,13 +163,13 @@ diff --git a/elf/elf.h b/elf/elf.h
 index 197b557d15..5b6da8e8ae 100644
 --- a/elf/elf.h
 +++ b/elf/elf.h
-@@ -446,7 +446,8 @@ typedef struct
+@@ -442,7 +442,8 @@
  #define SHT_PREINIT_ARRAY 16		/* Array of pre-constructors */
  #define SHT_GROUP	  17		/* Section group */
- #define SHT_SYMTAB_SHNDX  18		/* Extended section indeces */
+ #define SHT_SYMTAB_SHNDX  18		/* Extended section indices */
 -#define	SHT_NUM		  19		/* Number of defined types.  */
 +#define SHT_RELR	  19            /* Relative relocation, only offsets */
-+#define	SHT_NUM		  20		/* Number of defined types.  */
++#define SHT_NUM	  20		/* Number of defined types.  */
  #define SHT_LOOS	  0x60000000	/* Start OS-specific.  */
  #define SHT_GNU_ATTRIBUTES 0x6ffffff5	/* Object attributes.  */
  #define SHT_GNU_HASH	  0x6ffffff6	/* GNU-style hash table.  */
@@ -345,4 +345,5 @@ index 363a749cb2..10a200ba67 100644
  elf_machine_lazy_rel (struct link_map *map,
 -- 
 2.30.2
+
 
