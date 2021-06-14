@@ -1,0 +1,71 @@
+From 9b9dc3a785030735ddf944f96ada393089975140 Mon Sep 17 00:00:00 2001
+From: ijm7 <ijmorton500@gmail.com>
+Date: Fri, 11 Dec 2020 16:33:29 +0000
+Subject: [PATCH 1/2] Fix segfault in ActivateSource
+
+---
+ .../implementations/SLCommandHandler.cpp      | 25 ++++++++++---------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/src/libcec/implementations/SLCommandHandler.cpp b/src/libcec/implementations/SLCommandHandler.cpp
+index 34dec5ab..976579f6 100644
+--- a/src/libcec/implementations/SLCommandHandler.cpp
++++ b/src/libcec/implementations/SLCommandHandler.cpp
+@@ -385,20 +385,21 @@ bool CSLCommandHandler::ActivateSource(bool bTransmitDelayedCommandsOnly /* = fa
+     }
+ 
+     CCECPlaybackDevice *device = m_busDevice->AsPlaybackDevice();
+-    if (device)
++    bool bActiveSourceFailed(true);
++    if (device) {
+       device->SetDeckStatus(!device->IsActiveSource() ? CEC_DECK_INFO_OTHER_STATUS : CEC_DECK_INFO_OTHER_STATUS_LG);
+ 
+-    // power on the TV
+-    CCECBusDevice* tv = m_processor->GetDevice(CECDEVICE_TV);
+-    bool bTvPresent = (tv && tv->GetStatus() == CEC_DEVICE_STATUS_PRESENT);
+-    bool bActiveSourceFailed(false);
+-    if (bTvPresent)
+-    {
+-      bActiveSourceFailed = !device->TransmitImageViewOn();
+-    }
+-    else
+-    {
+-      LIB_CEC->AddLog(CEC_LOG_DEBUG, "TV not present, not sending 'image view on'");
++      // power on the TV
++      CCECBusDevice* tv = m_processor->GetDevice(CECDEVICE_TV);
++      bool bTvPresent = (tv && tv->GetStatus() == CEC_DEVICE_STATUS_PRESENT);
++      if (bTvPresent)
++      {
++        bActiveSourceFailed = !device->TransmitImageViewOn();
++      }
++      else
++      {
++        LIB_CEC->AddLog(CEC_LOG_DEBUG, "TV not present, not sending 'image view on'");
++      }
+     }
+ 
+     // check if we're allowed to switch sources
+
+From 8a855081a013d4f23b6eba7fff2a920bbaaa660c Mon Sep 17 00:00:00 2001
+From: ijm7 <ijmorton500@gmail.com>
+Date: Fri, 11 Dec 2020 16:48:04 +0000
+Subject: [PATCH 2/2] Don't force fail if device was not found
+
+---
+ src/libcec/implementations/SLCommandHandler.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libcec/implementations/SLCommandHandler.cpp b/src/libcec/implementations/SLCommandHandler.cpp
+index 976579f6..e899f655 100644
+--- a/src/libcec/implementations/SLCommandHandler.cpp
++++ b/src/libcec/implementations/SLCommandHandler.cpp
+@@ -385,7 +385,7 @@ bool CSLCommandHandler::ActivateSource(bool bTransmitDelayedCommandsOnly /* = fa
+     }
+ 
+     CCECPlaybackDevice *device = m_busDevice->AsPlaybackDevice();
+-    bool bActiveSourceFailed(true);
++    bool bActiveSourceFailed(false);
+     if (device) {
+       device->SetDeckStatus(!device->IsActiveSource() ? CEC_DECK_INFO_OTHER_STATUS : CEC_DECK_INFO_OTHER_STATUS_LG);
+ 
+
