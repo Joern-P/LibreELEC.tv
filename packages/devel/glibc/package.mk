@@ -34,6 +34,11 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --disable-nscd \
                            --enable-lock-elision \
                            --disable-timezone-tools"
+                           
+
+if [ "${TARGET_PATCH_ARCH}" = "aarch64" ]; then
+  PKG_PATCH_DIRS="arm"
+fi                           
 
 if build_with_debug; then
   PKG_CONFIGURE_OPTS_TARGET="$PKG_CONFIGURE_OPTS_TARGET --enable-debug"
