@@ -18,6 +18,9 @@ else
 fi
 
 PKG_CMAKE_OPTS_TARGET="-DENABLE_VP9D=$PKG_ENABLE_VP9D \
+			-DHAVE_AVSD=ON \
+			-DHAVE_JPEGD=ON\
+			-DHAVE_H264E=ON\
 		       -DRKPLATFORM=ON \
                        -DHAVE_DRM=ON" 
 			
