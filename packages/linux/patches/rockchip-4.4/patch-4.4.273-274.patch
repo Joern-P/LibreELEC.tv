@@ -116,36 +116,6 @@ index 8fc842dae3b39..9a1489b927827 100644
  
  	if (use_xsave()) {
  		struct _fpx_sw_bytes fx_sw_user;
-diff --git a/drivers/dma/pl330.c b/drivers/dma/pl330.c
-index 7f66ae1945b24..6ea993478ddd1 100644
---- a/drivers/dma/pl330.c
-+++ b/drivers/dma/pl330.c
-@@ -2531,13 +2531,15 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
- 	for (i = 0; i < len / period_len; i++) {
- 		desc = pl330_get_desc(pch);
- 		if (!desc) {
-+			unsigned long iflags;
-+
- 			dev_err(pch->dmac->ddma.dev, "%s:%d Unable to fetch desc\n",
- 				__func__, __LINE__);
- 
- 			if (!first)
- 				return NULL;
- 
--			spin_lock_irqsave(&pl330->pool_lock, flags);
-+			spin_lock_irqsave(&pl330->pool_lock, iflags);
- 
- 			while (!list_empty(&first->node)) {
- 				desc = list_entry(first->node.next,
-@@ -2547,7 +2549,7 @@ static struct dma_async_tx_descriptor *pl330_prep_dma_cyclic(
- 
- 			list_move_tail(&first->node, &pl330->desc_pool);
- 
--			spin_unlock_irqrestore(&pl330->pool_lock, flags);
-+			spin_unlock_irqrestore(&pl330->pool_lock, iflags);
- 
- 			return NULL;
- 		}
 diff --git a/drivers/dma/ste_dma40.c b/drivers/dma/ste_dma40.c
 index 0fede051f4e1c..e6d3ed1de374a 100644
 --- a/drivers/dma/ste_dma40.c

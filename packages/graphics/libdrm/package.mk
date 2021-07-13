@@ -4,8 +4,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.105"
-PKG_SHA256="1d1d024b7cadc63e2b59cddaca94f78864940ab440843841113fbac6afaf2a46"
+PKG_VERSION="2.4.107"
+PKG_SHA256=""
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
 PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
