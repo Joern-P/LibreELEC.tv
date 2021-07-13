@@ -3,12 +3,12 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glib"
-PKG_VERSION="2.67.3"
-PKG_SHA256="b8e5f7397bc399d8134f3cdab7323b2210dd202510cf62a517e00dcca3488b78"
+PKG_VERSION="2.69.0"
+PKG_SHA256="1cdb3fd8610f3c57b6622e5cd68e0a3210561d80b0eceb971eb51fb8b63dbfae"
 PKG_LICENSE="LGPL"
 PKG_SITE="http://www.gtk.org/"
-PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/$(get_pkg_version_maj_min)/$PKG_NAME-$PKG_VERSION.tar.xz"
-PKG_DEPENDS_HOST="libffi:host Python3:host meson:host ninja:host"
+PKG_URL="http://ftp.gnome.org/pub/gnome/sources/glib/$(get_pkg_version_maj_min)/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_DEPENDS_HOST="libffi:host pcre:host Python3:host meson:host ninja:host"
 PKG_DEPENDS_TARGET="toolchain pcre zlib libffi Python3:host util-linux"
 PKG_LONGDESC="A library which includes support routines for C such as lists, trees, hashes, memory allocation."
 PKG_TOOLCHAIN="meson"
@@ -33,17 +33,15 @@ PKG_MESON_OPTS_TARGET="-Ddefault_library=shared \
                        -Dforce_posix_threads=true \
                        -Dtests=false"
 
-PKG_MESON_PROPERTIES_TARGET="
-have_c99_vsnprintf=false
-have_c99_snprintf=false
-growing_stack=false
-va_val_copy=false"
+if [ "${MACHINE_HARDWARE_NAME}" = "aarch64" -a "${TARGET_ARCH}" = "arm" ]; then
+  PKG_MESON_PROPERTIES_TARGET="needs_exe_wrapper = true"
+fi
 
 post_makeinstall_target() {
-  rm -rf $INSTALL/usr/bin
-  rm -rf $INSTALL/usr/lib/gdbus-2.0
-  rm -rf $INSTALL/usr/lib/glib-2.0
-  rm -rf $INSTALL/usr/lib/installed-tests
-  rm -rf $INSTALL/usr/share
+  rm -rf ${INSTALL}/usr/bin
+  rm -rf ${INSTALL}/usr/lib/gdbus-2.0
+  rm -rf ${INSTALL}/usr/lib/glib-2.0
+  rm -rf ${INSTALL}/usr/lib/installed-tests
+  rm -rf ${INSTALL}/usr/share
 }
 
