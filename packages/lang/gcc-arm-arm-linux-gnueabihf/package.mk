@@ -2,7 +2,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="gcc-arm-arm-linux-gnueabihf"
-PKG_VERSION="10.2-2020.11"
+PKG_VERSION="10.3-2021.07"
 PKG_SHA256=""
 PKG_LICENSE="GPL"
 PKG_SITE=""

@@ -687,7 +687,7 @@ do_autoreconf() {
   if [ -e "$TOOLCHAIN/bin/libtool" ]; then
     export LIBTOOL=$TOOLCHAIN/bin/libtool
   fi
-
+  
   if [ -e "$TOOLCHAIN/bin/autoreconf" -a -e "$INTLTOOLIZE" ]; then
     mkdir -p $ACLOCAL_DIR
     if [ -e "$LIBTOOLIZE" ]; then
