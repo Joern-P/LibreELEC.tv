@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="mupen64plus-nx"
-PKG_VERSION="b785150465048fa88f812e23462f318e66af0be0"
+PKG_VERSION="7280cc27a55cc20ac16d4b6b403ca6fb22ee44c3"
 PKG_SHA256=""
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
@@ -12,7 +12,7 @@ PKG_LONGDESC="Mupen64Plus is mupen64plus + GLideN64 + libretro"
 PKG_TOOLCHAIN="make"
 
 if [ "${ARCH}" = "arm" ]; then
-  PKG_BUILD_FLAGS+=" +lto"
+  PKG_BUILD_FLAGS+=" -lto"
 fi
 
 PKG_LIBNAME="mupen64plus_next_libretro.so"
