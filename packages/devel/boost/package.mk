@@ -2,11 +2,12 @@
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 
 PKG_NAME="boost"
-PKG_VERSION="1_65_1"
-PKG_SHA256="9807a5d16566c57fd74fb522764e0b134a8bbe6b6e8967b83afefd30dcd3be81"
+PKG_VERSION="1.75.0"
+PKG_SHA256="953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.boost.org/"
-PKG_URL="$SOURCEFORGE_SRC/boost/boost/1.65.1/${PKG_NAME}_${PKG_VERSION}.tar.bz2"
+PKG_URL="https://boostorg.jfrog.io/artifactory/main/release/${PKG_VERSION}/source/${PKG_NAME}_${PKG_VERSION//./_}.tar.bz2"
+PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain boost:host Python2 zlib bzip2"
 PKG_LONGDESC="boost: Peer-reviewed STL style libraries for C++"
 PKG_TOOLCHAIN="manual"
