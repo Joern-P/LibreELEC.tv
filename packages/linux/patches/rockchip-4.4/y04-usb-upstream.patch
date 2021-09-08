@@ -1,0 +1,202 @@
+From e1d97ace479a1b0534e1113c65951c4aab8ae466 Mon Sep 17 00:00:00 2001
+From: MrFixIt2001 <mrfixit2001@gmail.com>
+Date: Fri, 3 Sep 2021 10:02:39 -0400
+Subject: [PATCH] USB: storage: upstream changes backport some changes from
+ mainline
+
+---
+ drivers/usb/storage/usb.c | 24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
+index 9de988a0f8..dbd15e7b13 100644
+--- a/drivers/usb/storage/usb.c
++++ b/drivers/usb/storage/usb.c
+@@ -306,6 +306,7 @@ static int usb_stor_control_thread(void * __us)
+ {
+ 	struct us_data *us = (struct us_data *)__us;
+ 	struct Scsi_Host *host = us_to_host(us);
++	struct scsi_cmnd *srb;
+ 
+ 	for (;;) {
+ 		usb_stor_dbg(us, "*** thread sleeping\n");
+@@ -321,6 +322,7 @@ static int usb_stor_control_thread(void * __us)
+ 		scsi_lock(host);
+ 
+ 		/* When we are called with no command pending, we're done */
++		srb = us->srb;
+ 		if (us->srb == NULL) {
+ 			scsi_unlock(host);
+ 			mutex_unlock(&us->dev_mutex);
+@@ -385,14 +387,11 @@ static int usb_stor_control_thread(void * __us)
+ 		/* lock access to the state */
+ 		scsi_lock(host);
+ 
+-		/* indicate that the command is done */
+-		if (us->srb->result != DID_ABORT << 16) {
+-			usb_stor_dbg(us, "scsi cmd done, result=0x%x\n",
+-				     us->srb->result);
+-			us->srb->scsi_done(us->srb);
+-		} else {
++		/* was the command aborted? */
++		if (us->srb->result == DID_ABORT << 16) {
+ SkipForAbort:
+ 			usb_stor_dbg(us, "scsi command aborted\n");
++			srb = NULL;	/* Don't call srb->scsi_done() */
+ 		}
+ 
+ 		/* If an abort request was received we need to signal that
+@@ -414,6 +413,13 @@ static int usb_stor_control_thread(void * __us)
+ 
+ 		/* unlock the device pointers */
+ 		mutex_unlock(&us->dev_mutex);
++
++		/* now that the locks are released, notify the SCSI core */
++		if (srb) {
++			usb_stor_dbg(us, "scsi cmd done, result=0x%x\n",
++					srb->result);
++			srb->scsi_done(srb);
++		}
+ 	} /* for (;;) */
+ 
+ 	/* Wait until we are told to stop */
+@@ -1042,17 +1048,17 @@ int usb_stor_probe2(struct us_data *us)
+ 	result = usb_stor_acquire_resources(us);
+ 	if (result)
+ 		goto BadDevice;
++	usb_autopm_get_interface_no_resume(us->pusb_intf);
+ 	snprintf(us->scsi_name, sizeof(us->scsi_name), "usb-storage %s",
+ 					dev_name(&us->pusb_intf->dev));
+ 	result = scsi_add_host(us_to_host(us), dev);
+ 	if (result) {
+ 		dev_warn(dev,
+ 				"Unable to add the scsi host\n");
+-		goto BadDevice;
++		goto HostAddErr;
+ 	}
+ 
+ 	/* Submit the delayed_work for SCSI-device scanning */
+-	usb_autopm_get_interface_no_resume(us->pusb_intf);
+ 	set_bit(US_FLIDX_SCAN_PENDING, &us->dflags);
+ 
+ 	if (delay_use > 0)
+@@ -1062,6 +1068,8 @@ int usb_stor_probe2(struct us_data *us)
+ 	return 0;
+ 
+ 	/* We come here if there are any problems */
++HostAddErr:
++	usb_autopm_put_interface_no_suspend(us->pusb_intf);
+ BadDevice:
+ 	usb_stor_dbg(us, "storage_probe() failed\n");
+ 	release_everything(us);
+
+From 7d3fe65c033259171eeb26474b673af99905612f Mon Sep 17 00:00:00 2001
+From: MrFixIt2001 <mrfixit2001@gmail.com>
+Date: Fri, 3 Sep 2021 12:50:54 -0400
+Subject: [PATCH] usb: hub: upstream updates include some updates from mainline
+
+---
+ drivers/usb/core/hub.c | 40 ++++++++++++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index cb382c3119..3c71b40242 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -34,7 +34,12 @@
+ #include "otg_whitelist.h"
+ 
+ #define USB_VENDOR_GENESYS_LOGIC		0x05e3
++#define USB_VENDOR_SMSC				0x0424
++#define USB_PRODUCT_USB5534B			0x5534
++#define USB_VENDOR_CYPRESS			0x04b4
++#define USB_PRODUCT_CY7C65632			0x6570
+ #define HUB_QUIRK_CHECK_PORT_AUTOSUSPEND	0x01
++#define HUB_QUIRK_DISABLE_AUTOSUSPEND		0x02
+ 
+ /* Protect struct usb_device->state and ->children members
+  * Note: Both are also protected by ->dev.sem, except that ->state can
+@@ -78,12 +83,12 @@ MODULE_PARM_DESC(initial_descriptor_timeout,
+  * otherwise the new scheme is used.  If that fails and "use_both_schemes"
+  * is set, then the driver will make another attempt, using the other scheme.
+  */
+-static bool old_scheme_first = 0;
++static bool old_scheme_first = false;
+ module_param(old_scheme_first, bool, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(old_scheme_first,
+ 		 "start with the old device initialization scheme");
+ 
+-static bool use_both_schemes = 1;
++static bool use_both_schemes = true;
+ module_param(use_both_schemes, bool, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(use_both_schemes,
+ 		"try the other device initialization scheme if the "
+@@ -2671,7 +2676,7 @@ static unsigned hub_is_wusb(struct usb_hub *hub)
+ #define SET_ADDRESS_TRIES	2
+ #define GET_DESCRIPTOR_TRIES	2
+ #define SET_CONFIG_TRIES	(2 * (use_both_schemes + 1))
+-#define USE_NEW_SCHEME(i)	((i) / 2 == (int)old_scheme_first)
++#define USE_NEW_SCHEME(i, scheme)	((i) / 2 == (int)(scheme))
+ 
+ #define HUB_ROOT_RESET_TIME	60	/* times are in msec */
+ #define HUB_SHORT_RESET_TIME	10
+@@ -2688,10 +2693,12 @@ static unsigned hub_is_wusb(struct usb_hub *hub)
+  */
+ static bool use_new_scheme(struct usb_device *udev, int retry)
+ {
++	int quick_enumeration = (udev->speed == USB_SPEED_HIGH);
++
+ 	if (udev->speed >= USB_SPEED_SUPER)
+ 		return false;
+ 
+-	return USE_NEW_SCHEME(retry);
++	return USE_NEW_SCHEME(retry, old_scheme_first || quick_enumeration);
+ }
+ 
+ /* Is a USB 3.0 port in the Inactive or Compliance Mode state?
+@@ -5528,6 +5535,18 @@ static void hub_event(struct work_struct *work)
+ }
+ 
+ static const struct usb_device_id hub_id_table[] = {
++    { .match_flags = USB_DEVICE_ID_MATCH_VENDOR
++                   | USB_DEVICE_ID_MATCH_PRODUCT
++                   | USB_DEVICE_ID_MATCH_INT_CLASS,
++      .idVendor = USB_VENDOR_SMSC,
++      .idProduct = USB_PRODUCT_USB5534B,
++      .bInterfaceClass = USB_CLASS_HUB,
++      .driver_info = HUB_QUIRK_DISABLE_AUTOSUSPEND},
++    { .match_flags = USB_DEVICE_ID_MATCH_VENDOR
++                   | USB_DEVICE_ID_MATCH_PRODUCT,
++      .idVendor = USB_VENDOR_CYPRESS,
++      .idProduct = USB_PRODUCT_CY7C65632,
++      .driver_info = HUB_QUIRK_DISABLE_AUTOSUSPEND},
+     { .match_flags = USB_DEVICE_ID_MATCH_VENDOR
+ 			| USB_DEVICE_ID_MATCH_INT_CLASS,
+       .idVendor = USB_VENDOR_GENESYS_LOGIC,
+@@ -5656,22 +5675,15 @@ static int usb_reset_and_verify_device(struct usb_device *udev)
+ 	 */
+ 	usb_disable_usb2_hardware_lpm(udev);
+ 
+-	/* Disable LPM and LTM while we reset the device and reinstall the alt
+-	 * settings.  Device-initiated LPM settings, and system exit latency
+-	 * settings are cleared when the device is reset, so we have to set
+-	 * them up again.
++	/* Disable LPM while we reset the device and reinstall the alt settings.
++	 * Device-initiated LPM, and system exit latency settings are cleared
++	 * when the device is reset, so we have to set them up again.
+ 	 */
+ 	ret = usb_unlocked_disable_lpm(udev);
+ 	if (ret) {
+ 		dev_err(&udev->dev, "%s Failed to disable LPM\n.", __func__);
+ 		goto re_enumerate_no_bos;
+ 	}
+-	ret = usb_disable_ltm(udev);
+-	if (ret) {
+-		dev_err(&udev->dev, "%s Failed to disable LTM\n.",
+-				__func__);
+-		goto re_enumerate_no_bos;
+-	}
+ 
+ 	bos = udev->bos;
+ 	udev->bos = NULL;
+
