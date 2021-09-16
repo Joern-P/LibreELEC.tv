@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="mpg123-system"
-PKG_VERSION="1.26.4"
+PKG_VERSION="1.28.2"
 PKG_SHA256=""
 PKG_LICENSE="LGPLv2"
 PKG_SITE="http://www.mpg123.org/"
@@ -13,3 +13,4 @@ PKG_LONGDESC="A console based real time MPEG Audio Player for Layer 1, 2 and 3."
 pre_configure_target() {
   CFLAGS="$CFLAGS -fcommon"
 }
+
