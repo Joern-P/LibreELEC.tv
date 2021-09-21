@@ -3,11 +3,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ncurses"
-PKG_VERSION="6.1-20181215"
-PKG_SHA256="08b07c3e792961f300829512c283d5fefc0b1c421a57b76922c3d13303ed677d"
+PKG_VERSION="6.2-20210911"
+PKG_SHA256="f0a7c31cedf440ed28e1f930bd60eb95a1c1135be6037d3c173df5753f52bde5"
 PKG_LICENSE="MIT"
-PKG_SITE="http://www.gnu.org/software/ncurses/"
-PKG_URL="http://invisible-mirror.net/archives/ncurses/current/ncurses-$PKG_VERSION.tgz"
+PKG_SITE="https://invisible-island.net/ncurses/announce.html"
+PKG_URL="https://invisible-mirror.net/archives/ncurses/current/ncurses-${PKG_VERSION}.tgz"
 PKG_DEPENDS_HOST="ccache:host"
 PKG_DEPENDS_TARGET="toolchain zlib ncurses:host"
 PKG_LONGDESC="A library is a free software emulation of curses in System V Release 4.0, and more."
@@ -30,9 +30,10 @@ PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --without-gpm \
                            --without-dbmalloc \
                            --without-dmalloc \
+                           --disable-leaks \
                            --disable-rpath \
                            --disable-database \
-                           --with-fallbacks=linux,screen,xterm,xterm-color \
+                           --with-fallbacks=linux,screen,xterm,xterm-color,dumb,st-256color \
                            --with-termpath=/storage/.config/termcap \
                            --disable-big-core \
                            --enable-termcap \
@@ -60,9 +61,18 @@ PKG_CONFIGURE_OPTS_TARGET="--without-ada \
                            --disable-home-terminfo \
                            --disable-assertions"
 
+PKG_CONFIGURE_OPTS_HOST="--enable-termcap \
+                         --with-termlib \
+			 --without-tests \
+                         --with-shared \
+                         --disable-leaks \
+                         --enable-pc-files \
+                         --without-manpages"
+
 post_makeinstall_target() {
-  cp misc/ncurses-config $TOOLCHAIN/bin
-  chmod +x $TOOLCHAIN/bin/ncurses-config
-  sed -e "s:\(['=\" ]\)/usr:\\1$SYSROOT_PREFIX/usr:g" -i $TOOLCHAIN/bin/ncurses-config
-  rm -rf $INSTALL/usr/bin
+  cp misc/ncurses-config ${TOOLCHAIN}/bin
+  chmod +x ${TOOLCHAIN}/bin/ncurses-config
+  sed -e "s:\(['=\" ]\)/usr:\\1${PKG_ORIG_SYSROOT_PREFIX}/usr:g" -i ${TOOLCHAIN}/bin/ncurses-config
+  rm -f ${TOOLCHAIN}/bin/ncurses6-config
+  rm -rf ${INSTALL}/usr/bin
 }
