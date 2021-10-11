@@ -56,3 +56,4 @@ post_makeinstall_target() {
   # Clean-up
   safe_remove ${INSTALL}/usr/share
 }
+

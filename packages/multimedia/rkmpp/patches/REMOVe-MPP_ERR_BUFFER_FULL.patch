@@ -1,0 +1,11 @@
+diff -uNr a/mpp/mpp.cpp b/mpp/mpp.cpp
+--- a/mpp/mpp.cpp	2021-09-23 09:30:24.000000000 +0200
++++ b/mpp/mpp.cpp	2021-09-28 16:07:36.564252209 +0200
+@@ -354,7 +354,6 @@
+     if (NULL == task_dequeue) {
+         ret = poll(MPP_PORT_INPUT, timeout);
+         if (ret < 0) {
+-            ret = MPP_ERR_BUFFER_FULL;
+             goto RET;
+         }
+ 
