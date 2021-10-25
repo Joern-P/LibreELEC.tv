@@ -1,0 +1,1844 @@
+diff -uNr a/addons/script.favourites/addon.xml b/addons/script.favourites/addon.xml
+--- a/addons/script.favourites/addon.xml	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/addon.xml	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,115 @@
++<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
++<addon id="script.favourites" name="Favourites script" version="7.1.3" provider-name="ronie, `Black">
++	<requires>
++		<import addon="xbmc.python" version="2.25.0"/>
++	</requires>
++	<extension point="xbmc.python.library" library="default.py"/>
++	<extension point="xbmc.addon.metadata">
++		<summary lang="be_BY">Favourites script</summary>
++		<summary lang="bg_BG">Скрипт "Любими"</summary>
++		<summary lang="ca_ES">Script Preferit</summary>
++		<summary lang="cs_CZ">Script pro Oblíbené</summary>
++		<summary lang="da_DK">Favoritscript</summary>
++		<summary lang="de_DE">Favoriten-Skript</summary>
++		<summary lang="el_GR">Script Αγαπημένων</summary>
++		<summary lang="en_GB">Favourites script</summary>
++		<summary lang="en_NZ">Favourites script</summary>
++		<summary lang="en_US">Favorites script</summary>
++		<summary lang="es_ES">Script de Favoritos</summary>
++		<summary lang="es_AR">Favoritos</summary>
++		<summary lang="fi_FI">Suosikit skripti</summary>
++		<summary lang="fr_FR">Script Favoris</summary>
++		<summary lang="fr_CA">Le script des favoris</summary>
++		<summary lang="gl_ES">Script de Favoritos</summary>
++		<summary lang="he_IL">סקריפט מועדפים</summary>
++		<summary lang="hr_HR">Omiljene skripte</summary>
++		<summary lang="hu_HU">Kedvencek script</summary>
++		<summary lang="id_ID">Script favorit</summary>
++		<summary lang="it_IT">Script preferiti</summary>
++		<summary lang="ko_KR">즐겨찾기 스크립트</summary>
++		<summary lang="lt_LT">Mėgstamiausių skriptas</summary>
++		<summary lang="nl_NL">Favourietenscript</summary>
++		<summary lang="nb_NO">Favorittskript</summary>
++		<summary lang="pl_PL">Skrypt ulubionych</summary>
++		<summary lang="pt_PT">Script de Favoritos</summary>
++		<summary lang="pt_BR">Script Favoritos</summary>
++		<summary lang="ro_RO">Script Favorite</summary>
++		<summary lang="ru_RU">Скрипт "Избранное"</summary>
++		<summary lang="sv_SE">Favoritskript</summary>
++		<summary lang="tr_TR">Sık kullanılanlar betiği</summary>
++		<summary lang="zh_CN">收藏夹脚本</summary>
++		<description lang="be_BY">Fetches item from your Kodi favourites to populate Home menu/submenu with custom buttons.</description>
++		<description lang="bg_BG">Извлича информация от вашето меню "Любими" и показва допълнителни бутони в главното меню и подменюто.</description>
++		<description lang="ca_ES">Obtenir els temes Preferits dels seus Kodi per omplir el menú Inici / submenú amb botons personalitzats.</description>
++		<description lang="cs_CZ">Přenese položky z Oblíbených do Home menu/submenu pod vlastní tlačítka. </description>
++		<description lang="da_DK">Henter elementer fra din Kodi-favoritter til at fylde Hjemmemenu/undermenu med brugerbestemte knapper.</description>
++		<description lang="de_DE">Stellt die Einträge aus der Kodi-Favoriten-Liste für benutzerdefinierte Verknüpfungen auf dem Startbildschirm zur Verfügung.</description>
++		<description lang="el_GR">Χρησιμοποιεί αντικείμενα από τα αγαπημένα σας του Kodi για να συμπληρώσει τα προσαρμοσμένα πλήκτρα μενού/υπομενού της Αρχικής Οθόνης</description>
++		<description lang="en_GB">Fetches item from your Kodi favourites to populate Home menu/submenu with custom buttons.</description>
++		<description lang="en_NZ">Fetches item from your Kodi favourites to populate Home menu/submenu with custom buttons.</description>
++		<description lang="en_US">Fetches item from your Kodi favorites to populate Home menu/submenu with custom buttons.</description>
++		<description lang="es_ES">Usar ítems de tus favoritos de Kodi para crear menús y submenús personalizados</description>
++		<description lang="es_AR">Obtiene medios de sus favoritos en Kodi para enriquecer su menu inicio y sub carpetas con botones personalizados</description>
++		<description lang="fi_FI">Hakee Kodin suosikeista kohteita ja populoi sillä Koti-valikon / alivalikon muokatuilla napeilla.</description>
++		<description lang="fr_FR">Récupère l'élément depuis les favoris Kodi pour remplir le menu/sous-menu de la page d'accueil avec des boutons personnalisés.</description>
++		<description lang="fr_CA">Récupère l'élément de vos favoris Kodi pour remplir le menu d'accueil/le sous-menu avec des boutons personnalisés.</description>
++		<description lang="gl_ES">Obtén o elemento dos favoritos para estabelecer botóns personalizados no Menú Principal/Submenú</description>
++		<description lang="he_IL">מייבא פריט מהמועדפים שלך לאכלוס תפריט/תת תפריט עם לחצנים מותאמים אישית במסך הבית.</description>
++		<description lang="hr_HR">Dohvaća stavke iz vašeg Kodi 'Omiljeno' izbornika i popunjava Početni izbornik/podizbornik s prilagođenim tipkama.</description>
++		<description lang="hu_HU">Összegyűjti az elemeket az Kodi kedvencek közül és a központi menü almenüjébe helyezi egyedi gombokkal.</description>
++		<description lang="id_ID">Ambil item dari favorit Kodi Anda untuk mengisi menu/submenu Beranda dengan tombol suka-suka.</description>
++		<description lang="it_IT">Preleva elementi dai tuoi preferiti per popolare il menù principale ed i sottomenù con bottoni personalizzato.</description>
++		<description lang="ko_KR">Kodi 즐겨찾기에서 항목을 가져와 사용자 설정 버튼으로 홈 메뉴/서브메뉴에 표시합니다.</description>
++		<description lang="lt_LT">Paima elementus iš Kodi mėgstamiausiųjų, kad užpildytų pagrindinio meniu/submeniu individualiais mygtukais.</description>
++		<description lang="nl_NL">Haalt item van je Kodi favorieten op om in het Home menu/submenu te plaatsen via losse buttons.</description>
++		<description lang="nb_NO">Henter oppføringer fra favorittene dine i Kodi for å befolke hovedmenyen og undermenyen med egendefinerte knapper.</description>
++		<description lang="pl_PL">Pobiera pozycje z twoich ulubionych w celu zapełnienia menu/podmenu niestandardowymi przyciskami.</description>
++		<description lang="pt_PT">Obtém itens dos seus favoritos do Kodi para povoar o Menu Principal/submenu com botões personalizados.</description>
++		<description lang="pt_BR">Compila itens dos seus favoritos do Kodi para ocupar menus e submenus da tela inicial com botões personalizados.</description>
++		<description lang="ru_RU">Извлекает информацию из Вашего меню "Избранное" и отображает дополнительные кнопки в главном меню и подменю.</description>
++		<description lang="sv_SE">Hämtar objekt från dina Kodi-favoriter för att fylla ut hem-menyn med egna knappar.</description>
++		<description lang="zh_CN">将 Kodi 收藏夹项目用于主界面菜单/子菜单的自定义按钮。</description>
++		<disclaimer lang="be_BY">Needs skin support for it to be used properly</disclaimer>
++		<disclaimer lang="bg_BG">Необходима е поддръжка от страна на облика за коректно функциониране</disclaimer>
++		<disclaimer lang="ca_ES">Necessita Suport de la pell perquè sigui utilitzat correctament</disclaimer>
++		<disclaimer lang="cs_CZ">Pro správné použití je potřeba podpora skinu.</disclaimer>
++		<disclaimer lang="da_DK">Behøver skinsupport for at blive brugt ordentligt</disclaimer>
++		<disclaimer lang="de_DE">Benötigt Skin-Support um korrekt genutzt zu werden</disclaimer>
++		<disclaimer lang="el_GR">Απαιτείται υποστήριξη από το κέλυφος για να χρησιμοποιηθεί σωστά</disclaimer>
++		<disclaimer lang="en_GB">Needs skin support for it to be used properly</disclaimer>
++		<disclaimer lang="en_NZ">Needs skin support for it to be used properly</disclaimer>
++		<disclaimer lang="en_US">Needs skin support for it to be used properly</disclaimer>
++		<disclaimer lang="es_ES">Necesita ser soportado por el skin para poder funcionar correctamente</disclaimer>
++		<disclaimer lang="es_AR">Necesita soporte de mascara para ser usada correctamente</disclaimer>
++		<disclaimer lang="fi_FI">Toimiakseen kunnolla, skinin tulee tukea tätä</disclaimer>
++		<disclaimer lang="fr_FR">Nécessite le support du thème pour qu'il soit utilisé correctement</disclaimer>
++		<disclaimer lang="fr_CA">Le prise en charge de l'habillage est nécessaire pour qu'il soit utilisé correctement</disclaimer>
++		<disclaimer lang="gl_ES">Precisa da axuda da pel para que sexa utilizado correctamente</disclaimer>
++		<disclaimer lang="he_IL">להפעלה כראוי נדרשת תמיכה במעטפת</disclaimer>
++		<disclaimer lang="hr_HR">Zahtijeva podršku presvlake za ispravno korištenje</disclaimer>
++		<disclaimer lang="hu_HU">Felszín támogatás szükséges a helyes működéshez</disclaimer>
++		<disclaimer lang="id_ID">Memerlukan dukungan kulit untuk dapat digunakan dengan baik</disclaimer>
++		<disclaimer lang="it_IT">E' necessario che lo skin supporti lo script per funzionare correttamente</disclaimer>
++		<disclaimer lang="ko_KR">스킨에서 지원해야 합니다</disclaimer>
++		<disclaimer lang="lt_LT">Reikalingas teminės išvaizdos palaikymas tinkamam naudojimui</disclaimer>
++		<disclaimer lang="nl_NL">Heeft skinondersteuning nodig om correct te werken</disclaimer>
++		<disclaimer lang="nb_NO">Krever skallstøtte for å fungere riktig</disclaimer>
++		<disclaimer lang="pl_PL">Wymagane wsparcie skórki w celu poprawnego działania</disclaimer>
++		<disclaimer lang="pt_PT">Necessita de um tema compatível para funcionar correctamente.</disclaimer>
++		<disclaimer lang="pt_BR">Necessita de suporte da skin para ser usado adequadamente</disclaimer>
++		<disclaimer lang="ro_RO">Necesită suport din partea costumului pentru a fi folosit cum trebuie</disclaimer>
++		<disclaimer lang="ru_RU">Необходима поддержка скинов для корректного отображения</disclaimer>
++		<disclaimer lang="sl_SI">Potrebuje podporo preobleke, da bo uporabljeno pravilno.</disclaimer>
++		<disclaimer lang="sv_SE">Behöver skalsupport för att kunna användas riktigt</disclaimer>
++		<disclaimer lang="tr_TR">Düzgün kullanılabilmesi için dış görünüm desteğine ihtiyacınız var</disclaimer>
++		<disclaimer lang="zh_CN">正常使用需要皮肤支持</disclaimer>
++		<language></language>
++		<platform>all</platform>
++		<license>GNU GENERAL PUBLIC LICENSE Version 2</license>
++		<forum>https://forum.kodi.tv/showthread.php?tid=114671</forum>
++		<source>https://gitlab.com/ronie/script.favourites</source>
++		<assets>
++			<icon>resources/icon.png</icon>
++		</assets>
++	</extension>
++</addon>
+diff -uNr a/addons/script.favourites/changelog.txt b/addons/script.favourites/changelog.txt
+--- a/addons/script.favourites/changelog.txt	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/changelog.txt	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,116 @@
++v7.1.3
++- cosmetics
++
++v7.1.2
++- move repo to gitlab
++
++v7.1.1
++- clear properties
++
++v7.1.0
++- use select dialog
++
++v7.0.0
++- add cancel button
++
++v6.0.3
++- cleanup
++
++v6.0.2
++- update language files from Transifex
++
++v6.0.1
++- update language files from Transifex
++
++v6.0.0
++- kodi name change
++
++v5.0.4
++- don't add return to pvr paths
++
++v5.0.3
++- language update
++
++v5.0.2
++- fixed launching of android apps
++
++v5.0.1
++- no reason
++
++v5.0.0
++- gotham release
++
++v4.0.9
++- fix encoding issue
++
++v4.0.8
++- added 'no action' item to the end of the list
++
++v4.0.7
++- add favourite.count window property
++
++v4.0.6
++- fix crash when favourites file was not found
++
++v4.0.5
++- fix icon not showing up
++- fix folders added as a favourite didn't work
++
++v4.0.4
++- fix encoding issue
++
++v4.0.3
++- re-add setting home window properties
++
++v4.0.2
++- fix change title option
++
++v4.0.1
++- fix encoding issues
++
++v4.0.0
++- remove the old way of passing strings
++
++v3.2.7
++- use action.getId() instead of action
++
++v3.2.6
++- localize hard-coded string
++
++v3.2.5
++- fixed: don't escape apastrophes in the path
++
++v3.2.4
++- revert adding slash at the end of the path
++
++v3.2.3
++- added option to change favourite label
++
++v3.2.2
++- added icon images for reset and playlist items
++
++v3.2.1
++- use select dialog with id 6
++- added french translation
++- bugfixes
++
++v3.2.0
++- added readme
++- added french localization (thanks to Rififi77)
++- select dialog now uses id 6
++- fixed escape problems with paths on Windows
++
++v3.1.0
++- added clear setting
++
++v3.0.0
++- added set favourites dialog
++
++v2.0.1
++- fixed: don't add return before each bracket
++
++v2.0.0
++- version bump for eden
++
++v1.0.6
++- use xbmc.translatePath
+diff -uNr a/addons/script.favourites/default.py b/addons/script.favourites/default.py
+--- a/addons/script.favourites/default.py	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/default.py	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,147 @@
++# Credits to CF2009 for the original favourites script.
++
++import os, sys, re
++import xbmc, xbmcgui, xbmcaddon, xbmcvfs
++from xml.dom.minidom import parse
++
++ADDON        = xbmcaddon.Addon()
++ADDONID      = ADDON.getAddonInfo('id')
++ADDONVERSION = ADDON.getAddonInfo('version')
++CWD          = ADDON.getAddonInfo('path').decode("utf-8")
++LANGUAGE     = ADDON.getLocalizedString
++
++def log(txt):
++    if isinstance (txt,str):
++        txt = txt.decode("utf-8")
++    message = u'%s: %s' % (ADDONID, txt)
++    xbmc.log(msg=message.encode("utf-8"), level=xbmc.LOGDEBUG)
++
++class Main:
++    def __init__(self):
++        self._parse_argv()
++        found, favourites = self._read_file()
++        if self.PROPERTY == '':
++            self._set_properties(favourites)
++        else:
++            self._select(favourites)
++        if found:
++            self.doc.unlink()
++
++    def _parse_argv(self):
++        try:
++            params = dict(arg.split("=") for arg in sys.argv[ 1 ].split("&"))
++        except:
++            params = {}
++        log("### params: %s" % params)
++        self.PROPERTY = params.get("property", "")
++        self.CHANGETITLE = params.get("changetitle", "")
++        self.PLAY = params.get("playlists", False)
++
++    def _read_file(self):
++        # Set path
++        self.fav_file = xbmc.translatePath('special://profile/favourites.xml').decode("utf-8")
++        # Check to see if file exists
++        if xbmcvfs.exists(self.fav_file):
++            found = True
++            self.doc = parse(self.fav_file)
++            favourites = self.doc.documentElement.getElementsByTagName('favourite')
++        else:
++            found = False
++            favourites = []
++        return found, favourites
++
++    def _set_properties(self, listing):
++        self.WINDOW = xbmcgui.Window(10000)
++        oldcount = 0
++        try:
++            oldcount = int(self.WINDOW.getProperty("favourite.count"))
++        except:
++            pass
++        for idx_count in range(1,oldcount + 1):
++            self.WINDOW.clearProperty("favourite.%d.path" % (idx_count))
++            self.WINDOW.clearProperty("favourite.%d.name" % (idx_count))
++            self.WINDOW.clearProperty("favourite.%d.thumb" % (idx_count))
++        self.WINDOW.setProperty("favourite.count", str(len(listing)))
++        for count, favourite in enumerate(listing):
++            name = favourite.attributes[ 'name' ].nodeValue
++            path = favourite.childNodes [ 0 ].nodeValue
++            if ('RunScript' not in path) and ('StartAndroidActivity' not in path) and ('pvr://' not in path) and (',return' not in path):
++                path = path.rstrip(')')
++                path = path + ',return)'
++            if 'playlists/music' in path or 'playlists/video' in path:
++                thumb = "DefaultPlaylist.png"
++                if self.PLAY:
++                    if 'playlists/music' in path:
++                        path = path.replace('ActivateWindow(10502,', 'PlayMedia(')
++                    else:
++                        path = path.replace('ActivateWindow(10025,', 'PlayMedia(')
++            else:
++                try:
++                    thumb = favourite.attributes[ 'thumb' ].nodeValue
++                except:
++                    thumb = "DefaultFolder.png"
++            self.WINDOW.setProperty("favourite.%d.path" % (count + 1,) , path)
++            self.WINDOW.setProperty("favourite.%d.name" % (count + 1,) , name)
++            self.WINDOW.setProperty("favourite.%d.thumb" % (count + 1,) , thumb)
++
++    def _select(self, items):
++        listitems = []
++        listitems.append(xbmcgui.ListItem(LANGUAGE(32001), iconImage="DefaultAddonNone.png"))
++        for item in items:
++            listitem = xbmcgui.ListItem(item.attributes[ 'name' ].nodeValue)
++            fav_path = item.childNodes [ 0 ].nodeValue
++            try:
++                if 'playlists/music' in fav_path or 'playlists/video' in fav_path:
++                    listitem.setIconImage("DefaultPlaylist.png")
++                    listitem.setProperty("Icon", "DefaultPlaylist.png")
++                else:
++                    listitem.setIconImage(item.attributes[ 'thumb' ].nodeValue)
++                    listitem.setProperty("Icon", item.attributes[ 'thumb' ].nodeValue)
++            except:
++                pass
++            if ('RunScript' not in fav_path) and ('StartAndroidActivity' not in fav_path) and ('pvr://' not in fav_path) and (',return' not in fav_path):
++                fav_path = fav_path.rstrip(')')
++                fav_path = fav_path + ',return)'
++            listitem.setProperty("Path", fav_path)
++            listitems.append(listitem)
++        # add a dummy item with no action assigned
++        listitem = xbmcgui.ListItem(LANGUAGE(32002))
++        listitem.setProperty("Path", 'noop')
++        listitems.append(listitem)
++        num = xbmcgui.Dialog().select(xbmc.getLocalizedString(1036), listitems, useDetails=True)
++        if num > 0:
++            fav_path = listitems[num].getProperty("Path")
++            result = re.search('"(.*?)"', fav_path)
++            if result:
++                fav_abspath = result.group(0)
++            else:
++                fav_abspath = ''
++            fav_label = listitems[num].getLabel()
++            if 'playlists/music' in fav_path or 'playlists/video' in fav_path:
++                retBool = xbmcgui.Dialog().yesno(xbmc.getLocalizedString(559), LANGUAGE(32000))
++                if retBool:
++                    if 'playlists/music' in fav_path:
++                        fav_path = fav_path.replace('ActivateWindow(10502,', 'PlayMedia(')
++                    else:
++                        fav_path = fav_path.replace('ActivateWindow(10025,', 'PlayMedia(')
++            if self.CHANGETITLE == "true":
++                keyboard = xbmc.Keyboard(fav_label, xbmc.getLocalizedString(528), False)
++                keyboard.doModal()
++                if (keyboard.isConfirmed()):
++                    fav_label = keyboard.getText()
++            xbmc.executebuiltin('Skin.SetString(%s,%s)' % ('%s.%s' % (self.PROPERTY, "Path",), fav_path.decode('string-escape'),))
++            xbmc.executebuiltin('Skin.SetString(%s,%s)' % ('%s.%s' % (self.PROPERTY, "List",), fav_abspath.decode('string-escape'),))
++            xbmc.executebuiltin('Skin.SetString(%s,%s)' % ('%s.%s' % (self.PROPERTY, "Label",), fav_label,))
++            fav_icon = listitems[num].getProperty("Icon")
++            if fav_icon:
++                xbmc.executebuiltin('Skin.SetString(%s,%s)' % ('%s.%s' % (self.PROPERTY, "Icon",), fav_icon,))
++        elif num == 0:
++            xbmc.executebuiltin('Skin.Reset(%s)' % '%s.%s' % (self.PROPERTY, "Path",))
++            xbmc.executebuiltin('Skin.Reset(%s)' % '%s.%s' % (self.PROPERTY, "List",))
++            xbmc.executebuiltin('Skin.Reset(%s)' % '%s.%s' % (self.PROPERTY, "Label",))
++            xbmc.executebuiltin('Skin.Reset(%s)' % '%s.%s' % (self.PROPERTY, "Icon",))
++
++if (__name__ == "__main__"):
++    log('script version %s started' % ADDONVERSION)
++    Main()
++log('script stopped')
+diff -uNr a/addons/script.favourites/LICENSE.txt b/addons/script.favourites/LICENSE.txt
+--- a/addons/script.favourites/LICENSE.txt	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/LICENSE.txt	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,282 @@
++
++		    GNU GENERAL PUBLIC LICENSE
++		       Version 2, June 1991
++
++ Copyright (C) 1989, 1991 Free Software Foundation, Inc.
++                       59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ Everyone is permitted to copy and distribute verbatim copies
++ of this license document, but changing it is not allowed.
++
++			    Preamble
++
++  The licenses for most software are designed to take away your
++freedom to share and change it.  By contrast, the GNU General Public
++License is intended to guarantee your freedom to share and change free
++software--to make sure the software is free for all its users.  This
++General Public License applies to most of the Free Software
++Foundation's software and to any other program whose authors commit to
++using it.  (Some other Free Software Foundation software is covered by
++the GNU Library General Public License instead.)  You can apply it to
++your programs, too.
++
++  When we speak of free software, we are referring to freedom, not
++price.  Our General Public Licenses are designed to make sure that you
++have the freedom to distribute copies of free software (and charge for
++this service if you wish), that you receive source code or can get it
++if you want it, that you can change the software or use pieces of it
++in new free programs; and that you know you can do these things.
++
++  To protect your rights, we need to make restrictions that forbid
++anyone to deny you these rights or to ask you to surrender the rights.
++These restrictions translate to certain responsibilities for you if you
++distribute copies of the software, or if you modify it.
++
++  For example, if you distribute copies of such a program, whether
++gratis or for a fee, you must give the recipients all the rights that
++you have.  You must make sure that they, too, receive or can get the
++source code.  And you must show them these terms so they know their
++rights.
++
++  We protect your rights with two steps: (1) copyright the software, and
++(2) offer you this license which gives you legal permission to copy,
++distribute and/or modify the software.
++
++  Also, for each author's protection and ours, we want to make certain
++that everyone understands that there is no warranty for this free
++software.  If the software is modified by someone else and passed on, we
++want its recipients to know that what they have is not the original, so
++that any problems introduced by others will not reflect on the original
++authors' reputations.
++
++  Finally, any free program is threatened constantly by software
++patents.  We wish to avoid the danger that redistributors of a free
++program will individually obtain patent licenses, in effect making the
++program proprietary.  To prevent this, we have made it clear that any
++patent must be licensed for everyone's free use or not licensed at all.
++
++  The precise terms and conditions for copying, distribution and
++modification follow.
++
++		    GNU GENERAL PUBLIC LICENSE
++   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
++
++  0. This License applies to any program or other work which contains
++a notice placed by the copyright holder saying it may be distributed
++under the terms of this General Public License.  The "Program", below,
++refers to any such program or work, and a "work based on the Program"
++means either the Program or any derivative work under copyright law:
++that is to say, a work containing the Program or a portion of it,
++either verbatim or with modifications and/or translated into another
++language.  (Hereinafter, translation is included without limitation in
++the term "modification".)  Each licensee is addressed as "you".
++
++Activities other than copying, distribution and modification are not
++covered by this License; they are outside its scope.  The act of
++running the Program is not restricted, and the output from the Program
++is covered only if its contents constitute a work based on the
++Program (independent of having been made by running the Program).
++Whether that is true depends on what the Program does.
++
++  1. You may copy and distribute verbatim copies of the Program's
++source code as you receive it, in any medium, provided that you
++conspicuously and appropriately publish on each copy an appropriate
++copyright notice and disclaimer of warranty; keep intact all the
++notices that refer to this License and to the absence of any warranty;
++and give any other recipients of the Program a copy of this License
++along with the Program.
++
++You may charge a fee for the physical act of transferring a copy, and
++you may at your option offer warranty protection in exchange for a fee.
++
++  2. You may modify your copy or copies of the Program or any portion
++of it, thus forming a work based on the Program, and copy and
++distribute such modifications or work under the terms of Section 1
++above, provided that you also meet all of these conditions:
++
++    a) You must cause the modified files to carry prominent notices
++    stating that you changed the files and the date of any change.
++
++    b) You must cause any work that you distribute or publish, that in
++    whole or in part contains or is derived from the Program or any
++    part thereof, to be licensed as a whole at no charge to all third
++    parties under the terms of this License.
++
++    c) If the modified program normally reads commands interactively
++    when run, you must cause it, when started running for such
++    interactive use in the most ordinary way, to print or display an
++    announcement including an appropriate copyright notice and a
++    notice that there is no warranty (or else, saying that you provide
++    a warranty) and that users may redistribute the program under
++    these conditions, and telling the user how to view a copy of this
++    License.  (Exception: if the Program itself is interactive but
++    does not normally print such an announcement, your work based on
++    the Program is not required to print an announcement.)
++
++These requirements apply to the modified work as a whole.  If
++identifiable sections of that work are not derived from the Program,
++and can be reasonably considered independent and separate works in
++themselves, then this License, and its terms, do not apply to those
++sections when you distribute them as separate works.  But when you
++distribute the same sections as part of a whole which is a work based
++on the Program, the distribution of the whole must be on the terms of
++this License, whose permissions for other licensees extend to the
++entire whole, and thus to each and every part regardless of who wrote it.
++
++Thus, it is not the intent of this section to claim rights or contest
++your rights to work written entirely by you; rather, the intent is to
++exercise the right to control the distribution of derivative or
++collective works based on the Program.
++
++In addition, mere aggregation of another work not based on the Program
++with the Program (or with a work based on the Program) on a volume of
++a storage or distribution medium does not bring the other work under
++the scope of this License.
++
++  3. You may copy and distribute the Program (or a work based on it,
++under Section 2) in object code or executable form under the terms of
++Sections 1 and 2 above provided that you also do one of the following:
++
++    a) Accompany it with the complete corresponding machine-readable
++    source code, which must be distributed under the terms of Sections
++    1 and 2 above on a medium customarily used for software interchange; or,
++
++    b) Accompany it with a written offer, valid for at least three
++    years, to give any third party, for a charge no more than your
++    cost of physically performing source distribution, a complete
++    machine-readable copy of the corresponding source code, to be
++    distributed under the terms of Sections 1 and 2 above on a medium
++    customarily used for software interchange; or,
++
++    c) Accompany it with the information you received as to the offer
++    to distribute corresponding source code.  (This alternative is
++    allowed only for noncommercial distribution and only if you
++    received the program in object code or executable form with such
++    an offer, in accord with Subsection b above.)
++
++The source code for a work means the preferred form of the work for
++making modifications to it.  For an executable work, complete source
++code means all the source code for all modules it contains, plus any
++associated interface definition files, plus the scripts used to
++control compilation and installation of the executable.  However, as a
++special exception, the source code distributed need not include
++anything that is normally distributed (in either source or binary
++form) with the major components (compiler, kernel, and so on) of the
++operating system on which the executable runs, unless that component
++itself accompanies the executable.
++
++If distribution of executable or object code is made by offering
++access to copy from a designated place, then offering equivalent
++access to copy the source code from the same place counts as
++distribution of the source code, even though third parties are not
++compelled to copy the source along with the object code.
++
++  4. You may not copy, modify, sublicense, or distribute the Program
++except as expressly provided under this License.  Any attempt
++otherwise to copy, modify, sublicense or distribute the Program is
++void, and will automatically terminate your rights under this License.
++However, parties who have received copies, or rights, from you under
++this License will not have their licenses terminated so long as such
++parties remain in full compliance.
++
++  5. You are not required to accept this License, since you have not
++signed it.  However, nothing else grants you permission to modify or
++distribute the Program or its derivative works.  These actions are
++prohibited by law if you do not accept this License.  Therefore, by
++modifying or distributing the Program (or any work based on the
++Program), you indicate your acceptance of this License to do so, and
++all its terms and conditions for copying, distributing or modifying
++the Program or works based on it.
++
++  6. Each time you redistribute the Program (or any work based on the
++Program), the recipient automatically receives a license from the
++original licensor to copy, distribute or modify the Program subject to
++these terms and conditions.  You may not impose any further
++restrictions on the recipients' exercise of the rights granted herein.
++You are not responsible for enforcing compliance by third parties to
++this License.
++
++  7. If, as a consequence of a court judgment or allegation of patent
++infringement or for any other reason (not limited to patent issues),
++conditions are imposed on you (whether by court order, agreement or
++otherwise) that contradict the conditions of this License, they do not
++excuse you from the conditions of this License.  If you cannot
++distribute so as to satisfy simultaneously your obligations under this
++License and any other pertinent obligations, then as a consequence you
++may not distribute the Program at all.  For example, if a patent
++license would not permit royalty-free redistribution of the Program by
++all those who receive copies directly or indirectly through you, then
++the only way you could satisfy both it and this License would be to
++refrain entirely from distribution of the Program.
++
++If any portion of this section is held invalid or unenforceable under
++any particular circumstance, the balance of the section is intended to
++apply and the section as a whole is intended to apply in other
++circumstances.
++
++It is not the purpose of this section to induce you to infringe any
++patents or other property right claims or to contest validity of any
++such claims; this section has the sole purpose of protecting the
++integrity of the free software distribution system, which is
++implemented by public license practices.  Many people have made
++generous contributions to the wide range of software distributed
++through that system in reliance on consistent application of that
++system; it is up to the author/donor to decide if he or she is willing
++to distribute software through any other system and a licensee cannot
++impose that choice.
++
++This section is intended to make thoroughly clear what is believed to
++be a consequence of the rest of this License.
++
++  8. If the distribution and/or use of the Program is restricted in
++certain countries either by patents or by copyrighted interfaces, the
++original copyright holder who places the Program under this License
++may add an explicit geographical distribution limitation excluding
++those countries, so that distribution is permitted only in or among
++countries not thus excluded.  In such case, this License incorporates
++the limitation as if written in the body of this License.
++
++  9. The Free Software Foundation may publish revised and/or new versions
++of the General Public License from time to time.  Such new versions will
++be similar in spirit to the present version, but may differ in detail to
++address new problems or concerns.
++
++Each version is given a distinguishing version number.  If the Program
++specifies a version number of this License which applies to it and "any
++later version", you have the option of following the terms and conditions
++either of that version or of any later version published by the Free
++Software Foundation.  If the Program does not specify a version number of
++this License, you may choose any version ever published by the Free Software
++Foundation.
++
++  10. If you wish to incorporate parts of the Program into other free
++programs whose distribution conditions are different, write to the author
++to ask for permission.  For software which is copyrighted by the Free
++Software Foundation, write to the Free Software Foundation; we sometimes
++make exceptions for this.  Our decision will be guided by the two goals
++of preserving the free status of all derivatives of our free software and
++of promoting the sharing and reuse of software generally.
++
++			    NO WARRANTY
++
++  11. BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
++FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN
++OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
++PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
++OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
++MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS
++TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE
++PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,
++REPAIR OR CORRECTION.
++
++  12. IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING
++WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR
++REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,
++INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING
++OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED
++TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY
++YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER
++PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE
++POSSIBILITY OF SUCH DAMAGES.
++
++		     END OF TERMS AND CONDITIONS
++-------------------------------------------------------------------------
+diff -uNr a/addons/script.favourites/README.txt b/addons/script.favourites/README.txt
+--- a/addons/script.favourites/README.txt	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/README.txt	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,27 @@
++INFO FOR SKINNERS - How to use this addon in your skin:
++
++
++1) RunScript(script.favourites,property=CustomFavourite.1)
++
++   If you run the script like this, it will open a select dialog with all existing favourites. After selecting one,
++   the script will set the following skin strings based on the provided property:
++
++   CustomFavourite.1.Label
++   CustomFavourite.1.Icon
++   CustomFavourite.1.Path
++   CustomFavourite.1.List (the absolute path without the 'Activate.Window()' part)
++
++   Additionally you can pass 'changetitle=true' to the script, this will allow the user to change the name of the label.
++
++   The first item in the list (none) can be used to remove the current favourite from a button.
++   The last item in the list (no action) can be used to change the label of a button without asigning an action to it.
++
++2) RunScript(script.favourites)
++
++   If you run the script like this, it will set the following home window properties:
++   favourite.%d.path
++   favourite.%d.name
++   favourite.%d.thumb
++   favourite.count
++
++   Additionally you can pass 'playlists=play' to make sure xbmc will play the playlist instead of opening it.
+Binärdateien a/addons/script.favourites/resources/icon.png und b/addons/script.favourites/resources/icon.png sind verschieden.
+diff -uNr a/addons/script.favourites/resources/language/resource.language.be_BY/strings.po b/addons/script.favourites/resources/language/resource.language.be_BY/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.be_BY/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.be_BY/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Belarusian (http://www.transifex.com/projects/p/xbmc-addons/language/be/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: be\n"
++"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Do you want to play the playlist instead of entering?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "None (clear current settings)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(no action)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.bg_BG/strings.po b/addons/script.favourites/resources/language/resource.language.bg_BG/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.bg_BG/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.bg_BG/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Bulgarian (http://www.transifex.com/projects/p/xbmc-addons/language/bg/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: bg\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Да се възпроизведе ли плейлиста, вместо да бъде отворен?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Нищо (Почисти текущите настройки)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(без действие)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.ca_ES/strings.po b/addons/script.favourites/resources/language/resource.language.ca_ES/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.ca_ES/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.ca_ES/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Catalan (http://www.transifex.com/projects/p/xbmc-addons/language/ca/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: ca\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Vols reproduir a la llista de reproducció en lloc d'entrar?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Cap (borra la configuració actual)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(sense acció)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.cs_CZ/strings.po b/addons/script.favourites/resources/language/resource.language.cs_CZ/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.cs_CZ/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.cs_CZ/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Czech (http://www.transifex.com/projects/p/xbmc-addons/language/cs/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: cs\n"
++"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Chcete rovnou přehrávat playlist místo zobrazení?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Nic (resetuje současné nastavení)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(žádná akce)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.da_DK/strings.po b/addons/script.favourites/resources/language/resource.language.da_DK/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.da_DK/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.da_DK/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Danish (http://www.transifex.com/projects/p/xbmc-addons/language/da/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: da\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Ønsker du at afspille afspilningslisten i stedet for at indtaste?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ingen (Ryd nuværende indstilling)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(ingen handling)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.de_DE/strings.po b/addons/script.favourites/resources/language/resource.language.de_DE/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.de_DE/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.de_DE/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: German (http://www.transifex.com/projects/p/xbmc-addons/language/de/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: de\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Wollen Sie die Wiedergabeliste abspielen anstatt den Standard-Eintrag zu öffnen?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Nichts (aktuelle Einstellungen löschen)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(keine Aktion)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.el_GR/strings.po b/addons/script.favourites/resources/language/resource.language.el_GR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.el_GR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.el_GR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Greek (http://www.transifex.com/projects/p/xbmc-addons/language/el/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: el\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Να γίνει αναπαραγωγή της λίστας αναπ/γής αντί για είσοδος;"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Τίποτα (εκκαθάριση τρεχουσών ρυθμίσεων)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(καμία ενέργεια)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.en_GB/strings.po b/addons/script.favourites/resources/language/resource.language.en_GB/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.en_GB/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.en_GB/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: English (http://www.transifex.com/projects/p/xbmc-addons/language/en/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: en\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr ""
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr ""
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr ""
+diff -uNr a/addons/script.favourites/resources/language/resource.language.en_NZ/strings.po b/addons/script.favourites/resources/language/resource.language.en_NZ/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.en_NZ/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.en_NZ/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: English (New Zealand) (http://www.transifex.com/projects/p/xbmc-addons/language/en_NZ/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: en_NZ\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Do you want to play the playlist instead of entering?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "None (clear current settings)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(no action)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.en_US/strings.po b/addons/script.favourites/resources/language/resource.language.en_US/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.en_US/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.en_US/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: English (US) (http://www.transifex.com/projects/p/xbmc-addons/language/en_US/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: en_US\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Do you want to play the playlist instead of entering?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "None (clear current settings)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(no action)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.es_AR/strings.po b/addons/script.favourites/resources/language/resource.language.es_AR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.es_AR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.es_AR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Spanish (Argentina) (http://www.transifex.com/projects/p/xbmc-addons/language/es_AR/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: es_AR\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Reproducir la lista de reproducción en lugar de aceptarla?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ninguno (Limpia los ajustes actuales)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(no hacer nada)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.es_ES/strings.po b/addons/script.favourites/resources/language/resource.language.es_ES/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.es_ES/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.es_ES/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Spanish (http://www.transifex.com/projects/p/xbmc-addons/language/es/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: es\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "¿Deseas reproducir la lista en vez de entrar en ella?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ninguno (borrar ajustes actuales)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(Desactivado)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.fi_FI/strings.po b/addons/script.favourites/resources/language/resource.language.fi_FI/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.fi_FI/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.fi_FI/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Finnish (http://www.transifex.com/projects/p/xbmc-addons/language/fi/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: fi\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Haluatko toistaa soittolistan, sen aukaisemisen sijaan?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Pois (tyhjennä nykyiset asetukset)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(ei toimintaa)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.fr_CA/strings.po b/addons/script.favourites/resources/language/resource.language.fr_CA/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.fr_CA/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.fr_CA/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: French (Canada) (http://www.transifex.com/projects/p/xbmc-addons/language/fr_CA/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: fr_CA\n"
++"Plural-Forms: nplurals=2; plural=(n > 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Voulez-vous lire la liste de lecture au lieu d'entrer?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Aucun (effacer les paramètres actuels)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(aucune action)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.fr_FR/strings.po b/addons/script.favourites/resources/language/resource.language.fr_FR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.fr_FR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.fr_FR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: French (http://www.transifex.com/projects/p/xbmc-addons/language/fr/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: fr\n"
++"Plural-Forms: nplurals=2; plural=(n > 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Faut-il jouer la liste de lecture au lieu d'y entrer ?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Aucun (Efface le paramètre actuel)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(aucune action)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.gl_ES/strings.po b/addons/script.favourites/resources/language/resource.language.gl_ES/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.gl_ES/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.gl_ES/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Galician (http://www.transifex.com/projects/p/xbmc-addons/language/gl/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: gl\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Quere reproducir a listaxe de reprodución no canto de entrar?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ningún (Limpar o axuste actual)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(sen acción)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.he_IL/strings.po b/addons/script.favourites/resources/language/resource.language.he_IL/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.he_IL/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.he_IL/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Hebrew (http://www.transifex.com/projects/p/xbmc-addons/language/he/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: he\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "האם ברצונך לנגן את רשימת ההשמעה במקום פתיחתה?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "כלום (נקה הגדרות נוכחיות)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(אין פעולה)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.hr_HR/strings.po b/addons/script.favourites/resources/language/resource.language.hr_HR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.hr_HR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.hr_HR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Croatian (http://www.transifex.com/projects/p/xbmc-addons/language/hr/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: hr\n"
++"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Želite li reproducirati popis izvođenja, umjesto da ga otvorite?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Nijedno (obriši trenutne postavke)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(nema radnje)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.hu_HU/strings.po b/addons/script.favourites/resources/language/resource.language.hu_HU/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.hu_HU/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.hu_HU/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Hungarian (http://www.transifex.com/projects/p/xbmc-addons/language/hu/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: hu\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Lejátszási sor elindítása belépés helyett?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Nincs (jelenlegi beállítások törlése)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(tétlen)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.id_ID/strings.po b/addons/script.favourites/resources/language/resource.language.id_ID/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.id_ID/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.id_ID/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Indonesian (http://www.transifex.com/projects/p/xbmc-addons/language/id/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: id\n"
++"Plural-Forms: nplurals=1; plural=0;\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Apakah Anda ingin memainkan daftar putar ketimbang memasukkan?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Tiada (bersihkan pengaturan saat ini)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(tak ada aksi)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.it_IT/strings.po b/addons/script.favourites/resources/language/resource.language.it_IT/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.it_IT/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.it_IT/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Italian (http://www.transifex.com/projects/p/xbmc-addons/language/it/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: it\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Vuoi eseguire la playlist invece di visualizzarne gli elementi?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "No (pulisci le impostazioni attuali)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(nessuna azione)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.ko_KR/strings.po b/addons/script.favourites/resources/language/resource.language.ko_KR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.ko_KR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.ko_KR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Korean (http://www.transifex.com/projects/p/xbmc-addons/language/ko/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: ko\n"
++"Plural-Forms: nplurals=1; plural=0;\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "항목을 표시하는 대신 재생목록을 재생하겠습니까?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "없음 (현재 설정 지우기)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(동작 없음)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.lt_LT/strings.po b/addons/script.favourites/resources/language/resource.language.lt_LT/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.lt_LT/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.lt_LT/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Lithuanian (http://www.transifex.com/projects/p/xbmc-addons/language/lt/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: lt\n"
++"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Ar norite atkurti grojaraštį, vietoj to kad jį atidaryti?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Joks (išvalyti dabartinius nustatymus)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(jokio veiksmo)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.nb_NO/strings.po b/addons/script.favourites/resources/language/resource.language.nb_NO/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.nb_NO/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.nb_NO/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Norwegian (http://www.transifex.com/projects/p/xbmc-addons/language/no/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: no\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Ønsker du å spille av spillelisten istedenfor å gå inn?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ingen (tøm gjeldene innstillinger)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(ingen handling)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.nl_NL/strings.po b/addons/script.favourites/resources/language/resource.language.nl_NL/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.nl_NL/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.nl_NL/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Dutch (http://www.transifex.com/projects/p/xbmc-addons/language/nl/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: nl\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Wil je de speellijst afspelen in plaats van in te voeren?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Geen (verwijder huidige instellingen)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(geen actie)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.pl_PL/strings.po b/addons/script.favourites/resources/language/resource.language.pl_PL/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.pl_PL/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.pl_PL/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Polish (http://www.transifex.com/projects/p/xbmc-addons/language/pl/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: pl\n"
++"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Czy chcesz odtworzyć playlistę zamiast wchodzić?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Brak (Wyczyść bieżące ustawienia)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(brak operacji)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.pt_BR/strings.po b/addons/script.favourites/resources/language/resource.language.pt_BR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.pt_BR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.pt_BR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Portuguese (Brazil) (http://www.transifex.com/projects/p/xbmc-addons/language/pt_BR/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: pt_BR\n"
++"Plural-Forms: nplurals=2; plural=(n > 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Você quer reproduzir a lista de reprodução em vez de abri-la?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Nenhum (limpar ajustes atuais)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(nenhuma ação)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.pt_PT/strings.po b/addons/script.favourites/resources/language/resource.language.pt_PT/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.pt_PT/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.pt_PT/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Portuguese (http://www.transifex.com/projects/p/xbmc-addons/language/pt/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: pt\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Quer reproduzir a Lista Reprodução em vez de visualizá-la?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Nenhum (apagar definições actuais)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(sem acção)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.ro_RO/strings.po b/addons/script.favourites/resources/language/resource.language.ro_RO/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.ro_RO/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.ro_RO/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,21 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Romanian (http://www.transifex.com/projects/p/xbmc-addons/language/ro/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: ro\n"
++"Plural-Forms: nplurals=3; plural=(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1));\n"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(nicio acțiune)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.ru_RU/strings.po b/addons/script.favourites/resources/language/resource.language.ru_RU/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.ru_RU/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.ru_RU/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Russian (http://www.transifex.com/projects/p/xbmc-addons/language/ru/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: ru\n"
++"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Хотите ли Вы проиграть плейлист вместо его открытия?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ничего (Очистить текущие настройки)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(без действия)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.sl_SI/strings.po b/addons/script.favourites/resources/language/resource.language.sl_SI/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.sl_SI/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.sl_SI/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Slovenian (http://www.transifex.com/projects/p/xbmc-addons/language/sl/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: sl\n"
++"Plural-Forms: nplurals=4; plural=(n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || n%100==4 ? 2 : 3);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Želite predvajati seznam predvajanja namesto vstopa?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Brez (počisti trenutne nastavitve)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(brez dejanj)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.sv_SE/strings.po b/addons/script.favourites/resources/language/resource.language.sv_SE/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.sv_SE/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.sv_SE/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Swedish (http://www.transifex.com/projects/p/xbmc-addons/language/sv/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: sv\n"
++"Plural-Forms: nplurals=2; plural=(n != 1);\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Vill du spela spellistan istället för att öppna den?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Ingen (rensa nuvarande inställningar)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(ingen händelse)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.tr_TR/strings.po b/addons/script.favourites/resources/language/resource.language.tr_TR/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.tr_TR/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.tr_TR/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Turkish (http://www.transifex.com/projects/p/xbmc-addons/language/tr/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: tr\n"
++"Plural-Forms: nplurals=1; plural=0;\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "Çalma listesine girmek yerine oynatmak ister misiniz?"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "Hiçbiri (geçerli ayarları temizle)"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "(eylem yok)"
+diff -uNr a/addons/script.favourites/resources/language/resource.language.zh_CN/strings.po b/addons/script.favourites/resources/language/resource.language.zh_CN/strings.po
+--- a/addons/script.favourites/resources/language/resource.language.zh_CN/strings.po	1970-01-01 01:00:00.000000000 +0100
++++ b/addons/script.favourites/resources/language/resource.language.zh_CN/strings.po	2021-09-09 14:15:44.000000000 +0200
+@@ -0,0 +1,29 @@
++# Kodi Media Center language file
++# Addon Name: Favourites script
++# Addon id: script.favourites
++# Addon Provider: ronie|`Black
++msgid ""
++msgstr ""
++"Project-Id-Version: XBMC Addons\n"
++"Report-Msgid-Bugs-To: alanwww1@xbmc.org\n"
++"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
++"Last-Translator: Kodi Translation Team\n"
++"Language-Team: Chinese (Simple) (http://www.transifex.com/projects/p/xbmc-addons/language/zh/)\n"
++"MIME-Version: 1.0\n"
++"Content-Type: text/plain; charset=UTF-8\n"
++"Content-Transfer-Encoding: 8bit\n"
++"Language: zh\n"
++"Plural-Forms: nplurals=1; plural=0;\n"
++
++msgctxt "#32000"
++msgid "Do you want to play the playlist instead of entering?"
++msgstr "播放此播放列表而非进入吗？"
++
++msgctxt "#32001"
++msgid "None (clear current settings)"
++msgstr "无（清除当前设置）"
++
++msgctxt "#32002"
++msgid "(no action)"
++msgstr "（无动作）"
+diff -uNr a/cmake/installdata/common/addons.txt b/cmake/installdata/common/addons.txt
+--- a/cmake/installdata/common/addons.txt	2020-10-23 23:43:37.000000000 +0200
++++ b/cmake/installdata/common/addons.txt	2021-10-20 10:29:25.868840045 +0200
+@@ -25,6 +25,7 @@
+ addons/script.module.pil/*
+ addons/script.module.pycryptodome/*
+ addons/script.module.pysqlite/*
++addons/script.favourites/*
+ addons/resource.language.en_gb/*
+ addons/resource.uisounds.kodi/*
+ addons/resource.images.weathericons.default/*
+diff -uNr a/system/addon-manifest.xml b/system/addon-manifest.xml
+--- a/system/addon-manifest.xml	2020-10-23 23:43:37.000000000 +0200
++++ b/system/addon-manifest.xml	2021-10-20 10:30:56.216202626 +0200
+@@ -40,6 +40,7 @@
+   <addon>screensaver.xbmc.builtin.dim</addon>
+   <addon>script.module.pil</addon>
+   <addon>script.module.pycryptodome</addon>
++  <addon>script.favourites</addon>
+   <addon optional="true">service.xbmc.versioncheck</addon>
+   <addon>skin.estuary</addon>
+   <addon>skin.estouchy</addon>

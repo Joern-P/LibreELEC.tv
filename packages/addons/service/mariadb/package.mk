@@ -88,6 +88,7 @@ addon() {
      ${MARIADB}/bin/mysqld \
      ${MARIADB}/bin/mysqladmin \
      ${MARIADB}/bin/mysqldump \
+     ${MARIADB}/bin/mysqlcheck \
      ${MARIADB}/bin/mysql_secure_installation \
      ${MARIADB}/bin/my_print_defaults \
      ${MARIADB}/bin/resolveip \

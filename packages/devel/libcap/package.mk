@@ -4,8 +4,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libcap"
-PKG_VERSION="2.57"
-PKG_SHA256="750221e347689e779a0ce2b22746ee9987d229712da934acb81b2d280684b7ab"
+PKG_VERSION="2.59"
+PKG_SHA256="49f64ae40b113e53cbc161e22af7094e3bb4a0611fa33ef5a4257b011779f034"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/libs/libcap/libcap.git/log/"
 PKG_URL="https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/${PKG_NAME}-${PKG_VERSION}.tar.xz"

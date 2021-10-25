@@ -1,0 +1,417 @@
+From 19962decb0dcc3f522ad552e7aa4ec966bee86bc Mon Sep 17 00:00:00 2001
+From: bkury <github@mindgeek.cc>
+Date: Tue, 12 Jan 2021 17:31:30 +0100
+Subject: [PATCH] [BACKPORT] PR17576 & PR18410
+
+---
+ xbmc/GUIInfoManager.cpp              |  56 +++++++++-
+ xbmc/GUIInfoManager.h                |   2 +
+ xbmc/guilib/guiinfo/GUIInfoLabels.h  | 161 +++++++++++++++------------
+ xbmc/guilib/guiinfo/MusicGUIInfo.cpp |   5 +-
+ xbmc/guilib/guiinfo/VideoGUIInfo.cpp |  50 +++++++++
+ xbmc/guilib/guiinfo/VideoGUIInfo.h   |   1 +
+ 7 files changed, 207 insertions(+), 78 deletions(-)
+
+diff --git a/xbmc/GUIInfoManager.cpp b/xbmc/GUIInfoManager.cpp
+index 410a6ce2da316..6b5260c9f84fa 100644
+--- a/xbmc/GUIInfoManager.cpp
++++ b/xbmc/GUIInfoManager.cpp
+@@ -8870,11 +8870,7 @@ int CGUIInfoManager::TranslateSingleString(const std::string &strCondition, bool
+       {
+         return AddMultiInfo(CGUIInfo(VIDEOPLAYER_CONTENT, prop.param(), 0));
+       }
+-      for (const infomap& i : videoplayer)
+-      {
+-        if (prop.name == i.str)
+-          return i.val;
+-      }
++      return TranslateVideoPlayerString(prop.name);
+     }
+     else if (cat.name == "retroplayer")
+     {
+@@ -9109,6 +9105,36 @@ int CGUIInfoManager::TranslateSingleString(const std::string &strCondition, bool
+         return AddMultiInfo(CGUIInfo(value, 1, position)); // 1 => relative
+       }
+     }
++    else if (info[0].name == "videoplayer")
++    { //! @todo these two don't allow duration(foo) and also don't allow more than this number of levels...
++      if (info[1].name == "position")
++      {
++        int position = atoi(info[1].param().c_str());
++        int value = TranslateVideoPlayerString(info[2].name); // videoplayer.position(foo).bar
++        return AddMultiInfo(CGUIInfo(value, 2, position)); // 2 => absolute (0 used for not set)
++      }
++      else if (info[1].name == "offset")
++      {
++        int position = atoi(info[1].param().c_str());
++        int value = TranslateVideoPlayerString(info[2].name); // videoplayer.offset(foo).bar
++        return AddMultiInfo(CGUIInfo(value, 1, position)); // 1 => relative
++      }
++    }
++    else if (info[0].name == "player")
++    { //! @todo these two don't allow duration(foo) and also don't allow more than this number of levels...
++      if (info[1].name == "position")
++      {
++        int position = atoi(info[1].param().c_str());
++        int value = TranslatePlayerString(info[2].name); // player.position(foo).bar
++        return AddMultiInfo(CGUIInfo(value, 2, position)); // 2 => absolute (0 used for not set)
++      }
++      else if (info[1].name == "offset")
++      {
++        int position = atoi(info[1].param().c_str());
++        int value = TranslatePlayerString(info[2].name); // player.offset(foo).bar
++        return AddMultiInfo(CGUIInfo(value, 1, position)); // 1 => relative
++      }
++    }
+     else if (info[0].name == "container")
+     {
+       if (info[1].name == "listitem" ||
+@@ -9214,6 +9240,26 @@ int CGUIInfoManager::TranslateMusicPlayerString(const std::string &info) const
+   return 0;
+ }
+ 
++int CGUIInfoManager::TranslateVideoPlayerString(const std::string& info) const
++{
++  for (const infomap& i : videoplayer)
++  {
++    if (info == i.str)
++      return i.val;
++  }
++  return 0;
++}
++
++int CGUIInfoManager::TranslatePlayerString(const std::string& info) const
++{
++  for (const infomap& i : player_labels)
++  {
++    if (info == i.str)
++      return i.val;
++  }
++  return 0;
++}
++
+ TIME_FORMAT CGUIInfoManager::TranslateTimeFormat(const std::string &format)
+ {
+   if (format.empty())
+diff --git a/xbmc/GUIInfoManager.h b/xbmc/GUIInfoManager.h
+index c68b972645698..bcacea78c3c0a 100644
+--- a/xbmc/GUIInfoManager.h
++++ b/xbmc/GUIInfoManager.h
+@@ -174,6 +174,8 @@ class CGUIInfoManager : public Observable, public KODI::MESSAGING::IMessageTarge
+   int TranslateSingleString(const std::string &strCondition);
+   int TranslateListItem(const Property& cat, const Property& prop, int id, bool container);
+   int TranslateMusicPlayerString(const std::string &info) const;
++  int TranslateVideoPlayerString(const std::string& info) const;
++  int TranslatePlayerString(const std::string& info) const;
+   static TIME_FORMAT TranslateTimeFormat(const std::string &format);
+ 
+   std::string GetMultiInfoLabel(const KODI::GUILIB::GUIINFO::CGUIInfo &info, int contextWindow, std::string *fallback = nullptr) const;
+diff --git a/xbmc/guilib/guiinfo/GUIInfoLabels.h b/xbmc/guilib/guiinfo/GUIInfoLabels.h
+index e42f138b1e175..b6626c2b417c9 100644
+--- a/xbmc/guilib/guiinfo/GUIInfoLabels.h
++++ b/xbmc/guilib/guiinfo/GUIInfoLabels.h
+@@ -49,17 +49,17 @@
+ #define PLAYER_SUBTITLE_DELAY        42
+ #define PLAYER_AUDIO_DELAY           43
+ #define PLAYER_PASSTHROUGH           44
+-#define PLAYER_PATH                  45
+-#define PLAYER_FILEPATH              46
++// unused 45
++// unused 46
+ #define PLAYER_SEEKOFFSET            47
+ #define PLAYER_PROGRESS_CACHE        48
+ #define PLAYER_ITEM_ART              49
+ #define PLAYER_CAN_PAUSE             50
+ #define PLAYER_CAN_SEEK              51
+ #define PLAYER_START_TIME            52
+-#define PLAYER_TITLE                 53
++// unused 53
+ #define PLAYER_ISINTERNETSTREAM      54
+-#define PLAYER_FILENAME              55
++// unused 55
+ #define PLAYER_SEEKSTEPSIZE          56
+ #define PLAYER_IS_CHANNEL_PREVIEW_ACTIVE  57
+ #define PLAYER_SUPPORTS_TEMPO        58
+@@ -73,6 +73,15 @@
+ #define PLAYER_ICON                  66
+ #define PLAYER_CUTLIST               67
+ #define PLAYER_CHAPTERS              68
++// Keep player infolabels that work with offset and position together
++#define PLAYER_PATH                  81
++#define PLAYER_FILEPATH              82
++#define PLAYER_TITLE                 83
++#define PLAYER_FILENAME              84
++
++// Range of player infolabels that work with offset and position
++#define PLAYER_OFFSET_POSITION_FIRST PLAYER_PATH
++#define PLAYER_OFFSET_POSITION_LAST PLAYER_FILENAME
+ 
+ #define WEATHER_CONDITIONS_TEXT     100
+ #define WEATHER_TEMPERATURE         101
+@@ -201,78 +210,88 @@
+ #define MUSICPLAYER_PLAYLISTPLAYING 243
+ #define MUSICPLAYER_CONTENT         244
+ 
+-#define VIDEOPLAYER_AUDIO_BITRATE     248
+-#define VIDEOPLAYER_VIDEO_BITRATE     249
++// Keep videoplayer infolabels that work with offset and position together
+ #define VIDEOPLAYER_TITLE             250
+ #define VIDEOPLAYER_GENRE             251
+ #define VIDEOPLAYER_DIRECTOR          252
+ #define VIDEOPLAYER_YEAR              253
+-#define VIDEOPLAYER_HASSUBTITLES      254
+-#define VIDEOPLAYER_SUBTITLESENABLED  255
+-#define VIDEOPLAYER_COVER             258
+-#define VIDEOPLAYER_USING_OVERLAYS    259
+-#define VIDEOPLAYER_ISFULLSCREEN      260
+-#define VIDEOPLAYER_HASMENU           261
+-#define VIDEOPLAYER_PLAYLISTLEN       262
+-#define VIDEOPLAYER_PLAYLISTPOS       263
+-#define VIDEOPLAYER_EVENT             264
+-#define VIDEOPLAYER_ORIGINALTITLE     265
+-#define VIDEOPLAYER_PLOT              266
+-#define VIDEOPLAYER_PLOT_OUTLINE      267
+-#define VIDEOPLAYER_EPISODE           268
+-#define VIDEOPLAYER_SEASON            269
+-#define VIDEOPLAYER_RATING            270
+-#define VIDEOPLAYER_TVSHOW            271
+-#define VIDEOPLAYER_PREMIERED         272
+-#define VIDEOPLAYER_CONTENT           273
+-#define VIDEOPLAYER_STUDIO            274
+-#define VIDEOPLAYER_MPAA              275
+-#define VIDEOPLAYER_CAST              276
+-#define VIDEOPLAYER_CAST_AND_ROLE     277
+-#define VIDEOPLAYER_ARTIST            278
+-#define VIDEOPLAYER_ALBUM             279
+-#define VIDEOPLAYER_WRITER            280
+-#define VIDEOPLAYER_TAGLINE           281
+-#define VIDEOPLAYER_HAS_INFO          282
+-#define VIDEOPLAYER_TOP250            283
+-#define VIDEOPLAYER_RATING_AND_VOTES  284
+-#define VIDEOPLAYER_TRAILER           285
+-#define VIDEOPLAYER_VIDEO_CODEC       286
+-#define VIDEOPLAYER_VIDEO_RESOLUTION  287
+-#define VIDEOPLAYER_AUDIO_CODEC       288
+-#define VIDEOPLAYER_AUDIO_CHANNELS    289
+-#define VIDEOPLAYER_VIDEO_ASPECT      290
+-#define VIDEOPLAYER_HASTELETEXT       291
+-#define VIDEOPLAYER_COUNTRY           292
+-#define VIDEOPLAYER_PLAYCOUNT         293
+-#define VIDEOPLAYER_LASTPLAYED        294
+-
+-#define VIDEOPLAYER_STARTTIME         295
+-#define VIDEOPLAYER_ENDTIME           296
+-#define VIDEOPLAYER_NEXT_TITLE        297
+-#define VIDEOPLAYER_NEXT_GENRE        298
+-#define VIDEOPLAYER_NEXT_PLOT         299
+-#define VIDEOPLAYER_NEXT_PLOT_OUTLINE 300
+-#define VIDEOPLAYER_NEXT_STARTTIME    301
+-#define VIDEOPLAYER_NEXT_ENDTIME      302
+-#define VIDEOPLAYER_NEXT_DURATION     303
+-#define VIDEOPLAYER_CHANNEL_NAME      304
+-// unused 305
+-#define VIDEOPLAYER_CHANNEL_GROUP     306
+-#define VIDEOPLAYER_PARENTAL_RATING   307
+-#define VIDEOPLAYER_HAS_EPG           308
+-#define VIDEOPLAYER_VOTES             309
++#define VIDEOPLAYER_COVER             254
++#define VIDEOPLAYER_ORIGINALTITLE     255
++#define VIDEOPLAYER_PLOT              256
++#define VIDEOPLAYER_PLOT_OUTLINE      257
++#define VIDEOPLAYER_EPISODE           258
++#define VIDEOPLAYER_SEASON            259
++#define VIDEOPLAYER_RATING            260
++#define VIDEOPLAYER_TVSHOW            261
++#define VIDEOPLAYER_PREMIERED         262
++#define VIDEOPLAYER_STUDIO            263
++#define VIDEOPLAYER_MPAA              264
++#define VIDEOPLAYER_ARTIST            265
++#define VIDEOPLAYER_ALBUM             266
++#define VIDEOPLAYER_WRITER            267
++#define VIDEOPLAYER_TAGLINE           268
++#define VIDEOPLAYER_TOP250            269
++#define VIDEOPLAYER_RATING_AND_VOTES  270
++#define VIDEOPLAYER_TRAILER           271
++#define VIDEOPLAYER_COUNTRY           272
++#define VIDEOPLAYER_PLAYCOUNT         273
++#define VIDEOPLAYER_LASTPLAYED        274
++#define VIDEOPLAYER_VOTES             275
++#define VIDEOPLAYER_IMDBNUMBER        276
++#define VIDEOPLAYER_USER_RATING       277
++#define VIDEOPLAYER_DBID              278
++
++// Range of videoplayer infolabels that work with offset and position
++#define VIDEOPLAYER_OFFSET_POSITION_FIRST VIDEOPLAYER_TITLE
++#define VIDEOPLAYER_OFFSET_POSITION_LAST VIDEOPLAYER_DBID
++
++#define VIDEOPLAYER_AUDIO_BITRATE     281
++#define VIDEOPLAYER_VIDEO_BITRATE     282
++#define VIDEOPLAYER_VIDEO_CODEC       283
++#define VIDEOPLAYER_VIDEO_RESOLUTION  284
++#define VIDEOPLAYER_AUDIO_CODEC       285
++#define VIDEOPLAYER_AUDIO_CHANNELS    286
++#define VIDEOPLAYER_VIDEO_ASPECT      287
++#define VIDEOPLAYER_SUBTITLES_LANG    288
++#define VIDEOPLAYER_AUDIO_LANG        290
++#define VIDEOPLAYER_STEREOSCOPIC_MODE 291
++#define VIDEOPLAYER_CAST              292
++#define VIDEOPLAYER_CAST_AND_ROLE     293
++#define VIDEOPLAYER_UNIQUEID          294
++
++// Videoplayer infobools
++#define VIDEOPLAYER_HASSUBTITLES      300
++#define VIDEOPLAYER_SUBTITLESENABLED  301
++#define VIDEOPLAYER_USING_OVERLAYS    302
++#define VIDEOPLAYER_ISFULLSCREEN      303
++#define VIDEOPLAYER_HASMENU           304
++#define VIDEOPLAYER_PLAYLISTLEN       305
++#define VIDEOPLAYER_PLAYLISTPOS       306
++#define VIDEOPLAYER_CONTENT           307
++#define VIDEOPLAYER_HAS_INFO          308
++#define VIDEOPLAYER_HASTELETEXT       309
+ #define VIDEOPLAYER_IS_STEREOSCOPIC   310
+-#define VIDEOPLAYER_STEREOSCOPIC_MODE 311
+-#define VIDEOPLAYER_SUBTITLES_LANG    312
+-#define VIDEOPLAYER_AUDIO_LANG        313
+-// unused 314
+-#define VIDEOPLAYER_CHANNEL_NUMBER    315
+-#define VIDEOPLAYER_CAN_RESUME_LIVE_TV 316
+-#define VIDEOPLAYER_IMDBNUMBER        317
+-#define VIDEOPLAYER_EPISODENAME       318
+-#define VIDEOPLAYER_USER_RATING       319
+-#define VIDEOPLAYER_DBID              320
++
++// PVR infolabels
++#define VIDEOPLAYER_EVENT             313
++#define VIDEOPLAYER_EPISODENAME       314
++#define VIDEOPLAYER_STARTTIME         315
++#define VIDEOPLAYER_ENDTIME           316
++#define VIDEOPLAYER_NEXT_TITLE        317
++#define VIDEOPLAYER_NEXT_GENRE        318
++#define VIDEOPLAYER_NEXT_PLOT         319
++#define VIDEOPLAYER_NEXT_PLOT_OUTLINE 320
++#define VIDEOPLAYER_NEXT_STARTTIME    321
++#define VIDEOPLAYER_NEXT_ENDTIME      322
++#define VIDEOPLAYER_NEXT_DURATION     323
++#define VIDEOPLAYER_CHANNEL_NAME      324
++#define VIDEOPLAYER_CHANNEL_GROUP     325
++#define VIDEOPLAYER_PARENTAL_RATING   326
++#define VIDEOPLAYER_CHANNEL_NUMBER    327
++
++// PVR infobools
++#define VIDEOPLAYER_HAS_EPG           328
++#define VIDEOPLAYER_CAN_RESUME_LIVE_TV 329
+ 
+ #define RETROPLAYER_VIDEO_FILTER      330
+ #define RETROPLAYER_STRETCH_MODE      331
+diff --git a/xbmc/guilib/guiinfo/MusicGUIInfo.cpp b/xbmc/guilib/guiinfo/MusicGUIInfo.cpp
+index 9aa8f05041b05..1c4e439271311 100644
+--- a/xbmc/guilib/guiinfo/MusicGUIInfo.cpp
++++ b/xbmc/guilib/guiinfo/MusicGUIInfo.cpp
+@@ -77,8 +77,9 @@ bool CMusicGUIInfo::InitCurrentItem(CFileItem *item)
+ bool CMusicGUIInfo::GetLabel(std::string& value, const CFileItem *item, int contextWindow, const CGUIInfo &info, std::string *fallback) const
+ {
+   // For musicplayer "offset" and "position" info labels check playlist
+-  if (info.GetData1() && info.m_info >= MUSICPLAYER_OFFSET_POSITION_FIRST &&
+-      info.m_info <= MUSICPLAYER_OFFSET_POSITION_LAST)
++  if (info.GetData1() && ((info.m_info >= MUSICPLAYER_OFFSET_POSITION_FIRST &&
++      info.m_info <= MUSICPLAYER_OFFSET_POSITION_LAST) ||
++      (info.m_info >= PLAYER_OFFSET_POSITION_FIRST && info.m_info <= PLAYER_OFFSET_POSITION_LAST)))
+     return GetPlaylistInfo(value, info);
+ 
+   const CMusicInfoTag* tag = item->GetMusicInfoTag();
+diff --git a/xbmc/guilib/guiinfo/VideoGUIInfo.cpp b/xbmc/guilib/guiinfo/VideoGUIInfo.cpp
+index 35f71e4fc5ca8..f5017cbcfcd04 100644
+--- a/xbmc/guilib/guiinfo/VideoGUIInfo.cpp
++++ b/xbmc/guilib/guiinfo/VideoGUIInfo.cpp
+@@ -12,6 +12,7 @@
+ 
+ #include "Application.h"
+ #include "FileItem.h"
++#include "PlayListPlayer.h"
+ #include "ServiceBroker.h"
+ #include "URL.h"
+ #include "cores/DataCacheCore.h"
+@@ -34,6 +35,7 @@
+ #include "guilib/guiinfo/GUIInfo.h"
+ #include "guilib/guiinfo/GUIInfoHelper.h"
+ #include "guilib/guiinfo/GUIInfoLabels.h"
++#include "playlists/PlayList.h"
+ 
+ using namespace KODI::GUILIB;
+ using namespace KODI::GUILIB::GUIINFO;
+@@ -84,6 +86,12 @@ bool CVideoGUIInfo::InitCurrentItem(CFileItem *item)
+ 
+ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int contextWindow, const CGUIInfo &info, std::string *fallback) const
+ {
++  // For videoplayer "offset" and "position" info labels check playlist
++  if (info.GetData1() && ((info.m_info >= VIDEOPLAYER_OFFSET_POSITION_FIRST &&
++      info.m_info <= VIDEOPLAYER_OFFSET_POSITION_LAST) ||
++      (info.m_info >= PLAYER_OFFSET_POSITION_FIRST && info.m_info <= PLAYER_OFFSET_POSITION_LAST)))
++    return GetPlaylistInfo(value, info);
++
+   const CVideoInfoTag* tag = item->GetVideoInfoTag();
+   if (tag)
+   {
+@@ -577,6 +585,48 @@ bool CVideoGUIInfo::GetLabel(std::string& value, const CFileItem *item, int cont
+   return false;
+ }
+ 
++bool CVideoGUIInfo::GetPlaylistInfo(std::string& value, const CGUIInfo& info) const
++{
++  PLAYLIST::CPlayList& playlist = CServiceBroker::GetPlaylistPlayer().GetPlaylist(PLAYLIST_VIDEO);
++  if (playlist.size() < 1)
++    return false;
++
++  int index = info.GetData2();
++  if (info.GetData1() == 1)
++  { // relative index (requires current playlist is PLAYLIST_VIDEO)
++    if (CServiceBroker::GetPlaylistPlayer().GetCurrentPlaylist() != PLAYLIST_VIDEO)
++      return false;
++
++    index = CServiceBroker::GetPlaylistPlayer().GetNextSong(index);
++  }
++
++  if (index < 0 || index >= playlist.size())
++    return false;
++
++  const CFileItemPtr playlistItem = playlist[index];
++  // try to set a thumbnail
++  if (!playlistItem->HasArt("thumb"))
++  {
++    CVideoThumbLoader loader;
++    loader.LoadItem(playlistItem.get());
++    // still no thumb? then just the set the default cover
++    if (!playlistItem->HasArt("thumb"))
++      playlistItem->SetArt("thumb", "DefaultVideoCover.png");
++  }
++  if (info.m_info == VIDEOPLAYER_PLAYLISTPOS)
++  {
++    value = StringUtils::Format("%i", index + 1);
++    return true;
++  }
++  else if (info.m_info == VIDEOPLAYER_COVER)
++  {
++    value = playlistItem->GetArt("thumb");
++    return true;
++  }
++
++  return GetLabel(value, playlistItem.get(), 0, CGUIInfo(info.m_info), nullptr);
++}
++
+ bool CVideoGUIInfo::GetInt(int& value, const CGUIListItem *gitem, int contextWindow, const CGUIInfo &info) const
+ {
+   if (!gitem->IsFileItem())
+diff --git a/xbmc/guilib/guiinfo/VideoGUIInfo.h b/xbmc/guilib/guiinfo/VideoGUIInfo.h
+index f66e5f28ea0a5..557ca167c6591 100644
+--- a/xbmc/guilib/guiinfo/VideoGUIInfo.h
++++ b/xbmc/guilib/guiinfo/VideoGUIInfo.h
+@@ -35,6 +35,7 @@ class CVideoGUIInfo : public CGUIInfoProvider
+ 
+ private:
+   int GetPercentPlayed(const CVideoInfoTag* tag) const;
++  bool GetPlaylistInfo(std::string& value, const CGUIInfo& info) const;
+ };
+ 
+ } // namespace GUIINFO
+

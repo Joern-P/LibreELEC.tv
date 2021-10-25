@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rga"
-PKG_VERSION="2134dde256e10bf54c490d06f44f22a6859c83eb"
+PKG_VERSION="71150188f13f603fc63179fece2683be7a3d287c"
 PKG_SHA256=""
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rockchip-linux/linux-rga"
-PKG_URL="https://github.com/rockchip-linux/linux-rga/archive/$PKG_VERSION.tar.gz"
+PKG_URL="https://github.com/Caesar-github/linux-rga/archive/$PKG_VERSION.tar.gz"
 PKG_DEPENDS_TARGET="toolchain libdrm"
 
 PKG_LONGDESC="An Open Source 2D raster graphic acceleration from Rockchip."
@@ -18,4 +18,4 @@ configure_package() {
 }
 
 PKG_MESON_OPTS_TARGET="-Dlibdrm=true"
-                      
+

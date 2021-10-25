@@ -3,7 +3,7 @@
 
 PKG_NAME="rkbin"
 # Version is: Kwiboo/tag:libreelec-ba436b9
-PKG_VERSION="feca6e1072b97d7229d57762608b24f081b53de8"
+PKG_VERSION="00e7847d16a5e70322d420b0ee60b9c682ec9ebf"
 PKG_SHA256=""
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"

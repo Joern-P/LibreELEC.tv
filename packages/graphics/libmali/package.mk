@@ -26,3 +26,4 @@ post_install() {
   enable_service libmali-setup.service
 }
 
+

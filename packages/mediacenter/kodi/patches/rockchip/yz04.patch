@@ -1,0 +1,1512 @@
+From 08e7715359c5ce410f65172f4636508365061cd2 Mon Sep 17 00:00:00 2001
+From: bkury <github@mindgeek.cc>
+Date: Tue, 15 Oct 2019 02:35:52 +0200
+Subject: [PATCH] [BACKPORT] Cutlist & Chapters
+
+---
+ addons/skin.estuary/xml/DialogSeekBar.xml |  20 ++
+ xbmc/GUIInfoManager.cpp                   |  22 +-
+ xbmc/cores/CMakeLists.txt                 |   1 +
+ xbmc/cores/Cut.h                          |  29 ++
+ xbmc/cores/DataCacheCore.cpp              |  54 +++-
+ xbmc/cores/DataCacheCore.h                |  21 ++
+ xbmc/cores/VideoPlayer/Edl.cpp            |  68 ++--
+ xbmc/cores/VideoPlayer/Edl.h              |  30 +-
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp    |  24 +-
+ xbmc/guilib/CMakeLists.txt                |   2 +
+ xbmc/guilib/GUIControl.h                  |   3 +-
+ xbmc/guilib/GUIControlFactory.cpp         |  12 +-
+ xbmc/guilib/GUIRangesControl.cpp          | 363 ++++++++++++++++++++++
+ xbmc/guilib/GUIRangesControl.dox          |  56 ++++
+ xbmc/guilib/GUIRangesControl.h            |  86 +++++
+ xbmc/guilib/_Controls.dox                 |   1 +
+ xbmc/guilib/guiinfo/GUIInfoLabels.h       |   2 +
+ xbmc/guilib/guiinfo/PlayerGUIInfo.cpp     |  82 ++++-
+ xbmc/guilib/guiinfo/PlayerGUIInfo.h       |   8 +
+ 19 files changed, 810 insertions(+), 74 deletions(-)
+ create mode 100644 xbmc/cores/Cut.h
+ create mode 100644 xbmc/guilib/GUIRangesControl.cpp
+ create mode 100644 xbmc/guilib/GUIRangesControl.dox
+ create mode 100644 xbmc/guilib/GUIRangesControl.h
+
+diff --git a/addons/skin.estuary/xml/DialogSeekBar.xml b/addons/skin.estuary/xml/DialogSeekBar.xml
+index a71dcc0a2caa3..aeb44f928737c 100644
+--- a/addons/skin.estuary/xml/DialogSeekBar.xml
++++ b/addons/skin.estuary/xml/DialogSeekBar.xml
+@@ -223,6 +223,26 @@
+ 					<visible>Player.SeekEnabled</visible>
+ 				</control>
+ 			</control>
++			<control type="ranges">
++				<left>0</left>
++				<top>70</top>
++				<width>100%</width>
++				<height>8</height>
++				<texturebg border="3" colordiffuse="00FFFFFF">colors/white50.png</texturebg>
++				<lefttexture>colors/white.png</lefttexture>
++				<midtexture colordiffuse="FFFF0000">colors/white.png</midtexture>
++				<righttexture>colors/white.png</righttexture>
++				<info>Player.Cutlist</info>
++			</control>
++			<control type="ranges">
++				<left>0</left>
++				<top>82</top>
++				<width>100%</width>
++				<height>4</height>
++				<texturebg border="3" colordiffuse="00FFFFFF">colors/white50.png</texturebg>
++				<righttexture>colors/white.png</righttexture>
++				<info>Player.Chapters</info>
++			</control>
+ 		</control>
+ 		<control type="group">
+ 			<visible>!Window.IsVisible(playerprocessinfo)</visible>
+diff --git a/xbmc/GUIInfoManager.cpp b/xbmc/GUIInfoManager.cpp
+index 0782dfdf951f8..877848161d92e 100644
+--- a/xbmc/GUIInfoManager.cpp
++++ b/xbmc/GUIInfoManager.cpp
+@@ -628,6 +628,24 @@ const infomap integer_bools[] =  {{ "isequal",          INTEGER_IS_EQUAL },
+ ///     @skinning_v18 **[New Infolabel]** \link Player_Icon `Player.Icon`\endlink
+ ///     <p>  
+ ///   }
++///   \table_row3{   <b>`Player.Cutlist`</b>,
++///                  \anchor Player_Cutlist
++///                  _string_,
++///     @return The cutlist of the currently playing item as csv in the format start1\,end1\,start2\,end2\,...
++///     Tokens must have values in the range from 0.0 to 100.0. end token must be less or equal than start token.
++///     <p><hr>
++///     @skinning_v19 **[New Infolabel]** \link Player_Cutlist `Player.Cutlist`\endlink
++///     <p>
++///   }
++///   \table_row3{   <b>`Player.Chapters`</b>,
++///                  \anchor Player_Chapters
++///                  _string_,
++///     @return The chapters of the currently playing item as csv in the format start1\,end1\,start2\,end2\,...
++///     Tokens must have values in the range from 0.0 to 100.0. end token must be less or equal than start token.
++///     <p><hr>
++///     @skinning_v19 **[New Infolabel]** \link Player_Chapters `Player.Chapters`\endlink
++///     <p>
++///   }
+ const infomap player_labels[] =  {{ "hasmedia",         PLAYER_HAS_MEDIA },
+                                   { "hasaudio",         PLAYER_HAS_AUDIO },
+                                   { "hasvideo",         PLAYER_HAS_VIDEO },
+@@ -678,7 +696,9 @@ const infomap player_labels[] =  {{ "hasmedia",         PLAYER_HAS_MEDIA },
+                                   { "hasprograms",      PLAYER_HAS_PROGRAMS },
+                                   { "hasresolutions",   PLAYER_HAS_RESOLUTIONS },
+                                   { "frameadvance",     PLAYER_FRAMEADVANCE },
+-                                  { "icon",             PLAYER_ICON }};
++                                  { "icon",             PLAYER_ICON },
++                                  { "cutlist",          PLAYER_CUTLIST },
++                                  { "chapters",         PLAYER_CHAPTERS }};
+ 
+ /// \page modules__infolabels_boolean_conditions
+ ///   \table_row3{   <b>`Player.Art(type)`</b>,
+diff --git a/xbmc/cores/CMakeLists.txt b/xbmc/cores/CMakeLists.txt
+index 0b0389719a709..f909646b934c5 100644
+--- a/xbmc/cores/CMakeLists.txt
++++ b/xbmc/cores/CMakeLists.txt
+@@ -3,6 +3,7 @@ set(SOURCES DataCacheCore.cpp
+             VideoSettings.cpp)
+ 
+ set(HEADERS DataCacheCore.h
++            Cut.h
+             FFmpeg.h
+             GameSettings.h
+             IPlayer.h
+diff --git a/xbmc/cores/Cut.h b/xbmc/cores/Cut.h
+new file mode 100644
+index 0000000000000..fbf79a2b62497
+--- /dev/null
++++ b/xbmc/cores/Cut.h
+@@ -0,0 +1,29 @@
++/*
++ *  Copyright (C) 2019 Team Kodi
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#pragma once
++
++namespace EDL
++{
++
++enum class Action
++{
++  CUT = 0,
++  MUTE = 1,
++  // SCENE = 2,
++  COMM_BREAK = 3
++};
++
++struct Cut
++{
++  int start = 0; // ms
++  int end = 0;   // ms
++  Action action = Action::CUT;
++};
++
++}
+diff --git a/xbmc/cores/DataCacheCore.cpp b/xbmc/cores/DataCacheCore.cpp
+index 3e1f1f9a1d2b9..8b579b6737aaf 100644
+--- a/xbmc/cores/DataCacheCore.cpp
++++ b/xbmc/cores/DataCacheCore.cpp
+@@ -6,19 +6,24 @@
+  *  See LICENSES/README.md for more information.
+  */
+ 
+-#include "cores/DataCacheCore.h"
++#include "DataCacheCore.h"
++
++#include "cores/Cut.h"
+ #include "threads/SingleLock.h"
+ #include "ServiceBroker.h"
+ 
+ CDataCacheCore::CDataCacheCore() :
+   m_playerVideoInfo {},
+   m_playerAudioInfo {},
++  m_contentInfo {},
+   m_renderInfo {},
+   m_stateInfo {}
+ {
+   m_hasAVInfoChanges = false;
+ }
+ 
++CDataCacheCore::~CDataCacheCore() = default;
++
+ CDataCacheCore& CDataCacheCore::GetInstance()
+ {
+   return CServiceBroker::GetDataCacheCore();
+@@ -26,14 +31,23 @@ CDataCacheCore& CDataCacheCore::GetInstance()
+ 
+ void CDataCacheCore::Reset()
+ {
+-  CSingleLock lock(m_stateSection);
++  {
++    CSingleLock lock(m_stateSection);
+ 
+-  m_stateInfo.m_speed = 1.0;
+-  m_stateInfo.m_tempo = 1.0;
+-  m_stateInfo.m_stateSeeking = false;
+-  m_stateInfo.m_renderGuiLayer = false;
+-  m_stateInfo.m_renderVideoLayer = false;
+-  m_playerStateChanged = false;
++    m_stateInfo.m_speed = 1.0;
++    m_stateInfo.m_tempo = 1.0;
++    m_stateInfo.m_stateSeeking = false;
++    m_stateInfo.m_renderGuiLayer = false;
++    m_stateInfo.m_renderVideoLayer = false;
++    m_playerStateChanged = false;
++  }
++
++  {
++    CSingleLock lock(m_contentSection);
++
++    m_contentInfo.m_chapters.clear();
++    m_contentInfo.m_cutList.clear();
++  }
+ }
+ 
+ bool CDataCacheCore::HasAVInfoChanges()
+@@ -230,6 +244,30 @@ int CDataCacheCore::GetAudioBitsPerSample()
+   return m_playerAudioInfo.bitsPerSample;
+ }
+ 
++void CDataCacheCore::SetCutList(const std::vector<EDL::Cut>& cutList)
++{
++  CSingleLock lock(m_contentSection);
++  m_contentInfo.m_cutList = cutList;
++}
++
++std::vector<EDL::Cut> CDataCacheCore::GetCutList() const
++{
++  CSingleLock lock(m_contentSection);
++  return m_contentInfo.m_cutList;
++}
++
++void CDataCacheCore::SetChapters(const std::vector<std::pair<std::string, int64_t>>& chapters)
++{
++  CSingleLock lock(m_contentSection);
++  m_contentInfo.m_chapters = chapters;
++}
++
++std::vector<std::pair<std::string, int64_t>> CDataCacheCore::GetChapters() const
++{
++  CSingleLock lock(m_contentSection);
++  return m_contentInfo.m_chapters;
++}
++
+ void CDataCacheCore::SetRenderClockSync(bool enable)
+ {
+   CSingleLock lock(m_renderSection);
+diff --git a/xbmc/cores/DataCacheCore.h b/xbmc/cores/DataCacheCore.h
+index 25bb74f529105..68397a4e603b4 100644
+--- a/xbmc/cores/DataCacheCore.h
++++ b/xbmc/cores/DataCacheCore.h
+@@ -10,12 +10,20 @@
+ 
+ #include <atomic>
+ #include <string>
++#include <vector>
++
+ #include "threads/CriticalSection.h"
+ 
++namespace EDL
++{
++  struct Cut;
++}
++
+ class CDataCacheCore
+ {
+ public:
+   CDataCacheCore();
++  virtual ~CDataCacheCore();
+   static CDataCacheCore& GetInstance();
+   void Reset();
+   bool HasAVInfoChanges();
+@@ -51,6 +59,12 @@ class CDataCacheCore
+   void SetAudioBitsPerSample(int bitsPerSample);
+   int GetAudioBitsPerSample();
+ 
++  // content info
++  void SetCutList(const std::vector<EDL::Cut>& cutList);
++  std::vector<EDL::Cut> GetCutList() const;
++  void SetChapters(const std::vector<std::pair<std::string, int64_t>>& chapters);
++  std::vector<std::pair<std::string, int64_t>> GetChapters() const;
++
+   // render info
+   void SetRenderClockSync(bool enabled);
+   bool IsRenderClockSync();
+@@ -138,6 +152,13 @@ class CDataCacheCore
+     int bitsPerSample;
+   } m_playerAudioInfo;
+ 
++  mutable CCriticalSection m_contentSection;
++  struct SContentInfo
++  {
++    std::vector<EDL::Cut> m_cutList;
++    std::vector<std::pair<std::string, int64_t>> m_chapters; // name and position for chapters
++  } m_contentInfo;
++
+   CCriticalSection m_renderSection;
+   struct SRenderInfo
+   {
+diff --git a/xbmc/cores/VideoPlayer/Edl.cpp b/xbmc/cores/VideoPlayer/Edl.cpp
+index 5e2b0d63189fe..5abd8ffcaaaa7 100644
+--- a/xbmc/cores/VideoPlayer/Edl.cpp
++++ b/xbmc/cores/VideoPlayer/Edl.cpp
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include "Edl.h"
++#include "cores/Cut.h"
+ #include "utils/StringUtils.h"
+ #include "utils/URIUtils.h"
+ #include "filesystem/File.h"
+@@ -24,6 +25,7 @@
+ #define VIDEOREDO_TAG_CUT "<Cut>"
+ #define VIDEOREDO_TAG_SCENE "<SceneMarker "
+ 
++using namespace EDL;
+ using namespace XFILE;
+ 
+ CEdl::CEdl()
+@@ -212,7 +214,7 @@ bool CEdl::ReadEdl(const std::string& strMovie, const float fFramesPerSecond)
+     switch (iAction)
+     {
+     case 0:
+-      cut.action = CUT;
++      cut.action = Action::CUT;
+       if (!AddCut(cut))
+       {
+         CLog::Log(LOGWARNING, "%s - Error adding cut from line %i in EDL file: %s", __FUNCTION__,
+@@ -221,7 +223,7 @@ bool CEdl::ReadEdl(const std::string& strMovie, const float fFramesPerSecond)
+       }
+       break;
+     case 1:
+-      cut.action = MUTE;
++      cut.action = Action::MUTE;
+       if (!AddCut(cut))
+       {
+         CLog::Log(LOGWARNING, "%s - Error adding mute from line %i in EDL file: %s", __FUNCTION__,
+@@ -238,7 +240,7 @@ bool CEdl::ReadEdl(const std::string& strMovie, const float fFramesPerSecond)
+       }
+       break;
+     case 3:
+-      cut.action = COMM_BREAK;
++      cut.action = Action::COMM_BREAK;
+       if (!AddCut(cut))
+       {
+         CLog::Log(LOGWARNING, "%s - Error adding commercial break from line %i in EDL file: %s",
+@@ -331,7 +333,7 @@ bool CEdl::ReadComskip(const std::string& strMovie, const float fFramesPerSecond
+       Cut cut;
+       cut.start = (int64_t)(dStartFrame / fFrameRate * 1000);
+       cut.end = (int64_t)(dEndFrame / fFrameRate * 1000);
+-      cut.action = COMM_BREAK;
++      cut.action = Action::COMM_BREAK;
+       bValid = AddCut(cut);
+     }
+     else
+@@ -408,7 +410,7 @@ bool CEdl::ReadVideoReDo(const std::string& strMovie)
+         Cut cut;
+         cut.start = (int64_t)(dStart / 10000);
+         cut.end = (int64_t)(dEnd / 10000);
+-        cut.action = CUT;
++        cut.action = Action::CUT;
+         bValid = AddCut(cut);
+       }
+       else
+@@ -504,7 +506,7 @@ bool CEdl::ReadBeyondTV(const std::string& strMovie)
+       Cut cut;
+       cut.start = (int64_t)(atof(pStart->FirstChild()->Value()) / 10000);
+       cut.end = (int64_t)(atof(pEnd->FirstChild()->Value()) / 10000);
+-      cut.action = COMM_BREAK;
++      cut.action = Action::COMM_BREAK;
+       bValid = AddCut(cut);
+     }
+     else
+@@ -570,10 +572,10 @@ bool CEdl::ReadPvr(const CFileItem &fileItem)
+     switch (it->type)
+     {
+     case PVR_EDL_TYPE_CUT:
+-      cut.action = CUT;
++      cut.action = Action::CUT;
+       break;
+     case PVR_EDL_TYPE_MUTE:
+-      cut.action = MUTE;
++      cut.action = Action::MUTE;
+       break;
+     case PVR_EDL_TYPE_SCENE:
+       if (!AddSceneMarker(cut.end))
+@@ -582,7 +584,7 @@ bool CEdl::ReadPvr(const CFileItem &fileItem)
+       }
+       continue;
+     case PVR_EDL_TYPE_COMBREAK:
+-      cut.action = COMM_BREAK;
++      cut.action = Action::COMM_BREAK;
+       break;
+     default:
+       CLog::Log(LOGINFO, "%s - Ignoring entry of unknown type: %d", __FUNCTION__, it->type);
+@@ -608,11 +610,11 @@ bool CEdl::ReadPvr(const CFileItem &fileItem)
+ 
+ bool CEdl::AddCut(Cut& cut)
+ {
+-  if (cut.action != CUT && cut.action != MUTE && cut.action != COMM_BREAK)
++  if (cut.action != Action::CUT && cut.action != Action::MUTE && cut.action != Action::COMM_BREAK)
+   {
+-    CLog::Log(LOGERROR, "%s - Not a CUT, MUTE, or COMM_BREAK! [%s - %s], %d", __FUNCTION__,
++    CLog::Log(LOGERROR, "%s - Not an Action::CUT, Action::MUTE, or Action::COMM_BREAK! [%s - %s], %d", __FUNCTION__,
+               MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-              cut.action);
++              static_cast<int>(cut.action));
+     return false;
+   }
+ 
+@@ -620,7 +622,7 @@ bool CEdl::AddCut(Cut& cut)
+   {
+     CLog::Log(LOGERROR, "%s - Before start! [%s - %s], %d", __FUNCTION__,
+               MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-              cut.action);
++              static_cast<int>(cut.action));
+     return false;
+   }
+ 
+@@ -628,7 +630,7 @@ bool CEdl::AddCut(Cut& cut)
+   {
+     CLog::Log(LOGERROR, "%s - Times are around the wrong way or the same! [%s - %s], %d", __FUNCTION__,
+               MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-              cut.action);
++              static_cast<int>(cut.action));
+     return false;
+   }
+ 
+@@ -636,7 +638,7 @@ bool CEdl::AddCut(Cut& cut)
+   {
+     CLog::Log(LOGERROR, "%s - Start or end is in an existing cut! [%s - %s], %d", __FUNCTION__,
+               MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-              cut.action);
++              static_cast<int>(cut.action));
+     return false;
+   }
+ 
+@@ -646,12 +648,12 @@ bool CEdl::AddCut(Cut& cut)
+     {
+       CLog::Log(LOGERROR, "%s - Cut surrounds an existing cut! [%s - %s], %d", __FUNCTION__,
+                 MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-                cut.action);
++                static_cast<int>(cut.action));
+       return false;
+     }
+   }
+ 
+-  if (cut.action == COMM_BREAK)
++  if (cut.action == Action::COMM_BREAK)
+   {
+     /*
+      * Detection isn't perfect near the edges of commercial breaks so automatically wait for a bit at
+@@ -674,7 +676,7 @@ bool CEdl::AddCut(Cut& cut)
+   {
+     CLog::Log(LOGDEBUG, "%s - Pushing new cut to back [%s - %s], %d", __FUNCTION__,
+               MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-              cut.action);
++              static_cast<int>(cut.action));
+     m_vecCuts.push_back(cut);
+   }
+   else
+@@ -686,14 +688,14 @@ bool CEdl::AddCut(Cut& cut)
+       {
+         CLog::Log(LOGDEBUG, "%s - Inserting new cut [%s - %s], %d", __FUNCTION__,
+                   MillisecondsToTimeString(cut.start).c_str(), MillisecondsToTimeString(cut.end).c_str(),
+-                  cut.action);
++                  static_cast<int>(cut.action));
+         m_vecCuts.insert(pCurrentCut, cut);
+         break;
+       }
+     }
+   }
+ 
+-  if (cut.action == CUT)
++  if (cut.action == Action::CUT)
+     m_iTotalCutTime += cut.end - cut.start;
+ 
+   return true;
+@@ -703,7 +705,7 @@ bool CEdl::AddSceneMarker(const int iSceneMarker)
+ {
+   Cut cut;
+ 
+-  if (InCut(iSceneMarker, &cut) && cut.action == CUT) // Only works for current cuts.
++  if (InCut(iSceneMarker, &cut) && cut.action == Action::CUT) // Only works for current cuts.
+     return false;
+ 
+   CLog::Log(LOGDEBUG, "%s - Inserting new scene marker: %s", __FUNCTION__,
+@@ -736,7 +738,7 @@ int CEdl::RemoveCutTime(int iSeek) const
+   int iCutTime = 0;
+   for (int i = 0; i < (int)m_vecCuts.size(); i++)
+   {
+-    if (m_vecCuts[i].action == CUT)
++    if (m_vecCuts[i].action == Action::CUT)
+     {
+       if (iSeek >= m_vecCuts[i].start && iSeek <= m_vecCuts[i].end) // Inside cut
+         iCutTime += iSeek - m_vecCuts[i].start - 1; // Decrease cut length by 1ms to jump over end boundary.
+@@ -755,7 +757,7 @@ double CEdl::RestoreCutTime(double dClock) const
+   double dSeek = dClock;
+   for (int i = 0; i < (int)m_vecCuts.size(); i++)
+   {
+-    if (m_vecCuts[i].action == CUT && dSeek >= m_vecCuts[i].start)
++    if (m_vecCuts[i].action == Action::CUT && dSeek >= m_vecCuts[i].start)
+       dSeek += static_cast<double>(m_vecCuts[i].end - m_vecCuts[i].start);
+   }
+ 
+@@ -777,13 +779,13 @@ std::string CEdl::GetInfo() const
+     {
+       switch (m_vecCuts[i].action)
+       {
+-      case CUT:
++      case Action::CUT:
+         cutCount++;
+         break;
+-      case MUTE:
++      case Action::MUTE:
+         muteCount++;
+         break;
+-      case COMM_BREAK:
++      case Action::COMM_BREAK:
+         commBreakCount++;
+         break;
+       }
+@@ -914,7 +916,7 @@ bool CEdl::GetNextSceneMarker(bool bPlus, const int iClock, int *iSceneMarker)
+    * picked up when scene markers are added.
+    */
+   Cut cut;
+-  if (bFound && InCut(*iSceneMarker, &cut) && cut.action == CUT)
++  if (bFound && InCut(*iSceneMarker, &cut) && cut.action == Action::CUT)
+     *iSceneMarker = cut.end;
+ 
+   return bFound;
+@@ -936,7 +938,7 @@ void CEdl::MergeShortCommBreaks()
+    * the algorithms below.
+    */
+   if (!m_vecCuts.empty()
+-  &&  m_vecCuts[0].action == COMM_BREAK
++  &&  m_vecCuts[0].action == Action::COMM_BREAK
+   && (m_vecCuts[0].end - m_vecCuts[0].start) < 5 * 1000) // 5 seconds
+   {
+     CLog::Log(LOGDEBUG, "%s - Removing short commercial break at start [%s - %s]. <5 seconds", __FUNCTION__,
+@@ -949,12 +951,12 @@ void CEdl::MergeShortCommBreaks()
+   {
+     for (int i = 0; i < static_cast<int>(m_vecCuts.size()) - 1; i++)
+     {
+-      if ((m_vecCuts[i].action == COMM_BREAK && m_vecCuts[i + 1].action == COMM_BREAK)
++      if ((m_vecCuts[i].action == Action::COMM_BREAK && m_vecCuts[i + 1].action == Action::COMM_BREAK)
+           &&  (m_vecCuts[i + 1].end - m_vecCuts[i].start < advancedSettings->m_iEdlMaxCommBreakLength * 1000) // s to ms
+           &&  (m_vecCuts[i + 1].start - m_vecCuts[i].end < advancedSettings->m_iEdlMaxCommBreakGap * 1000)) // s to ms
+       {
+         Cut commBreak;
+-        commBreak.action = COMM_BREAK;
++        commBreak.action = Action::COMM_BREAK;
+         commBreak.start = m_vecCuts[i].start;
+         commBreak.end = m_vecCuts[i + 1].end;
+ 
+@@ -980,7 +982,7 @@ void CEdl::MergeShortCommBreaks()
+      * the maximum commercial break length being triggered.
+      */
+     if (!m_vecCuts.empty()
+-        &&  m_vecCuts[0].action == COMM_BREAK
++        &&  m_vecCuts[0].action == Action::COMM_BREAK
+         &&  m_vecCuts[0].start < advancedSettings->m_iEdlMaxStartGap * 1000)
+     {
+       CLog::Log(LOGDEBUG, "%s - Expanding first commercial break back to start [%s - %s].", __FUNCTION__,
+@@ -993,7 +995,7 @@ void CEdl::MergeShortCommBreaks()
+      */
+     for (int i = 0; i < static_cast<int>(m_vecCuts.size()); i++)
+     {
+-      if (m_vecCuts[i].action == COMM_BREAK
++      if (m_vecCuts[i].action == Action::COMM_BREAK
+           &&  m_vecCuts[i].start > 0
+           && (m_vecCuts[i].end - m_vecCuts[i].start) < advancedSettings->m_iEdlMinCommBreakLength * 1000)
+       {
+@@ -1012,7 +1014,7 @@ void CEdl::MergeShortCommBreaks()
+    */
+   for (int i = 0; i < (int)m_vecCuts.size(); i++)
+   {
+-    if (m_vecCuts[i].action == COMM_BREAK)
++    if (m_vecCuts[i].action == Action::COMM_BREAK)
+     {
+       if (m_vecCuts[i].start > 0) // Don't add a scene marker at the start.
+         AddSceneMarker(m_vecCuts[i].start);
+diff --git a/xbmc/cores/VideoPlayer/Edl.h b/xbmc/cores/VideoPlayer/Edl.h
+index a095d6163127e..676d0414a3694 100644
+--- a/xbmc/cores/VideoPlayer/Edl.h
++++ b/xbmc/cores/VideoPlayer/Edl.h
+@@ -11,6 +11,11 @@
+ #include <string>
+ #include <vector>
+ 
++namespace EDL
++{
++  struct Cut;
++}
++
+ class CFileItem;
+ 
+ class CEdl
+@@ -18,21 +23,6 @@ class CEdl
+ public:
+   CEdl();
+ 
+-  typedef enum
+-  {
+-    CUT = 0,
+-    MUTE = 1,
+-    // SCENE = 2,
+-    COMM_BREAK = 3
+-  } Action;
+-
+-  struct Cut
+-  {
+-    int start; // ms
+-    int end;   // ms
+-    Action action;
+-  };
+-
+   bool ReadEditDecisionLists(const CFileItem& fileItem, const float fFramesPerSecond);
+   void Clear();
+ 
+@@ -43,8 +33,10 @@ class CEdl
+   int RemoveCutTime(int iSeek) const;
+   double RestoreCutTime(double dClock) const;
+ 
+-  bool InCut(int iSeek, Cut *pCut = NULL);
+-  bool GetNearestCut(bool bPlus, const int iSeek, Cut *pCut) const;
++  const std::vector<EDL::Cut>& GetCutList() const { return m_vecCuts; }
++
++  bool InCut(int iSeek, EDL::Cut* pCut = nullptr);
++  bool GetNearestCut(bool bPlus, const int iSeek, EDL::Cut* pCut) const;
+ 
+   int GetLastCutTime() const;
+   void SetLastCutTime(const int iCutTime);
+@@ -55,7 +47,7 @@ class CEdl
+ 
+ private:
+   int m_iTotalCutTime; // ms
+-  std::vector<Cut> m_vecCuts;
++  std::vector<EDL::Cut> m_vecCuts;
+   std::vector<int> m_vecSceneMarkers;
+   int m_lastCutTime;
+ 
+@@ -65,7 +57,7 @@ class CEdl
+   bool ReadBeyondTV(const std::string& strMovie);
+   bool ReadPvr(const CFileItem& fileItem);
+ 
+-  bool AddCut(Cut& NewCut);
++  bool AddCut(EDL::Cut& NewCut);
+   bool AddSceneMarker(const int sceneMarker);
+ 
+   void MergeShortCommBreaks();
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index 459d2aacc0fab..be9ebc4a30a28 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -32,6 +32,7 @@
+ 
+ #include "utils/URIUtils.h"
+ #include "GUIInfoManager.h"
++#include "cores/Cut.h"
+ #include "cores/DataCacheCore.h"
+ #include "guilib/GUIComponent.h"
+ #include "guilib/GUIWindowManager.h"
+@@ -755,6 +756,7 @@ bool CVideoPlayer::CloseFile(bool reopen)
+   }
+ 
+   m_Edl.Clear();
++  CServiceBroker::GetDataCacheCore().SetCutList(m_Edl.GetCutList());
+ 
+   m_HasVideo = false;
+   m_HasAudio = false;
+@@ -1296,7 +1298,7 @@ void CVideoPlayer::Prepare()
+    * if there was a start time specified as part of the "Start from where last stopped" (aka
+    * auto-resume) feature or if there is an EDL cut or commercial break that starts at time 0.
+    */
+-  CEdl::Cut cut;
++  EDL::Cut cut;
+   int starttime = 0;
+   if (m_playerOptions.starttime > 0 || m_playerOptions.startpercent > 0)
+   {
+@@ -1313,12 +1315,12 @@ void CVideoPlayer::Prepare()
+   }
+   else if (m_Edl.InCut(starttime, &cut))
+   {
+-    if (cut.action == CEdl::CUT)
++    if (cut.action == EDL::Action::CUT)
+     {
+       starttime = cut.end;
+       CLog::Log(LOGDEBUG, "%s - Start position set to end of first cut: %d", __FUNCTION__, starttime);
+     }
+-    else if (cut.action == CEdl::COMM_BREAK)
++    else if (cut.action == EDL::Action::COMM_BREAK)
+     {
+       if (m_SkipCommercials)
+       {
+@@ -1717,10 +1719,10 @@ void CVideoPlayer::ProcessAudioData(CDemuxStream* pStream, DemuxPacket* pPacket)
+   /*
+    * If CheckSceneSkip() returns true then demux point is inside an EDL cut and the packets are dropped.
+    */
+-  CEdl::Cut cut;
++  EDL::Cut cut;
+   if (CheckSceneSkip(m_CurrentAudio))
+     drop = true;
+-  else if (m_Edl.InCut(DVD_TIME_TO_MSEC(m_CurrentAudio.dts + m_offset_pts), &cut) && cut.action == CEdl::MUTE)
++  else if (m_Edl.InCut(DVD_TIME_TO_MSEC(m_CurrentAudio.dts + m_offset_pts), &cut) && cut.action == EDL::Action::MUTE)
+   {
+     drop = true;
+   }
+@@ -2364,8 +2366,8 @@ bool CVideoPlayer::CheckSceneSkip(CCurrentStream& current)
+   if(current.inited == false)
+     return false;
+ 
+-  CEdl::Cut cut;
+-  return m_Edl.InCut(DVD_TIME_TO_MSEC(current.dts + m_offset_pts), &cut) && cut.action == CEdl::CUT;
++  EDL::Cut cut;
++  return m_Edl.InCut(DVD_TIME_TO_MSEC(current.dts + m_offset_pts), &cut) && cut.action == EDL::Action::CUT;
+ }
+ 
+ void CVideoPlayer::CheckAutoSceneSkip()
+@@ -2386,11 +2388,11 @@ void CVideoPlayer::CheckAutoSceneSkip()
+ 
+   const int64_t clock = GetTime();
+ 
+-  CEdl::Cut cut;
++  EDL::Cut cut;
+   if (!m_Edl.InCut(clock, &cut))
+     return;
+ 
+-  if (cut.action == CEdl::CUT)
++  if (cut.action == EDL::Action::CUT)
+   {
+     if ((m_playSpeed > 0 && clock < cut.end - 1000) ||
+         (m_playSpeed < 0 && clock < cut.start + 1000))
+@@ -2412,7 +2414,7 @@ void CVideoPlayer::CheckAutoSceneSkip()
+       m_messenger.Put(new CDVDMsgPlayerSeek(mode));
+     }
+   }
+-  else if (cut.action == CEdl::COMM_BREAK)
++  else if (cut.action == EDL::Action::COMM_BREAK)
+   {
+     // marker for commbrak may be inaccurate. allow user to skip into break from the back
+     if (m_playSpeed >= 0 && m_Edl.GetLastCutTime() != cut.start && clock < cut.end - 1000)
+@@ -3550,6 +3552,7 @@ bool CVideoPlayer::OpenStream(CCurrentStream& current, int64_t demuxerId, int iS
+                 CURL::GetRedacted(st.filename).c_str());
+       return false;
+     }
++    CServiceBroker::GetDataCacheCore().SetCutList(m_Edl.GetCutList());
+ 
+     m_pSubtitleDemuxer = demux->second;
+ 
+@@ -4709,6 +4712,7 @@ void CVideoPlayer::UpdatePlayState(double timeout)
+         state.chapters.push_back(make_pair(name, m_pDemuxer->GetChapterPos(i + 1)));
+       }
+     }
++    CServiceBroker::GetDataCacheCore().SetChapters(state.chapters);
+ 
+     state.time = m_clock.GetClock(false) * 1000 / DVD_TIME_BASE;
+     state.timeMax = m_pDemuxer->GetStreamLength();
+diff --git a/xbmc/guilib/CMakeLists.txt b/xbmc/guilib/CMakeLists.txt
+index 803cbc638c669..9adceca14cf3c 100644
+--- a/xbmc/guilib/CMakeLists.txt
++++ b/xbmc/guilib/CMakeLists.txt
+@@ -39,6 +39,7 @@ set(SOURCES DDSImage.cpp
+             GUIPanelContainer.cpp
+             GUIProgressControl.cpp
+             GUIRadioButtonControl.cpp
++            GUIRangesControl.cpp
+             GUIRenderingControl.cpp
+             GUIResizeControl.cpp
+             GUIRSSControl.cpp
+@@ -114,6 +115,7 @@ set(HEADERS DDSImage.h
+             GUIPanelContainer.h
+             GUIProgressControl.h
+             GUIRadioButtonControl.h
++            GUIRangesControl.h
+             GUIRenderingControl.h
+             GUIResizeControl.h
+             GUIRSSControl.h
+diff --git a/xbmc/guilib/GUIControl.h b/xbmc/guilib/GUIControl.h
+index 5349a35b58283..df412bfa385a3 100644
+--- a/xbmc/guilib/GUIControl.h
++++ b/xbmc/guilib/GUIControl.h
+@@ -285,7 +285,8 @@ class CGUIControl
+     GUICONTAINER_WRAPLIST,
+     GUICONTAINER_FIXEDLIST,
+     GUICONTAINER_EPGGRID,
+-    GUICONTAINER_PANEL
++    GUICONTAINER_PANEL,
++    GUICONTROL_RANGES
+   };
+   GUICONTROLTYPES GetControlType() const { return ControlType; }
+ 
+diff --git a/xbmc/guilib/GUIControlFactory.cpp b/xbmc/guilib/GUIControlFactory.cpp
+index 405c0579a10bc..8cbde5313d160 100644
+--- a/xbmc/guilib/GUIControlFactory.cpp
++++ b/xbmc/guilib/GUIControlFactory.cpp
+@@ -23,6 +23,7 @@
+ #include "GUIProgressControl.h"
+ #include "GUISliderControl.h"
+ #include "GUIMoverControl.h"
++#include "GUIRangesControl.h"
+ #include "GUIRenderingControl.h"
+ #include "GUIResizeControl.h"
+ #include "GUISpinControlEx.h"
+@@ -96,7 +97,8 @@ static const ControlMapping controls[] =
+     {"wraplist",          CGUIControl::GUICONTAINER_WRAPLIST},
+     {"fixedlist",         CGUIControl::GUICONTAINER_FIXEDLIST},
+     {"epggrid",           CGUIControl::GUICONTAINER_EPGGRID},
+-    {"panel",             CGUIControl::GUICONTAINER_PANEL}};
++    {"panel",             CGUIControl::GUICONTAINER_PANEL},
++    {"ranges",            CGUIControl::GUICONTROL_RANGES}};
+ 
+ CGUIControl::GUICONTROLTYPES CGUIControlFactory::TranslateControlType(const std::string &type)
+ {
+@@ -1294,6 +1296,14 @@ CGUIControl* CGUIControlFactory::Create(int parentID, const CRect &rect, TiXmlEl
+       static_cast<CGUIProgressControl*>(control)->SetInfo(singleInfo, singleInfo2);
+     }
+     break;
++  case CGUIControl::GUICONTROL_RANGES:
++    {
++      control = new CGUIRangesControl(
++        parentID, id, posX, posY, width, height,
++        textureBackground, textureLeft, textureMid, textureRight,
++        textureOverlay, singleInfo);
++    }
++    break;
+   case CGUIControl::GUICONTROL_IMAGE:
+     {
+       // use a bordered texture if we have <bordersize> or <bordertexture> specified.
+diff --git a/xbmc/guilib/GUIRangesControl.cpp b/xbmc/guilib/GUIRangesControl.cpp
+new file mode 100644
+index 0000000000000..c9701fd8ae1c1
+--- /dev/null
++++ b/xbmc/guilib/GUIRangesControl.cpp
+@@ -0,0 +1,363 @@
++/*
++ *  Copyright (C) 2019 Team Kodi
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#include "GUIRangesControl.h"
++
++#include "utils/StringUtils.h"
++#include "utils/log.h"
++#include "GUIInfoManager.h"
++#include "ServiceBroker.h"
++
++#include <cmath>
++
++CGUIRangesControl::CGUIRange::CGUIRange(float fPosX, float fPosY, float fWidth, float fHeight,
++                                        const CTextureInfo& lowerTextureInfo, const CTextureInfo& fillTextureInfo,
++                                        const CTextureInfo& upperTextureInfo, const std::pair<float, float>& percentages)
++: m_guiLowerTexture(fPosX, fPosY, fWidth, fHeight, lowerTextureInfo),
++  m_guiFillTexture(fPosX, fPosY, fWidth, fHeight, fillTextureInfo),
++  m_guiUpperTexture(fPosX, fPosY, fWidth, fHeight, upperTextureInfo),
++  m_percentValues(percentages)
++{
++}
++
++void CGUIRangesControl::CGUIRange::AllocResources()
++{
++  m_guiFillTexture.AllocResources();
++  m_guiUpperTexture.AllocResources();
++  m_guiLowerTexture.AllocResources();
++
++  m_guiFillTexture.SetHeight(20);
++  m_guiUpperTexture.SetHeight(20);
++  m_guiLowerTexture.SetHeight(20);
++}
++
++void CGUIRangesControl::CGUIRange::FreeResources(bool bImmediately)
++{
++  m_guiFillTexture.FreeResources(bImmediately);
++  m_guiUpperTexture.FreeResources(bImmediately);
++  m_guiLowerTexture.FreeResources(bImmediately);
++}
++
++void CGUIRangesControl::CGUIRange::DynamicResourceAlloc(bool bOnOff)
++{
++  m_guiFillTexture.DynamicResourceAlloc(bOnOff);
++  m_guiUpperTexture.DynamicResourceAlloc(bOnOff);
++  m_guiLowerTexture.DynamicResourceAlloc(bOnOff);
++}
++
++void CGUIRangesControl::CGUIRange::SetInvalid()
++{
++  m_guiFillTexture.SetInvalid();
++  m_guiUpperTexture.SetInvalid();
++  m_guiLowerTexture.SetInvalid();
++}
++
++bool CGUIRangesControl::CGUIRange::SetDiffuseColor(const KODI::GUILIB::GUIINFO::CGUIInfoColor& color)
++{
++  bool bChanged = false;
++  bChanged |= m_guiFillTexture.SetDiffuseColor(color);
++  bChanged |= m_guiUpperTexture.SetDiffuseColor(color);
++  bChanged |= m_guiLowerTexture.SetDiffuseColor(color);
++  return bChanged;
++}
++
++bool CGUIRangesControl::CGUIRange::Process(unsigned int currentTime)
++{
++  bool bChanged = false;
++  bChanged |= m_guiFillTexture.Process(currentTime);
++  bChanged |= m_guiUpperTexture.Process(currentTime);
++  bChanged |= m_guiLowerTexture.Process(currentTime);
++  return bChanged;
++}
++
++void CGUIRangesControl::CGUIRange::Render()
++{
++  if (m_guiLowerTexture.GetFileName().empty() && m_guiUpperTexture.GetFileName().empty())
++  {
++    if (m_guiFillTexture.GetWidth() > 0)
++      m_guiFillTexture.Render();
++  }
++  else
++  {
++    m_guiLowerTexture.Render();
++
++    if (m_guiFillTexture.GetWidth() > 0)
++      m_guiFillTexture.Render();
++
++    m_guiUpperTexture.Render();
++  }
++}
++
++bool CGUIRangesControl::CGUIRange::UpdateLayout(float fBackgroundTextureHeight,
++                                                float fPosX, float fPosY, float fWidth,
++                                                float fScaleX, float fScaleY)
++{
++  bool bChanged = false;
++
++  if (m_guiLowerTexture.GetFileName().empty() && m_guiUpperTexture.GetFileName().empty())
++  {
++    // rendering without left and right image - fill the mid image completely
++    float width = (m_percentValues.second - m_percentValues.first) * fWidth * 0.01f;
++    float offsetX = m_percentValues.first * fWidth * 0.01f;
++    float offsetY = std::fabs(fScaleY * 0.5f * (m_guiFillTexture.GetTextureHeight() - fBackgroundTextureHeight));
++    bChanged |= m_guiFillTexture.SetPosition(fPosX + (offsetX > 0 ? offsetX : 0), fPosY + (offsetY > 0 ? offsetY : 0));
++    bChanged |= m_guiFillTexture.SetHeight(fScaleY * m_guiFillTexture.GetTextureHeight());
++    bChanged |= m_guiFillTexture.SetWidth(width);
++  }
++  else
++  {
++    float offsetX = m_percentValues.first * fWidth * 0.01f - m_guiLowerTexture.GetTextureWidth() * 0.5f;
++    float offsetY = std::fabs(fScaleY * 0.5f * (m_guiLowerTexture.GetTextureHeight() - fBackgroundTextureHeight));
++    bChanged |= m_guiLowerTexture.SetPosition(fPosX + (offsetX > 0 ? offsetX : 0), fPosY + (offsetY > 0 ? offsetY : 0));
++    bChanged |= m_guiLowerTexture.SetHeight(fScaleY * m_guiLowerTexture.GetTextureHeight());
++    bChanged |= m_guiLowerTexture.SetWidth(m_percentValues.first == 0.0f ? m_guiLowerTexture.GetTextureWidth() * 0.5f : m_guiLowerTexture.GetTextureWidth());
++
++    if (m_percentValues.first != m_percentValues.second)
++    {
++      float width = (m_percentValues.second - m_percentValues.first) * fWidth * 0.01f - m_guiLowerTexture.GetTextureWidth() * 0.5f - m_guiUpperTexture.GetTextureWidth() * 0.5f;
++
++      offsetX += m_guiLowerTexture.GetTextureWidth();
++      offsetY = std::fabs(fScaleY * 0.5f * (m_guiFillTexture.GetTextureHeight() - fBackgroundTextureHeight));
++      bChanged |= m_guiFillTexture.SetPosition(fPosX + offsetX, fPosY + (offsetY > 0 ? offsetY : 0));
++      bChanged |= m_guiFillTexture.SetHeight(fScaleY * m_guiFillTexture.GetTextureHeight());
++      bChanged |= m_guiFillTexture.SetWidth(width);
++
++      offsetX += width;
++      offsetY = std::fabs(fScaleY * 0.5f * (m_guiUpperTexture.GetTextureHeight() - fBackgroundTextureHeight));
++      bChanged |= m_guiUpperTexture.SetPosition(fPosX + offsetX, fPosY + (offsetY > 0 ? offsetY : 0));
++      bChanged |= m_guiUpperTexture.SetHeight(fScaleY * m_guiUpperTexture.GetTextureHeight());
++      bChanged |= m_guiUpperTexture.SetWidth(m_percentValues.first == 100.0f ? m_guiUpperTexture.GetTextureWidth() * 0.5f : m_guiUpperTexture.GetTextureWidth());
++    }
++    else
++    {
++      // render only lower texture if range is zero
++      bChanged |= m_guiFillTexture.SetVisible(false);
++      bChanged |= m_guiUpperTexture.SetVisible(false);
++    }
++  }
++  return bChanged;
++}
++
++CGUIRangesControl::CGUIRangesControl(int iParentID, int iControlID,
++                                     float fPosX, float fPosY, float fWidth, float fHeight,
++                                     const CTextureInfo& backGroundTextureInfo,
++                                     const CTextureInfo& lowerTextureInfo,
++                                     const CTextureInfo& fillTextureInfo,
++                                     const CTextureInfo& upperTextureInfo,
++                                     const CTextureInfo& overlayTextureInfo, int iInfo)
++: CGUIControl(iParentID, iControlID, fPosX, fPosY, fWidth, fHeight),
++  m_guiBackground(fPosX, fPosY, fWidth, fHeight, backGroundTextureInfo),
++  m_guiOverlay(fPosX, fPosY, fWidth, fHeight, overlayTextureInfo),
++  m_guiLowerTextureInfo(lowerTextureInfo),
++  m_guiFillTextureInfo(fillTextureInfo),
++  m_guiUpperTextureInfo(upperTextureInfo),
++  m_iInfoCode(iInfo)
++{
++  ControlType = GUICONTROL_RANGES;
++}
++
++CGUIRangesControl::~CGUIRangesControl() = default;
++
++void CGUIRangesControl::SetPosition(float fPosX, float fPosY)
++{
++  // everything is positioned based on the background image position
++  CGUIControl::SetPosition(fPosX, fPosY);
++  m_guiBackground.SetPosition(fPosX, fPosY);
++}
++
++void CGUIRangesControl::Process(unsigned int iCurrentTime, CDirtyRegionList& dirtyregions)
++{
++  bool bChanged = false;
++
++  if (!IsDisabled())
++    bChanged |= UpdateLayout();
++
++  bChanged |= m_guiBackground.Process(iCurrentTime);
++  bChanged |= m_guiOverlay.Process(iCurrentTime);
++
++  for (auto& range : m_ranges)
++    bChanged |= range.Process(iCurrentTime);
++
++  if (bChanged)
++    MarkDirtyRegion();
++
++  CGUIControl::Process(iCurrentTime, dirtyregions);
++}
++
++void CGUIRangesControl::Render()
++{
++  if (!IsDisabled())
++  {
++    m_guiBackground.Render();
++
++    for (auto& range : m_ranges)
++      range.Render();
++
++    m_guiOverlay.Render();
++  }
++
++  CGUIControl::Render();
++}
++
++
++bool CGUIRangesControl::CanFocus() const
++{
++  return false;
++}
++
++
++void CGUIRangesControl::SetRanges(const std::vector<std::pair<float, float>>& ranges)
++{
++  ClearRanges();
++  for (const auto& range : ranges)
++    m_ranges.emplace_back(CGUIRange(m_posX, m_posY, m_width, m_height,
++                                    m_guiLowerTextureInfo, m_guiFillTextureInfo, m_guiUpperTextureInfo, range));
++
++  for (auto& range : m_ranges)
++    range.AllocResources(); // note: we need to alloc the instance actually inserted into the vector; hence the second loop.
++}
++
++void CGUIRangesControl::ClearRanges()
++{
++  for (auto& range : m_ranges)
++    range.FreeResources(true);
++
++  m_ranges.clear();
++  m_prevRanges.clear();
++}
++
++void CGUIRangesControl::FreeResources(bool bImmediately /* = false */)
++{
++  CGUIControl::FreeResources(bImmediately);
++
++  m_guiBackground.FreeResources(bImmediately);
++  m_guiOverlay.FreeResources(bImmediately);
++
++  for (auto& range : m_ranges)
++    range.FreeResources(bImmediately);
++}
++
++void CGUIRangesControl::DynamicResourceAlloc(bool bOnOff)
++{
++  CGUIControl::DynamicResourceAlloc(bOnOff);
++
++  m_guiBackground.DynamicResourceAlloc(bOnOff);
++  m_guiOverlay.DynamicResourceAlloc(bOnOff);
++
++  for (auto& range : m_ranges)
++    range.DynamicResourceAlloc(bOnOff);
++}
++
++void CGUIRangesControl::AllocResources()
++{
++  CGUIControl::AllocResources();
++
++  m_guiBackground.AllocResources();
++  m_guiOverlay.AllocResources();
++
++  m_guiBackground.SetHeight(25);
++  m_guiOverlay.SetHeight(20);
++
++  for (auto& range : m_ranges)
++    range.AllocResources();
++}
++
++void CGUIRangesControl::SetInvalid()
++{
++  CGUIControl::SetInvalid();
++
++  m_guiBackground.SetInvalid();
++  m_guiOverlay.SetInvalid();
++
++  for (auto& range : m_ranges)
++    range.SetInvalid();
++}
++
++bool CGUIRangesControl::UpdateColors()
++{
++  bool bChanged = CGUIControl::UpdateColors();
++
++  bChanged |= m_guiBackground.SetDiffuseColor(m_diffuseColor);
++  bChanged |= m_guiOverlay.SetDiffuseColor(m_diffuseColor);
++
++  for (auto& range : m_ranges)
++    bChanged |= range.SetDiffuseColor(m_diffuseColor);
++
++  return bChanged;
++}
++
++bool CGUIRangesControl::UpdateLayout()
++{
++  bool bChanged = false;
++
++  if (m_width == 0)
++    m_width = m_guiBackground.GetTextureWidth();
++
++  if (m_height == 0)
++    m_height = m_guiBackground.GetTextureHeight();
++
++  bChanged |= m_guiBackground.SetHeight(m_height);
++  bChanged |= m_guiBackground.SetWidth(m_width);
++
++  float fScaleX = m_guiBackground.GetTextureWidth() ? m_width / m_guiBackground.GetTextureWidth() : 1.0f;
++  float fScaleY = m_guiBackground.GetTextureHeight() ? m_height / m_guiBackground.GetTextureHeight() : 1.0f;
++
++  float posX = m_guiBackground.GetXPosition();
++  float posY = m_guiBackground.GetYPosition();
++
++  for (auto& range : m_ranges)
++    bChanged |= range.UpdateLayout(m_guiBackground.GetTextureHeight(), posX, posY, m_width, fScaleX, fScaleY);
++
++  float offset = std::fabs(fScaleY * 0.5f * (m_guiOverlay.GetTextureHeight() - m_guiBackground.GetTextureHeight()));
++  if (offset > 0)  //  Center texture to the background if necessary
++    bChanged |= m_guiOverlay.SetPosition(m_guiBackground.GetXPosition(), m_guiBackground.GetYPosition() + offset);
++  else
++    bChanged |= m_guiOverlay.SetPosition(m_guiBackground.GetXPosition(), m_guiBackground.GetYPosition());
++
++  bChanged |= m_guiOverlay.SetHeight(fScaleY * m_guiOverlay.GetTextureHeight());
++  bChanged |= m_guiOverlay.SetWidth(fScaleX * m_guiOverlay.GetTextureWidth());
++
++  return bChanged;
++}
++
++void CGUIRangesControl::UpdateInfo(const CGUIListItem* item /* = nullptr */)
++{
++  if (!IsDisabled() && m_iInfoCode)
++  {
++    const std::string value = CServiceBroker::GetGUI()->GetInfoManager().GetLabel(m_iInfoCode, m_parentID);
++    if (value != m_prevRanges)
++    {
++      std::vector<std::pair<float, float>> ranges;
++
++      // Parse csv string into ranges...
++      const std::vector<std::string> values = StringUtils::Split(value, ',');
++
++      // we must have an even number of values
++      if (values.size() % 2 == 0)
++      {
++        for (auto it = values.begin(); it != values.end();)
++        {
++          float first = std::stof(*it, nullptr);
++          ++it;
++          float second = std::stof(*it, nullptr);
++          ++it;
++
++          if (first <= second)
++            ranges.emplace_back(std::make_pair(first, second));
++          else
++            CLog::Log(LOGERROR, "CGUIRangesControl::UpdateInfo - malformed ranges csv string (end element must be larger or equal than start element)");
++        }
++      }
++      else
++        CLog::Log(LOGERROR, "CGUIRangesControl::UpdateInfo - malformed ranges csv string (string must contain even number of elements)");
++
++      SetRanges(ranges);
++      m_prevRanges = value;
++    }
++  }
++}
+diff --git a/xbmc/guilib/GUIRangesControl.dox b/xbmc/guilib/GUIRangesControl.dox
+new file mode 100644
+index 0000000000000..95364261eb44e
+--- /dev/null
++++ b/xbmc/guilib/GUIRangesControl.dox
+@@ -0,0 +1,56 @@
++/*!
++
++\page Ranges_Control Ranges Control
++\brief **Used to show multiple range blocks**
++
++\tableofcontents
++
++The ranges control is used for showing multiple range UI elements on the same control. It is used
++in Kodi, for example, to show the intervals of a cutlist (EDL) or chapters in the video seekbar. 
++You can choose the position, size and look and feel of the control.
++
++--------------------------------------------------------------------------------
++\section Ranges_Control_sect1 Example
++
++~~~~~~~~~~~~~xml
++<control type="ranges">
++    <left>0</left>
++    <top>70</top>
++    <width>100%</width>
++    <height>8</height>
++    <texturebg border="3" colordiffuse="00FFFFFF">colors/white50.png</texturebg>
++    <lefttexture>colors/white.png</lefttexture>
++    <midtexture colordiffuse="FFFF0000">colors/white.png</midtexture>
++    <righttexture>colors/white.png</righttexture>
++    <info>Player.Cutlist</info>
++</control>
++~~~~~~~~~~~~~
++
++--------------------------------------------------------------------------------
++\section Ranges_Control_sect2 Available tags
++
++In addition to the [Default Control Tags](http://kodi.wiki/view/Default_Control_Tags)
++the following tags are available. Note that each tag is lower case only. This is
++important, as xml tags are case-sensitive.
++
++| Tag           | Description                                                   |
++|--------------:|:--------------------------------------------------------------|
++| texturebg     | The background texture for the range control.
++| lefttexture   | The texture used in the left hand side of the range
++| midtexture    | The texture used for the mid section of the range
++| righttexture  | The texture used in the right hand side of the range
++| info          | Specifies the information the range control holds. It expects an infolabel that returns a string in CSV format: e.g. `"start1,end1,start2,end2,..."`. Tokens must have values in the range from 0.0 to 100.0. end token must be less or equal than start token. Examples of currently supported infolabels are \link Player_Cutlist `Player.Cutlist`\endlink and \link Player_Chapters `Player.Chapters`\endlink.
++
++\section Ranges_Control_sect3 Revision History
++
++@skinning_v19 <b>[Ranges Control]</b> New control added.
++
++--------------------------------------------------------------------------------
++\section Ranges_Control_sect4 See also
++
++#### Development:
++
++- [Add-on development](http://kodi.wiki/view/Add-on_development)
++- [Skinning](http://kodi.wiki/view/Skinning)
++
++*/
+diff --git a/xbmc/guilib/GUIRangesControl.h b/xbmc/guilib/GUIRangesControl.h
+new file mode 100644
+index 0000000000000..0904e7779e3eb
+--- /dev/null
++++ b/xbmc/guilib/GUIRangesControl.h
+@@ -0,0 +1,86 @@
++/*
++ *  Copyright (C) 2019 Team Kodi
++ *  This file is part of Kodi - https://kodi.tv
++ *
++ *  SPDX-License-Identifier: GPL-2.0-or-later
++ *  See LICENSES/README.md for more information.
++ */
++
++#pragma once
++
++/*!
++\file GUIRangesControl.h
++\brief
++*/
++
++#include <utility>
++#include <vector>
++
++#include "GUIControl.h"
++#include "GUITexture.h"
++
++/*!
++ \ingroup controls
++ \brief
++ */
++class CGUIRangesControl : public CGUIControl
++{
++  class CGUIRange
++  {
++  public:
++    CGUIRange(float fPosX, float fPosY, float fWidth, float fHeight,
++              const CTextureInfo& lowerTextureInfo, const CTextureInfo& fillTextureInfo,
++              const CTextureInfo& upperTextureInfo, const std::pair<float, float>& percentages);
++
++    void AllocResources();
++    void FreeResources(bool bImmediately);
++    void DynamicResourceAlloc(bool bOnOff);
++    void SetInvalid();
++    bool SetDiffuseColor(const KODI::GUILIB::GUIINFO::CGUIInfoColor& color);
++
++    bool Process(unsigned int iCurrentTime);
++    void Render();
++    bool UpdateLayout(float fBackgroundTextureHeight, float fPosX, float fPosY, float fWidth, float fScaleX, float fScaleY);
++
++  private:
++    CGUITexture m_guiLowerTexture;
++    CGUITexture m_guiFillTexture;
++    CGUITexture m_guiUpperTexture;
++    std::pair<float,float> m_percentValues;
++  };
++
++public:
++  CGUIRangesControl(int iParentID, int iControlID, float fPosX, float fPosY,
++                    float fWidth, float fHeight, const CTextureInfo& backGroundTexture,
++                    const CTextureInfo& leftTexture, const CTextureInfo& midTexture,
++                    const CTextureInfo& rightTexture, const CTextureInfo& overlayTexture,
++                    int iInfo);
++  ~CGUIRangesControl() override;
++  CGUIRangesControl* Clone() const override { return new CGUIRangesControl(*this); };
++
++  void Process(unsigned int iCurrentTime, CDirtyRegionList& dirtyregions) override;
++  void Render() override;
++  bool CanFocus() const override;
++  void AllocResources() override;
++  void FreeResources(bool bImmediately = false) override;
++  void DynamicResourceAlloc(bool bOnOff) override;
++  void SetInvalid() override;
++  void SetPosition(float fPosX, float fPosY) override;
++  void UpdateInfo(const CGUIListItem* item = nullptr) override;
++
++protected:
++  void SetRanges(const std::vector<std::pair<float, float>>& ranges);
++  void ClearRanges();
++
++  bool UpdateColors() override;
++  bool UpdateLayout();
++
++  CGUITexture m_guiBackground;
++  CGUITexture m_guiOverlay;
++  const CTextureInfo m_guiLowerTextureInfo;
++  const CTextureInfo m_guiFillTextureInfo;
++  const CTextureInfo m_guiUpperTextureInfo;
++  std::vector<CGUIRange> m_ranges;
++  int m_iInfoCode = 0;
++  std::string m_prevRanges;
++};
+diff --git a/xbmc/guilib/_Controls.dox b/xbmc/guilib/_Controls.dox
+index e0855f8a93b72..015a382e24f47 100644
+--- a/xbmc/guilib/_Controls.dox
++++ b/xbmc/guilib/_Controls.dox
+@@ -22,6 +22,7 @@ manual will explain each and every control in detail.
+ - \subpage Panel_Container - used for a scrolling panel of items. Replaces the thumbnail panel.
+ - \subpage Progress_Control - Used to show the progress of a particular operation.
+ - \subpage RSS_feed_Control - used to display scrolling RSS feeds.
++- \subpage Ranges_Control - Used to show multiple range blocks.
+ - \subpage Radio_button_control - a radio button control (as used for on/off settings).
+ - \subpage Resize_Control - used to set the pixel ratio in Video Calibration.
+ - \subpage Scroll_Bar_Control - used for a implementing a scroll bar.
+diff --git a/xbmc/guilib/guiinfo/GUIInfoLabels.h b/xbmc/guilib/guiinfo/GUIInfoLabels.h
+index a3631dfcf4b31..33a2f23bfedcb 100644
+--- a/xbmc/guilib/guiinfo/GUIInfoLabels.h
++++ b/xbmc/guilib/guiinfo/GUIInfoLabels.h
+@@ -71,6 +71,8 @@
+ #define PLAYER_HAS_RESOLUTIONS       64
+ #define PLAYER_FRAMEADVANCE          65
+ #define PLAYER_ICON                  66
++#define PLAYER_CUTLIST               67
++#define PLAYER_CHAPTERS              68
+ 
+ #define WEATHER_CONDITIONS_TEXT     100
+ #define WEATHER_TEMPERATURE         101
+diff --git a/xbmc/guilib/guiinfo/PlayerGUIInfo.cpp b/xbmc/guilib/guiinfo/PlayerGUIInfo.cpp
+index 44aa80075f0b9..7de52fc5ce96b 100644
+--- a/xbmc/guilib/guiinfo/PlayerGUIInfo.cpp
++++ b/xbmc/guilib/guiinfo/PlayerGUIInfo.cpp
+@@ -15,6 +15,7 @@
+ #include "PlayListPlayer.h"
+ #include "ServiceBroker.h"
+ #include "cores/AudioEngine/Utils/AEUtil.h"
++#include "cores/Cut.h"
+ #include "cores/DataCacheCore.h"
+ #include "guilib/GUIComponent.h"
+ #include "guilib/GUIDialog.h"
+@@ -158,7 +159,7 @@ bool CPlayerGUIInfo::InitCurrentItem(CFileItem *item)
+ {
+   if (item && g_application.GetAppPlayer().IsPlaying())
+   {
+-    CLog::Log(LOGDEBUG,"CPlayerGUIInfo::InitCurrentItem(%s)", CURL::GetRedacted(item->GetPath()).c_str());
++    CLog::Log(LOGDEBUG, "CPlayerGUIInfo::InitCurrentItem(%s)", CURL::GetRedacted(item->GetPath()).c_str());
+     m_currentItem.reset(new CFileItem(*item));
+   }
+   else
+@@ -293,6 +294,10 @@ bool CPlayerGUIInfo::GetLabel(std::string& value, const CFileItem *item, int con
+       if (fallback)
+         *fallback = item->GetIconImage();
+       return true;
++    case PLAYER_CUTLIST:
++    case PLAYER_CHAPTERS:
++      value = GetContentRanges(info.m_info);
++      return true;
+ 
+     ///////////////////////////////////////////////////////////////////////////////////////////////
+     // PLAYER_PROCESS_*
+@@ -586,3 +591,78 @@ bool CPlayerGUIInfo::GetBool(bool& value, const CGUIListItem *gitem, int context
+ 
+   return false;
+ }
++
++std::string CPlayerGUIInfo::GetContentRanges(int iInfo) const
++{
++  std::string values;
++
++  CDataCacheCore& data = CServiceBroker::GetDataCacheCore();
++  std::vector<std::pair<float, float>> ranges;
++
++  time_t start;
++  int64_t current;
++  int64_t min;
++  int64_t max;
++  data.GetPlayTimes(start, current, min, max);
++
++  time_t duration = max - start * 1000;
++  if (duration > 0)
++  {
++    switch (iInfo)
++    {
++      case PLAYER_CUTLIST:
++        ranges = GetCutList(data, duration);
++        break;
++      case PLAYER_CHAPTERS:
++        ranges = GetChapters(data, duration);
++        break;
++      default:
++        CLog::Log(LOGERROR, "CPlayerGUIInfo::GetContentRanges(%i) - unhandled guiinfo", iInfo);
++        break;
++    }
++
++    // create csv string from ranges
++    for (const auto& range : ranges)
++      values += StringUtils::Format("%.5f,%.5f,", range.first, range.second);
++
++    if (!values.empty())
++      values.pop_back(); // remove trailing comma
++  }
++
++  return values;
++}
++
++std::vector<std::pair<float, float>> CPlayerGUIInfo::GetCutList(CDataCacheCore& data, time_t duration) const
++{
++  std::vector<std::pair<float, float>> ranges;
++
++  const std::vector<EDL::Cut> cuts = data.GetCutList();
++  for (const auto& cut : cuts)
++  {
++    if (cut.action != EDL::Action::CUT &&
++        cut.action != EDL::Action::COMM_BREAK)
++      continue;
++
++    float cutStart = cut.start * 100.0f / duration;
++    float cutEnd = cut.end * 100.0f / duration;
++    ranges.emplace_back(std::make_pair(cutStart, cutEnd));
++  }
++  return ranges;
++}
++
++std::vector<std::pair<float, float>> CPlayerGUIInfo::GetChapters(CDataCacheCore& data, time_t duration) const
++{
++  std::vector<std::pair<float, float>> ranges;
++
++  const std::vector<std::pair<std::string, int64_t>> chapters = data.GetChapters();
++  float lastMarker = 0.0f;
++  for (const auto& chapter : chapters)
++  {
++    float marker = chapter.second * 1000 * 100.0f / duration;
++    if (marker != 0)
++      ranges.emplace_back(std::make_pair(lastMarker, marker));
++
++    lastMarker = marker;
++  }
++  return ranges;
++}
+diff --git a/xbmc/guilib/guiinfo/PlayerGUIInfo.h b/xbmc/guilib/guiinfo/PlayerGUIInfo.h
+index 691a0087f7ec1..d942b567ec1ef 100644
+--- a/xbmc/guilib/guiinfo/PlayerGUIInfo.h
++++ b/xbmc/guilib/guiinfo/PlayerGUIInfo.h
+@@ -12,9 +12,13 @@
+ 
+ #include <atomic>
+ #include <memory>
++#include <utility>
++#include <vector>
+ 
+ #include "XBDateTime.h"
+ 
++class CDataCacheCore;
++
+ namespace KODI
+ {
+ namespace GUILIB
+@@ -61,6 +65,10 @@ class CPlayerGUIInfo : public CGUIInfoProvider
+   std::string GetDuration(TIME_FORMAT format) const;
+   std::string GetCurrentSeekTime(TIME_FORMAT format) const;
+   std::string GetSeekTime(TIME_FORMAT format) const;
++
++  std::string GetContentRanges(int iInfo) const;
++  std::vector<std::pair<float, float>> GetCutList(CDataCacheCore& data, time_t duration) const;
++  std::vector<std::pair<float, float>> GetChapters(CDataCacheCore& data, time_t duration) const;
+ };
+ 
+ } // namespace GUIINFO
+

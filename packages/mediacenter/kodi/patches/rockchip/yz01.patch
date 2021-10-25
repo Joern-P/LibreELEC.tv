@@ -1,0 +1,267 @@
+From 5238830fc64d9011e18f95c090f974928c195454 Mon Sep 17 00:00:00 2001
+From: bkury <github@mindgeek.cc>
+Date: Sun, 29 Nov 2020 21:21:02 +0100
+Subject: [PATCH] [GUI] Global texture mipmapping (enabled by default,
+ imageres/fanartres 1080, lanczos)
+
+---
+ xbmc/guilib/GUIShaderDX.cpp               | 14 +++++++++++++-
+ xbmc/guilib/Texture.cpp                   |  9 ++++++++-
+ xbmc/guilib/Texture.h                     |  4 +++-
+ xbmc/guilib/TextureDX.cpp                 | 12 ++++++++----
+ xbmc/guilib/TextureGL.cpp                 | 12 ++++++++----
+ xbmc/pictures/PictureScalingAlgorithm.cpp |  2 +-
+ xbmc/pictures/SlideShowPicture.cpp        |  2 +-
+ xbmc/settings/AdvancedSettings.cpp        |  9 +++++++++
+ xbmc/settings/AdvancedSettings.h          |  4 ++++
+ 9 files changed, 55 insertions(+), 13 deletions(-)
+
+diff --git a/xbmc/guilib/GUIShaderDX.cpp b/xbmc/guilib/GUIShaderDX.cpp
+index 64ec0814dbd9c..bc2c3e9f3b62f 100644
+--- a/xbmc/guilib/GUIShaderDX.cpp
++++ b/xbmc/guilib/GUIShaderDX.cpp
+@@ -26,6 +26,9 @@
+ 
+ #include <d3dcompiler.h>
+ 
++#include "settings/AdvancedSettings.h"
++#include "settings/SettingsComponent.h"
++
+ using namespace DirectX;
+ using namespace Microsoft::WRL;
+ 
+@@ -156,9 +159,18 @@ bool CGUIShaderDX::CreateSamplers()
+   sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+   sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+   sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+-  sampDesc.MinLOD = 0;
++  sampDesc.MinLOD = -D3D11_FLOAT32_MAX;
+   sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+ 
++  if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal)
++  {
++    sampDesc.MipLODBias = -CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobalSharpen;
++  }
++  else
++  {
++    sampDesc.MipLODBias = -CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingSpecialSharpen;
++  }
++
+   if (FAILED(DX::DeviceResources::Get()->GetD3DDevice()->CreateSamplerState(&sampDesc, m_pSampLinear.ReleaseAndGetAddressOf())))
+     return false;
+ 
+diff --git a/xbmc/guilib/Texture.cpp b/xbmc/guilib/Texture.cpp
+index 27228bba4bafd..fcc610a36f980 100644
+--- a/xbmc/guilib/Texture.cpp
++++ b/xbmc/guilib/Texture.cpp
+@@ -441,12 +441,19 @@ bool CBaseTexture::HasAlpha() const
+   return m_hasAlpha;
+ }
+ 
+-void CBaseTexture::SetMipmapping()
++void CBaseTexture::SetMipmapping(bool FlagAsSpecial)
+ {
+   m_mipmapping = true;
++  if (FlagAsSpecial)
++    m_mipmappingspecial = true;
+ }
+ 
+ bool CBaseTexture::IsMipmapped() const
+ {
+   return m_mipmapping;
+ }
++
++bool CBaseTexture::IsMipmappedSpecial() const
++{
++  return m_mipmappingspecial;
++}
+diff --git a/xbmc/guilib/Texture.h b/xbmc/guilib/Texture.h
+index 8a54042fffa3a..aab7901edd983 100644
+--- a/xbmc/guilib/Texture.h
++++ b/xbmc/guilib/Texture.h
+@@ -71,8 +71,9 @@ class CBaseTexture
+ 
+   bool HasAlpha() const;
+ 
+-  void SetMipmapping();
++  void SetMipmapping(bool FlagAsSpecial = false);
+   bool IsMipmapped() const;
++  bool IsMipmappedSpecial() const;
+   void SetScalingMethod(TEXTURE_SCALING scalingMethod) { m_scalingMethod = scalingMethod; }
+   TEXTURE_SCALING GetScalingMethod() const { return m_scalingMethod; }
+   void SetCacheMemory(bool bCacheMemory) { m_bCacheMemory = bCacheMemory; }
+@@ -132,6 +133,7 @@ class CBaseTexture
+   int m_orientation;
+   bool m_hasAlpha =  true ;
+   bool m_mipmapping =  false ;
++  bool m_mipmappingspecial =  false ;
+   TEXTURE_SCALING m_scalingMethod = TEXTURE_SCALING::LINEAR;
+   bool m_bCacheMemory = false;
+ };
+diff --git a/xbmc/guilib/TextureDX.cpp b/xbmc/guilib/TextureDX.cpp
+index 62e3966ad2fb1..43bce703a2360 100644
+--- a/xbmc/guilib/TextureDX.cpp
++++ b/xbmc/guilib/TextureDX.cpp
+@@ -9,6 +9,10 @@
+ #include "TextureDX.h"
+ #include "utils/log.h"
+ 
++#include "ServiceBroker.h"
++#include "settings/AdvancedSettings.h"
++#include "settings/SettingsComponent.h"
++
+ /************************************************************************/
+ /*    CDXTexture                                                       */
+ /************************************************************************/
+@@ -79,12 +83,12 @@ void CDXTexture::LoadToGPU()
+     if (m_format != XB_FMT_RGB8)
+     {
+       // this is faster way to create texture with initial data instead of create empty and then copy to it
+-      m_texture.Create(m_textureWidth, m_textureHeight, IsMipmapped() ? 0 : 1, usage, GetFormat(), m_pixels, GetPitch());
++      m_texture.Create(m_textureWidth, m_textureHeight, IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal ? 0 : 1, usage, GetFormat(), m_pixels, GetPitch());
+       if (m_texture.Get() != nullptr)
+         needUpdate = false;
+     }
+     else
+-      m_texture.Create(m_textureWidth, m_textureHeight, IsMipmapped() ? 0 : 1, usage, GetFormat());
++      m_texture.Create(m_textureWidth, m_textureHeight, IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal ? 0 : 1, usage, GetFormat());
+ 
+     if (m_texture.Get() == nullptr)
+     {
+@@ -105,7 +109,7 @@ void CDXTexture::LoadToGPU()
+       m_texture.Release();
+       usage = D3D11_USAGE_DYNAMIC;
+ 
+-      m_texture.Create(m_textureWidth, m_textureHeight, IsMipmapped() ? 0 : 1, usage, GetFormat(), m_pixels, GetPitch());
++      m_texture.Create(m_textureWidth, m_textureHeight, IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal ? 0 : 1, usage, GetFormat(), m_pixels, GetPitch());
+       if (m_texture.Get() == nullptr)
+       {
+         CLog::Log(LOGDEBUG, "CDXTexture::CDXTexture: Error creating new texture for size %d x %d.", m_textureWidth, m_textureHeight);
+@@ -165,7 +169,7 @@ void CDXTexture::LoadToGPU()
+       CLog::LogF(LOGERROR, "failed to lock texture.");
+     }
+     m_texture.UnlockRect(0);
+-    if (usage != D3D11_USAGE_STAGING && IsMipmapped())
++    if (usage != D3D11_USAGE_STAGING && (IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal))
+       m_texture.GenerateMipmaps();
+   }
+ 
+diff --git a/xbmc/guilib/TextureGL.cpp b/xbmc/guilib/TextureGL.cpp
+index 6e8c752878c62..aa79a8e6c3ca1 100644
+--- a/xbmc/guilib/TextureGL.cpp
++++ b/xbmc/guilib/TextureGL.cpp
+@@ -13,6 +13,7 @@
+ #include "utils/GLUtils.h"
+ #include "guilib/TextureManager.h"
+ #include "settings/AdvancedSettings.h"
++#include "settings/SettingsComponent.h"
+ #ifdef TARGET_POSIX
+ #include "platform/linux/XMemUtils.h"
+ #endif
+@@ -66,14 +67,17 @@ void CGLTexture::LoadToGPU()
+   GLenum filter = (m_scalingMethod == TEXTURE_SCALING::NEAREST ? GL_NEAREST : GL_LINEAR);
+ 
+   // Set the texture's stretching properties
+-  if (IsMipmapped())
++  if (IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal)
+   {
+     GLenum mipmapFilter = (m_scalingMethod == TEXTURE_SCALING::NEAREST ? GL_LINEAR_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mipmapFilter);
+ 
+ #ifndef HAS_GLES
+     // Lower LOD bias equals more sharpness, but less smooth animation
+-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5f);
++    if (!IsMipmappedSpecial())
++      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobalSharpen);
++    else
++      glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingSpecialSharpen);
+     if (!m_isOglVersion3orNewer)
+       glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+ #endif
+@@ -140,7 +144,7 @@ void CGLTexture::LoadToGPU()
+                            GetPitch() * GetRows(), m_pixels);
+   }
+ 
+-  if (IsMipmapped() && m_isOglVersion3orNewer)
++  if ((IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal) && m_isOglVersion3orNewer)
+   {
+     glGenerateMipmap(GL_TEXTURE_2D);
+   }
+@@ -193,7 +197,7 @@ void CGLTexture::LoadToGPU()
+   glTexImage2D(GL_TEXTURE_2D, 0, internalformat, m_textureWidth, m_textureHeight, 0,
+     pixelformat, GL_UNSIGNED_BYTE, m_pixels);
+ 
+-  if (IsMipmapped())
++  if (IsMipmapped() || CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_imageMipMappingGlobal)
+   {
+     glGenerateMipmap(GL_TEXTURE_2D);
+   }
+diff --git a/xbmc/pictures/PictureScalingAlgorithm.cpp b/xbmc/pictures/PictureScalingAlgorithm.cpp
+index 65cfcd9c7653b..084a0b8e148db 100644
+--- a/xbmc/pictures/PictureScalingAlgorithm.cpp
++++ b/xbmc/pictures/PictureScalingAlgorithm.cpp
+@@ -15,7 +15,7 @@ extern "C" {
+ #include "PictureScalingAlgorithm.h"
+ #include "utils/StringUtils.h"
+ 
+-CPictureScalingAlgorithm::Algorithm CPictureScalingAlgorithm::Default = CPictureScalingAlgorithm::Bicubic;
++CPictureScalingAlgorithm::Algorithm CPictureScalingAlgorithm::Default = CPictureScalingAlgorithm::Lanczos;
+ 
+ CPictureScalingAlgorithm::AlgorithmMap CPictureScalingAlgorithm::m_algorithms = {
+   { FastBilinear,     { "fast_bilinear",    SWS_FAST_BILINEAR } },
+diff --git a/xbmc/pictures/SlideShowPicture.cpp b/xbmc/pictures/SlideShowPicture.cpp
+index 08fc75447120a..4e6eae8a6eb6e 100644
+--- a/xbmc/pictures/SlideShowPicture.cpp
++++ b/xbmc/pictures/SlideShowPicture.cpp
+@@ -122,7 +122,7 @@ void CSlideShowPic::SetTexture_Internal(int iSlideNumber, CBaseTexture* pTexture
+   m_fHeight = (float)pTexture->GetHeight();
+   if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_SLIDESHOW_HIGHQUALITYDOWNSCALING))
+   { // activate mipmapping when high quality downscaling is 'on'
+-    pTexture->SetMipmapping();
++    pTexture->SetMipmapping(true);
+   }
+   // reset our counter
+   m_iCounter = 0;
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index fa3ed43ca7f05..715177e417f67 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -282,6 +282,10 @@ void CAdvancedSettings::Initialize()
+   m_imageRes = 1080;
+   m_imageScalingAlgorithm = CPictureScalingAlgorithm::Default;
+ 
++  m_imageMipMappingGlobal = true;
++  m_imageMipMappingGlobalSharpen = 1.0f;
++  m_imageMipMappingSpecialSharpen = 0.5f;
++
+   m_sambaclienttimeout = 30;
+   m_sambadoscodepage = "";
+   m_sambastatfiles = true;
+@@ -1086,6 +1090,11 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
+   XMLUtils::GetUInt(pRootElement, "imageres", m_imageRes, 0, 9999);
+   if (XMLUtils::GetString(pRootElement, "imagescalingalgorithm", tmp))
+     m_imageScalingAlgorithm = CPictureScalingAlgorithm::FromString(tmp);
++
++  XMLUtils::GetBoolean(pRootElement, "imagemipmappingglobal", m_imageMipMappingGlobal);
++  XMLUtils::GetFloat(pRootElement, "imagemipmappingglobalsharpen", m_imageMipMappingGlobalSharpen, 0.0f, 3.0f);
++  XMLUtils::GetFloat(pRootElement, "imagemipmappingspecialsharpen", m_imageMipMappingSpecialSharpen, 0.0f, 3.0f);
++
+   XMLUtils::GetBoolean(pRootElement, "playlistasfolders", m_playlistAsFolders);
+   XMLUtils::GetBoolean(pRootElement, "detectasudf", m_detectAsUdf);
+ 
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index b9d422552a158..9453c6efadffd 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -234,6 +234,10 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
+     unsigned int m_imageRes;  ///< \brief the maximal resolution to cache images at (assumes 16x9)
+     CPictureScalingAlgorithm::Algorithm m_imageScalingAlgorithm;
+ 
++    bool m_imageMipMappingGlobal;
++    float m_imageMipMappingGlobalSharpen;
++    float m_imageMipMappingSpecialSharpen;
++
+     int m_sambaclienttimeout;
+     std::string m_sambadoscodepage;
+     bool m_sambastatfiles;
+
