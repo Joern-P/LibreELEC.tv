@@ -1,0 +1,492 @@
+From 7db0bcebce97e580834733e87c40fd9815fb091f Mon Sep 17 00:00:00 2001
+From: MrFixIt2001 <mrfixit2001@gmail.com>
+Date: Wed, 27 Oct 2021 21:31:01 -0400
+Subject: [PATCH] arm64: Upstream backports A few misc backports from upstream,
+ and... Fixup support for llvm Add support for CONFIG_RELR (doesn't work on
+ rockchip yet) Enable Relocation and Randomize Base for Rockchip
+
+---
+ Makefile                        |  42 +++++++--
+ arch/Kconfig                    |  14 +++
+ arch/arm/Makefile               |   3 +
+ arch/arm64/Kconfig              |   4 +-
+ arch/arm64/Kconfig.platforms    |   2 +
+ arch/arm64/Makefile             |  15 +--
+ arch/arm64/kernel/head.S        | 161 +++++++++++++++++++++++++-------
+ arch/arm64/kernel/setup.c       |   4 +
+ arch/arm64/kernel/smp.c         |   1 +
+ arch/arm64/kernel/vmlinux.lds.S |  20 +++-
+ 10 files changed, 213 insertions(+), 53 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index c9ec994727..374b0b6e8a 100644
+--- a/Makefile
++++ b/Makefile
+@@ -318,8 +318,14 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
+ 	  else if [ -x /bin/bash ]; then echo /bin/bash; \
+ 	  else echo sh; fi ; fi)
+ 
+-HOSTCC       = gcc
+-HOSTCXX      = g++
++ifneq ($(LLVM),)
++HOSTCC	= clang
++HOSTCXX	= clang++
++else
++HOSTCC	= gcc
++HOSTCXX	= g++
++endif
++
+ HOSTCFLAGS   := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89
+ HOSTCXXFLAGS = -O2
+ 
+@@ -354,15 +360,32 @@ scripts/Kbuild.include: ;
+ include scripts/Kbuild.include
+ 
+ # Make variables (CC, etc...)
+-AS		= $(CROSS_COMPILE)as
+-LD		= $(CROSS_COMPILE)ld
+-CC		= $(CROSS_COMPILE)gcc
+ CPP		= $(CC) -E
++ifneq ($(LLVM),)
++CC		= clang
++LD		= ld.lld
++AR		= llvm-ar
++NM		= llvm-nm
++OBJCOPY		= llvm-objcopy
++OBJDUMP		= llvm-objdump
++READELF		= llvm-readelf
++AS		= llvm-as
++STRIP		= llvm-strip
++else
++CC		= $(CROSS_COMPILE)gcc
++ifneq ($(USE_LLD),)
++LD		= $(CROSS_COMPILE)ld.lld
++else
++LD		= $(CROSS_COMPILE)ld
++endif
+ AR		= $(CROSS_COMPILE)ar
+ NM		= $(CROSS_COMPILE)nm
+-STRIP		= $(CROSS_COMPILE)strip
+ OBJCOPY		= $(CROSS_COMPILE)objcopy
+ OBJDUMP		= $(CROSS_COMPILE)objdump
++READELF		= $(CROSS_COMPILE)readelf
++AS		= $(CROSS_COMPILE)as
++STRIP		= $(CROSS_COMPILE)strip
++endif
+ AWK		= awk
+ GENKSYMS	= scripts/genksyms/genksyms
+ INSTALLKERNEL  := installkernel
+@@ -895,6 +918,13 @@ ifeq ($(CONFIG_STRIP_ASM_SYMS),y)
+ LDFLAGS_vmlinux	+= $(call ld-option, -X,)
+ endif
+ 
++# NOTE: LD loader doesn't support pack-dyn-relocs, requires lld (or llvm)
++ifeq ($(CONFIG_RELR),y)
++ifneq ($(USE_LLD)$(LLVM),)
++LDFLAGS_vmlinux	+= --pack-dyn-relocs=relr --use-android-relr-tags
++endif
++endif
++
+ # Default kernel image to build when no specific target is given.
+ # KBUILD_IMAGE may be overruled on the command line or
+ # set in the environment
+diff --git a/arch/Kconfig b/arch/Kconfig
+index a29c6098fb..f204b4e728 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -646,4 +646,18 @@ config OLD_SIGACTION
+ config COMPAT_OLD_SIGACTION
+ 	bool
+ 
++# Select if the architecture has support for applying RELR relocations.
++config ARCH_HAS_RELR
++	bool
++
++config RELR
++	bool "Use RELR relocation packing"
++	depends on ARCH_HAS_RELR
++	default y
++	help
++	  Store the kernel's dynamic relocations in the RELR relocation packing
++	  format. Requires a compatible linker (LLD supports this feature), as
++	  well as compatible NM and OBJCOPY utilities (llvm-nm and llvm-objcopy
++	  are compatible).
++
+ source "kernel/gcov/Kconfig"
+diff --git a/arch/arm/Makefile b/arch/arm/Makefile
+index 554985b522..2f1f36a188 100644
+--- a/arch/arm/Makefile
++++ b/arch/arm/Makefile
+@@ -53,6 +53,9 @@ KBUILD_CPPFLAGS	+= -mlittle-endian
+ AS		+= -EL
+ LD		+= -EL
+ endif
++ifneq ($(USE_LLD)$(LLVM),)
++LDFLAGS		+= -marmelf
++endif
+ 
+ #
+ # The Scalar Replacement of Aggregates (SRA) optimization pass in GCC 4.9 and
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 052417df19..d433b263f5 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -861,7 +861,9 @@ config ARM64_MODULE_PLTS
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 
+ config RELOCATABLE
+-	bool
++	bool "Build a relocatable kernel image" if EXPERT
++	select ARCH_HAS_RELR
++	default y
+ 	help
+ 	  This builds the kernel as a Position Independent Executable (PIE),
+ 	  which retains all relocation metadata required to relocate the
+diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+index e7c1378804..b80940d8f4 100644
+--- a/arch/arm64/Kconfig.platforms
++++ b/arch/arm64/Kconfig.platforms
+@@ -60,6 +60,8 @@ config ARCH_ROCKCHIP
+ 	select PINCTRL
+ 	select PINCTRL_ROCKCHIP
+ 	select ROCKCHIP_TIMER
++	select RELOCATABLE
++	select RANDOMIZE_BASE
+ 	help
+ 	  This enables support for the ARMv8 based Rockchip chipsets,
+ 	  like the RK3368.
+diff --git a/arch/arm64/Makefile b/arch/arm64/Makefile
+index 5e0c336b8f..e2120958de 100644
+--- a/arch/arm64/Makefile
++++ b/arch/arm64/Makefile
+@@ -16,7 +16,8 @@ OBJCOPYFLAGS	:=-O binary -R .note -R .note.gnu.build-id -R .comment -S
+ GZFLAGS		:=-9
+ 
+ ifneq ($(CONFIG_RELOCATABLE),)
+-LDFLAGS_vmlinux		+= -pie -Bsymbolic
++LDFLAGS_vmlinux		+= -shared -Bsymbolic -z notext \
++		$(call ld-option, --no-apply-dynamic-relocs)
+ endif
+ 
+ KBUILD_DEFCONFIG := defconfig
+@@ -30,13 +31,7 @@ $(warning LSE atomics not supported by binutils)
+   endif
+ endif
+ 
+-ifeq ($(cc-name),clang)
+-# This is a workaround for https://bugs.llvm.org/show_bug.cgi?id=30792.
+-# TODO: revert when this is fixed in LLVM.
+-KBUILD_CFLAGS	+= -mno-implicit-float
+-else
+ KBUILD_CFLAGS	+= -mgeneral-regs-only
+-endif
+ KBUILD_CFLAGS	+= $(lseinstr)
+ KBUILD_CFLAGS	+= -fno-pic
+ KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables
+@@ -47,10 +42,16 @@ ifeq ($(CONFIG_CPU_BIG_ENDIAN), y)
+ KBUILD_CPPFLAGS	+= -mbig-endian
+ AS		+= -EB
+ LD		+= -EB
++ifneq ($(USE_LLD)$(LLVM),)
++LDFLAGS		+= -maarch64elfb -z norelro # aarch64linuxb
++endif
+ else
+ KBUILD_CPPFLAGS	+= -mlittle-endian
+ AS		+= -EL
+ LD		+= -EL
++ifneq ($(USE_LLD)$(LLVM),)
++LDFLAGS		+= -maarch64elf -z norelro # aarch64linux
++endif
+ endif
+ 
+ CHECKFLAGS	+= -D__aarch64__
+diff --git a/arch/arm64/kernel/head.S b/arch/arm64/kernel/head.S
+index 4ad8cc7527..0acdb1a848 100644
+--- a/arch/arm64/kernel/head.S
++++ b/arch/arm64/kernel/head.S
+@@ -222,9 +222,7 @@ ENTRY(stext)
+ 	 * the TCR will have been set.
+ 	 */
+ 	bl	__cpu_setup			// initialise processor
+-	adr_l	x27, __primary_switch		// address to jump to after
+-						// MMU has been enabled
+-	b	__enable_mmu
++	b	__primary_switch
+ ENDPROC(stext)
+ 
+ /*
+@@ -465,7 +463,7 @@ __primary_switched:
+ 	cbz	x0, 0f				// KASLR disabled? just proceed
+ 	orr	x23, x23, x0			// record KASLR offset
+ 	ret	x28				// we must enable KASLR, return
+-						// to __enable_mmu()
++						// to __primary_switch()
+ 0:
+ #endif
+ 	b	start_kernel
+@@ -712,7 +710,6 @@ ENTRY(__early_cpu_boot_status)
+  * If it isn't, park the CPU
+  */
+ ENTRY(__enable_mmu)
+-	mrs	x18, sctlr_el1			// preserve old SCTLR_EL1 value
+ 	mrs	x1, ID_AA64MMFR0_EL1
+ 	ubfx	x2, x1, #ID_AA64MMFR0_TGRAN_SHIFT, 4
+ 	cmp	x2, #ID_AA64MMFR0_TGRAN_SUPPORTED
+@@ -731,28 +728,6 @@ ENTRY(__enable_mmu)
+ 	ic	iallu
+ 	dsb	nsh
+ 	isb
+-#ifdef CONFIG_RANDOMIZE_BASE
+-	mov	x19, x0				// preserve new SCTLR_EL1 value
+-	blr	x27
+-
+-	/*
+-	 * If we return here, we have a KASLR displacement in x23 which we need
+-	 * to take into account by discarding the current kernel mapping and
+-	 * creating a new one.
+-	 */
+-	msr	sctlr_el1, x18			// disable the MMU
+-	isb
+-	bl	__create_page_tables		// recreate kernel mapping
+-
+-	tlbi	vmalle1				// Remove any stale TLB entries
+-	dsb	nsh
+-
+-	msr	sctlr_el1, x19			// re-enable the MMU
+-	isb
+-	ic	iallu				// flush instructions fetched
+-	dsb	nsh				// via old mapping
+-	isb
+-#endif
+ 	br	x27
+ ENDPROC(__enable_mmu)
+ 
+@@ -762,11 +737,11 @@ __no_granule_support:
+ 1:
+ 	wfe
+ 	wfi
+-	b 1b
++	b	1b
+ ENDPROC(__no_granule_support)
+ 
+-__primary_switch:
+ #ifdef CONFIG_RELOCATABLE
++__relocate_kernel:
+ 	/*
+ 	 * Iterate over each entry in the relocation table, and apply the
+ 	 * relocations in place.
+@@ -781,15 +756,133 @@ __primary_switch:
+ 
+ 0:	cmp	x9, x10
+ 	b.hs	1f
+-	ldp	x11, x12, [x9], #24
+-	ldr	x13, [x9, #-8]
+-	cmp	w12, #R_AARCH64_RELATIVE
++	ldp	x12, x13, [x9], #24
++	ldr	x14, [x9, #-8]
++	cmp	w13, #R_AARCH64_RELATIVE
+ 	b.ne	0b
+-	add	x13, x13, x23			// relocate
+-	str	x13, [x11, x23]
++	add	x14, x14, x23			// relocate
++	str	x14, [x12, x23]
+ 	b	0b
+ 
+ 1:
++#ifdef CONFIG_RELR
++	/*
++	 * Apply RELR relocations.
++	 *
++	 * RELR is a compressed format for storing relative relocations. The
++	 * encoded sequence of entries looks like:
++	 * [ AAAAAAAA BBBBBBB1 BBBBBBB1 ... AAAAAAAA BBBBBB1 ... ]
++	 *
++	 * i.e. start with an address, followed by any number of bitmaps. The
++	 * address entry encodes 1 relocation. The subsequent bitmap entries
++	 * encode up to 63 relocations each, at subsequent offsets following
++	 * the last address entry.
++	 *
++	 * The bitmap entries must have 1 in the least significant bit. The
++	 * assumption here is that an address cannot have 1 in lsb. Odd
++	 * addresses are not supported. Any odd addresses are stored in the RELA
++	 * section, which is handled above.
++	 *
++	 * Excluding the least significant bit in the bitmap, each non-zero
++	 * bit in the bitmap represents a relocation to be applied to
++	 * a corresponding machine word that follows the base address
++	 * word. The second least significant bit represents the machine
++	 * word immediately following the initial address, and each bit
++	 * that follows represents the next word, in linear order. As such,
++	 * a single bitmap can encode up to 63 relocations in a 64-bit object.
++	 *
++	 * In this implementation we store the address of the next RELR table
++	 * entry in x9, the address being relocated by the current address or
++	 * bitmap entry in x13 and the address being relocated by the current
++	 * bit in x14.
++	 *
++	 * Because addends are stored in place in the binary, RELR relocations
++	 * cannot be applied idempotently. We use x24 to keep track of the
++	 * currently applied displacement so that we can correctly relocate if
++	 * __relocate_kernel is called twice with non-zero displacements (i.e.
++	 * if there is both a physical misalignment and a KASLR displacement).
++	 */
++	ldr	w9, =__relr_offset		// offset to reloc table
++	ldr	w10, =__relr_size		// size of reloc table
++	add	x9, x9, x11			// __va(.relr)
++	add	x10, x9, x10			// __va(.relr) + sizeof(.relr)
++
++	sub	x15, x23, x24			// delta from previous offset
++	cbz	x15, 7f				// nothing to do if unchanged
++	mov	x24, x23			// save new offset
++
++2:	cmp	x9, x10
++	b.hs	7f
++	ldr	x11, [x9], #8
++	tbnz	x11, #0, 3f			// branch to handle bitmaps
++	add	x13, x11, x23
++	ldr	x12, [x13]			// relocate address entry
++	add	x12, x12, x15
++	str	x12, [x13], #8			// adjust to start of bitmap
++	b	2b
++
++3:	mov	x14, x13
++4:	lsr	x11, x11, #1
++	cbz	x11, 6f
++	tbz	x11, #0, 5f			// skip bit if not set
++	ldr	x12, [x14]			// relocate bit
++	add	x12, x12, x15
++	str	x12, [x14]
++
++5:	add	x14, x14, #8			// move to next bit's address
++	b	4b
++
++6:	/*
++	 * Move to the next bitmap's address. 8 is the word size, and 63 is the
++	 * number of significant bits in a bitmap entry.
++	 */
++	add	x13, x13, #(8 * 63)
++	b	2b
++
++7:
++#endif
++	ret
++ENDPROC(__relocate_kernel)
++#endif
++
++__primary_switch:
++#ifdef CONFIG_RANDOMIZE_BASE
++	mov	x19, x0				// preserve new SCTLR_EL1 value
++	mrs	x20, sctlr_el1			// preserve old SCTLR_EL1 value - was x18 before upstream commit 3c5e9f
++#endif
++
++	adr	x27, 0f
++	b	__enable_mmu
++0:
++#ifdef CONFIG_RELOCATABLE
++#ifdef CONFIG_RELR
++	mov	x24, #0				// no RELR displacement yet
++#endif
++	bl	__relocate_kernel
++#ifdef CONFIG_RANDOMIZE_BASE
++	ldr	x8, =__primary_switched
++	blr	x8
++
++	/*
++	 * If we return here, we have a KASLR displacement in x23 which we need
++	 * to take into account by discarding the current kernel mapping and
++	 * creating a new one.
++	 */
++	msr	sctlr_el1, x20			// disable the MMU - was x18 before upstream commit 3c5e9f
++	isb
++	bl	__create_page_tables		// recreate kernel mapping
++
++	tlbi	vmalle1				// Remove any stale TLB entries
++	dsb	nsh
++
++	msr	sctlr_el1, x19			// re-enable the MMU
++	isb
++	ic	iallu				// flush instructions fetched
++	dsb	nsh				// via old mapping
++	isb
++
++	bl	__relocate_kernel
++#endif
+ #endif
+ 	ldr	x8, =__primary_switched
+ 	br	x8
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+index 7b1f91902c..3178e186cd 100644
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -335,6 +335,10 @@ void __init setup_arch(char **cmdline_p)
+ 	cpu_uninstall_idmap();
+ 
+ 	efi_init();
++
++	if (!efi_enabled(EFI_BOOT) && ((u64)_text % MIN_KIMG_ALIGN) != 0)
++	     pr_warn(FW_BUG "Kernel image misaligned at boot, please fix your bootloader!");
++
+ 	arm64_memblock_init();
+ 
+ 	/* Parse the ACPI tables for possible boot-time configuration */
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index 035fa9bead..efd1cb2e22 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -145,6 +145,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
+ 	secondary_data.task = NULL;
+ #endif
+ 	secondary_data.stack = NULL;
++	__flush_dcache_area(&secondary_data, sizeof(secondary_data));
+ 	status = READ_ONCE(secondary_data.status);
+ 	if (ret && status) {
+ 
+diff --git a/arch/arm64/kernel/vmlinux.lds.S b/arch/arm64/kernel/vmlinux.lds.S
+index 7af24e552a..002ea04393 100644
+--- a/arch/arm64/kernel/vmlinux.lds.S
++++ b/arch/arm64/kernel/vmlinux.lds.S
+@@ -114,7 +114,8 @@ SECTIONS
+ 		*(.discard)
+ 		*(.discard.*)
+ 		*(.interp .dynamic)
+-		*(.dynsym .dynstr .hash)
++		*(.dynsym .dynstr .hash .gnu.hash)
++		*(.eh_frame)
+ 	}
+ 
+ 	. = KIMAGE_VADDR + TEXT_OFFSET;
+@@ -123,7 +124,7 @@ SECTIONS
+ 		_text = .;
+ 		HEAD_TEXT
+ 	}
+-	.text : {			/* Real text segment		*/
++	.text ALIGN (CONSTANT (COMMONPAGESIZE)): {			/* Real text segment		*/
+ 		_stext = .;		/* Text and read-only data	*/
+ 			__exception_text_start = .;
+ 			*(.exception.text)
+@@ -183,12 +184,21 @@ SECTIONS
+ 	.altinstr_replacement : {
+ 		*(.altinstr_replacement)
+ 	}
+-	.rela : ALIGN(8) {
++	.rela.dyn : ALIGN(8) {
+ 		*(.rela .rela*)
+ 	}
+ 
+-	__rela_offset	= ABSOLUTE(ADDR(.rela) - KIMAGE_VADDR);
+-	__rela_size	= SIZEOF(.rela);
++	__rela_offset	= ABSOLUTE(ADDR(.rela.dyn) - KIMAGE_VADDR);
++	__rela_size	= SIZEOF(.rela.dyn);
++
++#ifdef CONFIG_RELR
++	.relr.dyn : ALIGN(8) {
++		*(.relr.dyn)
++	}
++
++	__relr_offset	= ABSOLUTE(ADDR(.relr.dyn) - KIMAGE_VADDR);
++	__relr_size	= SIZEOF(.relr.dyn);
++#endif
+ 
+ 	. = ALIGN(SEGMENT_ALIGN);
+ 	__init_end = .;
+

@@ -1,0 +1,38 @@
+From 9b3f02732da29413a5eae9dec23a49fc2ff065c9 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Wed, 19 May 2021 09:55:03 +0800
+Subject: [PATCH] rkmppdec: Remove frame buffer limit
+
+It would hang when reaching the limit.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ libavcodec/rkmppdec.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index 9403d4f1a4a4..940e8e4503b1 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -39,7 +39,6 @@
+ #include "libavutil/log.h"
+ 
+ #define RECEIVE_FRAME_TIMEOUT   100
+-#define FRAMEGROUP_MAX_FRAMES   24
+ #define INPUT_MAX_PACKETS       4
+ 
+ typedef struct {
+@@ -241,13 +240,6 @@ static int rkmpp_init_decoder(AVCodecContext *avctx)
+         goto fail;
+     }
+ 
+-    ret = mpp_buffer_group_limit_config(decoder->frame_group, 0, FRAMEGROUP_MAX_FRAMES);
+-    if (ret) {
+-        av_log(avctx, AV_LOG_ERROR, "Failed to set buffer group limit (code = %d)\n", ret);
+-        ret = AVERROR_UNKNOWN;
+-        goto fail;
+-    }
+-
+     decoder->first_packet = 1;
+ 
+     av_log(avctx, AV_LOG_DEBUG, "RKMPP decoder initialized successfully.\n");

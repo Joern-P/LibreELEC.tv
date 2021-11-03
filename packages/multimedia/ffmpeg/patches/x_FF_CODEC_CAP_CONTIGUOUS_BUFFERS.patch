@@ -1,0 +1,104 @@
+From 32ff4a469477215a403b9802121866f15e2d3f94 Mon Sep 17 00:00:00 2001
+From: Jeffy Chen <jeffy.chen@rock-chips.com>
+Date: Mon, 27 Sep 2021 11:06:11 +0800
+Subject: [PATCH] HACK: libavcodec & rkmppdec: Add
+ FF_CODEC_CAP_CONTIGUOUS_BUFFERS
+
+Add FF_CODEC_CAP_CONTIGUOUS_BUFFERS to alloc contiguous buffers.
+
+Signed-off-by: Jeffy Chen <jeffy.chen@rock-chips.com>
+---
+ libavcodec/decode.c   | 23 +++++++++++++++++++++++
+ libavcodec/internal.h |  4 ++++
+ libavcodec/rkmppdec.c | 18 ++++++++++--------
+ 3 files changed, 37 insertions(+), 8 deletions(-)
+
+diff --git a/libavcodec/decode.c b/libavcodec/decode.c
+index 421a8f1a3570..a1ba35e4fd45 100644
+--- a/libavcodec/decode.c
++++ b/libavcodec/decode.c
+@@ -1478,6 +1478,14 @@ static int update_frame_pool(AVCodecContext *avctx, AVFrame *frame)
+         for (i = 0; i < 4; i++) {
+             av_buffer_pool_uninit(&pool->pools[i]);
+             pool->linesize[i] = linesize[i];
++
++            if (avctx->codec->caps_internal & FF_CODEC_CAP_CONTIGUOUS_BUFFERS) {
++                if (i)
++                    continue;
++
++                size[0] = tmpsize;
++            }
++
+             if (size[i]) {
+                 pool->pools[i] = av_buffer_pool_init(size[i] + 16 + STRIDE_ALIGN - 1,
+                                                      CONFIG_MEMORY_POISONING ?
+@@ -1609,6 +1617,21 @@ static int video_get_buffer(AVCodecContext *s, AVFrame *pic)
+ 
+         pic->data[i] = pic->buf[i]->data;
+     }
++
++    if (s->codec->caps_internal & FF_CODEC_CAP_CONTIGUOUS_BUFFERS) {
++        int size;
++
++        for (i = 1; i < 4; i++) {
++            pic->linesize[i] = pool->linesize[i];
++            av_buffer_unref(pic->buf[i]);
++        }
++
++        size = av_image_fill_pointers(pic->data, pic->format, pic->height,
++                                      pic->buf[0]->data, pic->linesize);
++        if (size < 0 || size > pic->buf[0]->size)
++            goto fail;
++    }
++
+     for (; i < AV_NUM_DATA_POINTERS; i++) {
+         pic->data[i] = NULL;
+         pic->linesize[i] = 0;
+diff --git a/libavcodec/internal.h b/libavcodec/internal.h
+index bb92873d7b85..96f164b1812d 100644
+--- a/libavcodec/internal.h
++++ b/libavcodec/internal.h
+@@ -68,6 +68,10 @@
+  * Codec initializes slice-based threading with a main function
+  */
+ #define FF_CODEC_CAP_SLICE_THREAD_HAS_MF    (1 << 5)
++/**
++ * The decoder requires contiguous buffers.
++ */
++#define FF_CODEC_CAP_CONTIGUOUS_BUFFERS     (1 << 31)
+ 
+ #ifdef TRACE
+ #   define ff_tlog(ctx, ...) av_log(ctx, AV_LOG_TRACE, __VA_ARGS__)
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index 26803e3ac537..522f2eef012c 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -683,14 +683,15 @@
+             mode = mpp_frame_get_mode(mppframe);
+             frame->interlaced_frame = ((mode & MPP_FRAME_FLAG_FIELD_ORDER_MASK) == MPP_FRAME_FLAG_DEINTERLACED);
+             frame->top_field_first  = ((mode & MPP_FRAME_FLAG_FIELD_ORDER_MASK) == MPP_FRAME_FLAG_TOP_FIRST);
++            
++    	    if (avctx->pix_fmt != AV_PIX_FMT_DRM_PRIME) {
++        	ret = rkmpp_convert_frame(avctx, frame, mppframe, buffer);
++        	goto out;
++   	    }           
+ 
+             mppformat = mpp_frame_get_fmt(mppframe);
+             drmformat = rkmpp_get_frameformat(mppformat);
+ 
+-            if (avctx->pix_fmt != AV_PIX_FMT_DRM_PRIME) {
+-                ret = rkmpp_convert_frame(avctx, frame, mppframe, buffer);
+-                goto out;
+-            }
+ 
+             desc = av_mallocz(sizeof(AVDRMFrameDescriptor));
+             if (!desc) {
+@@ -759,6 +760,7 @@ static const AVCodecHWConfigInternal *rkmpp_hw_configs[] = {
+         .flush          = rkmpp_flush, \
+         .priv_class     = &rkmpp_##NAME##_dec_class, \
+         .capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_AVOID_PROBING | AV_CODEC_CAP_HARDWARE, \
++        .caps_internal  = FF_CODEC_CAP_CONTIGUOUS_BUFFERS, \
+         .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_DRM_PRIME, \
+                                                          AV_PIX_FMT_YUV420P, \
+                                                          AV_PIX_FMT_NONE}, \
+
