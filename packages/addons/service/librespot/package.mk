@@ -5,7 +5,7 @@
 PKG_NAME="librespot"
 PKG_VERSION="0.1.6"
 PKG_SHA256="7506b4448d3ae0eba063cd711baebdc23444c706c87d0551d5a4cbc623e70f30"
-PKG_REV="127"
+PKG_REV="129"
 PKG_ARCH="any"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/librespot-org/librespot/"
@@ -25,6 +25,7 @@ PKG_MAINTAINER="Anton Voyl (awiouy)"
 make_target() {
   . $(get_build_dir rust)/cargo/env
   cargo build \
+    ${CARGO_Z_TARGET_APPLIES_TO_HOST} \
     --release \
     --no-default-features \
     --features "alsa-backend pulseaudio-backend with-dns-sd with-vorbis"

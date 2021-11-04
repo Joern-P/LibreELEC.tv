@@ -1,11 +1,10 @@
-
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2009-2016 Stephan Raue (stephan@openelec.tv)
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdrm"
-PKG_VERSION="2.4.104"
-PKG_SHA256="d66ad8b5c2441015ac1333e40137bb803c3bde3612ff040286fcc12158ea1bcb"
+PKG_VERSION="2.4.107"
+PKG_SHA256="c554cef03b033636a975543eab363cc19081cb464595d3da1ec129f87370f888"
 PKG_LICENSE="GPL"
 PKG_SITE="http://dri.freedesktop.org"
 PKG_URL="http://dri.freedesktop.org/libdrm/libdrm-${PKG_VERSION}.tar.xz"
@@ -27,7 +26,7 @@ PKG_MESON_OPTS_TARGET="-Dlibkms=false \
                        -Dinstall-test-programs=false \
                        -Dudev=false"
 
-listcontains "${GRAPHIC_DRIVERS}" "(iris|i915|i965)" &&
+listcontains "${GRAPHIC_DRIVERS}" "(crocus|iris|i915|i965)" &&
   PKG_MESON_OPTS_TARGET+=" -Dintel=true" || PKG_MESON_OPTS_TARGET+=" -Dintel=false"
 
 listcontains "${GRAPHIC_DRIVERS}" "(r200|r300|r600|radeonsi)" &&

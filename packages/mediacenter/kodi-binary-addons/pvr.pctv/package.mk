@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.pctv"
-PKG_VERSION="6.1.0-Matrix"
-PKG_SHA256="94b8be4988cb6d8c61f6bdf237ddabb04d77fe4900f61411f5abf918eb5a078c"
-PKG_REV="4"
+PKG_VERSION="20.1.0-Nexus"
+PKG_SHA256="498fe7bc50d344e1d12759d3a14d9e7d7985092b7a90ed7038c20fe0194f560e"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.pctv"

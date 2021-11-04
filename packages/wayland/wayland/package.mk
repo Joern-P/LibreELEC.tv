@@ -10,6 +10,7 @@ PKG_URL="https://wayland.freedesktop.org/releases/${PKG_NAME}-${PKG_VERSION}.tar
 PKG_DEPENDS_TARGET="toolchain wayland:host libffi expat libxml2"
 PKG_DEPENDS_HOST="libffi:host expat:host libxml2:host"
 PKG_LONGDESC="a display server protocol"
+PKG_TOOLCHAIN="configure"
 
 PKG_CONFIGURE_OPTS_HOST="--enable-shared \
                          --disable-static \
@@ -24,6 +25,11 @@ PKG_CONFIGURE_OPTS_TARGET="--with-sysroot=${SYSROOT_PREFIX} \
                            --enable-libraries \
                            --disable-documentation \
                            --with-gnu-ld"
+
+pre_configure_target() {
+  # wayland does not build with NDEBUG (requires assert for tests)
+  export CFLAGS=$(echo ${CFLAGS} | sed -e "s|-DNDEBUG||g")
+}
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin

@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="19.0-Matrix"
-PKG_SHA256="f7ef8a6f45862ae3b7ebfce4950d74f534be3cb4a0e67ce640963746b3f668f2"
+PKG_VERSION="aff7e96baad0cadabb378817a078166cc2031cdf"
+PKG_SHA256="f5136e1e225c134c3e58680a2c864776927d3181d564d1418e7a27913e1fe9b8"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
@@ -131,6 +131,9 @@ configure_package() {
 
   if [ "${KODI_SAMBA_SUPPORT}" = yes ]; then
     PKG_DEPENDS_TARGET+=" samba"
+    KODI_SAMBA="-DENABLE_SMBCLIENT=ON"
+  else
+    KODI_SAMBA="-DENABLE_SMBCLIENT=OFF"
   fi
 
   if [ "${KODI_WEBSERVER_SUPPORT}" = yes ]; then
@@ -175,7 +178,11 @@ configure_package() {
       KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
       CFLAGS+=" -DEGL_NO_X11"
       CXXFLAGS+=" -DEGL_NO_X11"
-      PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm.xml"
+      if [ "${PROJECT}" = "Generic" ]; then
+        PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm-generic.xml"
+      else
+        PKG_APPLIANCE_XML="${PKG_DIR}/config/appliance-gbm.xml"
+      fi
     fi
   fi
 

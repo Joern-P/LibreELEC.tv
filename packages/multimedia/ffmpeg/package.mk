@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="4.3.1-Matrix-Beta1"
-PKG_SHA256="0b209a9b15f2335e516bf2ad1249fffc6b55425145f17c9674dc430abf6a67ad"
+PKG_VERSION="4.4-N-Alpha1"
+PKG_SHA256="eb396f46ef7c5ac01b67818d0f2c0516fd4ab32aa9065a9ffa71eebede67ff20"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://github.com/xbmc/FFmpeg/archive/${PKG_VERSION}.tar.gz"
@@ -62,6 +62,12 @@ if [ "${VAAPI_SUPPORT}" = "yes" ]; then
   PKG_FFMPEG_VAAPI="--enable-vaapi"
 else
   PKG_FFMPEG_VAAPI="--disable-vaapi"
+fi
+
+if [ "${DISPLAYSERVER}" != "x11" ]; then
+  PKG_DEPENDS_TARGET+=" libdrm"
+  PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
+  PKG_FFMPEG_VAAPI=" --enable-libdrm"
 fi
 
 if [ "${VDPAU_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" = "x11" ]; then
