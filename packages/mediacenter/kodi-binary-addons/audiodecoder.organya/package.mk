@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="audiodecoder.organya"
-PKG_VERSION="20.0.0-Nexus"
-PKG_SHA256="8bdddf6e210c1b1a06170a66b57509a5a1fc6514f727c3d8ca436b4c0f95c22c"
+PKG_VERSION="20.2.0-Nexus"
+PKG_SHA256="df5db2c94161c7c578d672a8cc36bdbde6c345142c9bb5212759ad0dc30fd59d"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"

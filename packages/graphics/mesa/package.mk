@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="21.2.5"
-PKG_SHA256="8e49585fb760d973723dab6435d0c86f7849b8305b1e6d99f475138d896bacbb"
+PKG_VERSION="21.3.4"
+PKG_SHA256="77104fd4a93bce69da3b0982f8ee88ba7c4fb98cfc491a669894339cdcd4a67d"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -14,7 +14,7 @@ PKG_TOOLCHAIN="meson"
 
 get_graphicdrivers
 
-PKG_MESON_OPTS_TARGET="-Ddri-drivers=${DRI_DRIVERS// /,} \
+PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
                        -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-xvmc=disabled \
@@ -38,7 +38,7 @@ if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET+=" xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr libglvnd"
   export X11_INCLUDES=
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 -Ddri3=enabled -Dglx=dri -Dglvnd=true"
-elif [ "${DISPLAYSERVER}" = "weston" ]; then
+elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland -Ddri3=disabled -Dglx=disabled -Dglvnd=false"
 else

@@ -3,12 +3,12 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="aff7e96baad0cadabb378817a078166cc2031cdf"
-PKG_SHA256="f5136e1e225c134c3e58680a2c864776927d3181d564d1418e7a27913e1fe9b8"
+PKG_VERSION="e976cd0e3ad9ed0e4ff80e2f97e2fce1922717be"
+PKG_SHA256="a2ebdddcba17906429252355018403b1ab668c943214e05575d7c9b967ee57fe"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid libdvdnav libhdhomerun libfmt lirc libfstrcmp flatbuffers:host flatbuffers libudfread spdlog"
+PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre swig:host libass curl fontconfig fribidi tinyxml libjpeg-turbo freetype libcdio taglib libxml2 libxslt rapidjson sqlite ffmpeg crossguid libdvdnav libfmt lirc libfstrcmp flatbuffers:host flatbuffers libudfread spdlog"
 PKG_LONGDESC="A free and open source cross-platform media player."
 PKG_BUILD_FLAGS="+speed"
 
@@ -28,14 +28,16 @@ configure_package() {
 
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_DEPENDS_TARGET+=" libX11 libXext libdrm libXrandr"
-    KODI_XORG="-DCORE_PLATFORM_NAME=x11 -DAPP_RENDER_SYSTEM=gl"
-  elif [ "${DISPLAYSERVER}" = "weston" ]; then
+    KODI_PLATFORM="-DCORE_PLATFORM_NAME=x11 \
+                   -DAPP_RENDER_SYSTEM=gl"
+  elif [ "${DISPLAYSERVER}" = "wl" ]; then
     PKG_DEPENDS_TARGET+=" wayland waylandpp"
-    CFLAGS+=" -DMESA_EGL_NO_X11_HEADERS"
-    CXXFLAGS+=" -DMESA_EGL_NO_X11_HEADERS"
-    KODI_XORG="-DCORE_PLATFORM_NAME=wayland \
-               -DAPP_RENDER_SYSTEM=gles \
-               -DWAYLANDPP_PROTOCOLS_DIR=${SYSROOT_PREFIX}/usr/share/waylandpp/protocols"
+    CFLAGS+=" -DEGL_NO_X11"
+    CXXFLAGS+=" -DEGL_NO_X11"
+    KODI_PLATFORM="-DCORE_PLATFORM_NAME=wayland \
+                   -DAPP_RENDER_SYSTEM=gles \
+                   -DWAYLANDPP_SCANNER=${TOOLCHAIN}/bin/wayland-scanner++ \
+                   -DWAYLANDPP_PROTOCOLS_DIR=${SYSROOT_PREFIX}/usr/share/waylandpp/protocols"
   fi
 
   if [ ! "${OPENGL}" = "no" ]; then
@@ -58,6 +60,10 @@ configure_package() {
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=ON"
   else
     KODI_PULSEAUDIO="-DENABLE_PULSEAUDIO=OFF"
+  fi
+
+  if [ "$ESPEAK_SUPPORT" = yes ]; then
+    PKG_DEPENDS_TARGET+=" espeak-ng"
   fi
 
   if [ "${CEC_SUPPORT}" = yes ]; then
@@ -172,7 +178,7 @@ configure_package() {
     KODI_ARCH="-DWITH_ARCH=${TARGET_ARCH}"
   fi
 
-  if [ ! "${KODIPLAYER_DRIVER}" = default ]; then
+  if [ ! "${KODIPLAYER_DRIVER}" = "default" -a "${DISPLAYSERVER}" = "no" ]; then
     PKG_DEPENDS_TARGET+=" ${KODIPLAYER_DRIVER} libinput libxkbcommon"
     if [ "${OPENGLES_SUPPORT}" = yes -a "${KODIPLAYER_DRIVER}" = "${OPENGLES}" ]; then
       KODI_PLAYER="-DCORE_PLATFORM_NAME=gbm -DAPP_RENDER_SYSTEM=gles"
@@ -221,7 +227,7 @@ configure_package() {
                          ${KODI_VDPAU} \
                          ${KODI_VAAPI} \
                          ${KODI_CEC} \
-                         ${KODI_XORG} \
+                         ${KODI_PLATFORM} \
                          ${KODI_SAMBA} \
                          ${KODI_NFS} \
                          ${KODI_LIBDVD} \
@@ -271,8 +277,8 @@ post_makeinstall_target() {
     # set default display environment
     if [ "${DISPLAYSERVER}" = "x11" ]; then
       echo "DISPLAY=:0.0" >> ${INSTALL}/usr/lib/kodi/kodi.conf
-    elif [ "${DISPLAYSERVER}" = "weston" ]; then
-      echo "WAYLAND_DISPLAY=wayland-0" >> ${INSTALL}/usr/lib/kodi/kodi.conf
+    elif [ "${DISPLAYSERVER}" = "wl" ]; then
+      echo "WAYLAND_DISPLAY=wayland-1" >> ${INSTALL}/usr/lib/kodi/kodi.conf
     fi
 
     # nvidia: Enable USLEEP to reduce CPU load while rendering

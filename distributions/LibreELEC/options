@@ -48,7 +48,7 @@
 # for a list of additional drivers see packages/linux-drivers
 # Space separated list is supported,
 # e.g. ADDITIONAL_DRIVERS="DRIVER1 DRIVER2"
-  ADDITIONAL_DRIVERS="RTL8192CU RTL8192DU RTL8192EU RTL8188EU RTL8812AU"
+  ADDITIONAL_DRIVERS="RTL8192CU RTL8192DU RTL8192EU RTL8812AU"
 
 # Default size of system partition, in MB, eg. 512
   SYSTEM_SIZE=512
@@ -86,6 +86,9 @@
 
 # build and install PulseAudio support (yes / no)
   PULSEAUDIO_SUPPORT="yes"
+
+# build and install eSpeak-NG support (yes / no)
+  ESPEAK_SUPPORT="no"
 
 # build and install with BluRay support (yes / no)
   KODI_BLURAY_SUPPORT="yes"
@@ -193,9 +196,6 @@
 # This adds support for parted and mkfs.ext3/4 to initramfs for OEM usage
   INITRAMFS_PARTED_SUPPORT="no"
 
-# build and install NTFS-3G fuse support (yes / no)
-  NTFS3G="yes"
-
 # build and install hfs filesystem utilities (yes / no)
   HFSTOOLS="yes"
 
@@ -207,9 +207,6 @@
 
 # build with installer (yes / no)
   INSTALLER_SUPPORT="yes"
-
-# Windowmanager to use (fluxbox / none)
-  WINDOWMANAGER="fluxbox"
 
 # build and install remote support (yes / no)
   REMOTE_SUPPORT="yes"
