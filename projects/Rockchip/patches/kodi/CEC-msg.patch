@@ -1,0 +1,163 @@
+diff -uNr a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+--- a/addons/resource.language.en_gb/resources/strings.po	2021-10-24 12:09:58.000000000 +0200
++++ b/addons/resource.language.en_gb/resources/strings.po	2021-12-16 14:13:35.320205883 +0100
+@@ -6170,7 +6170,12 @@
+ msgid "Failed for {0:s}"
+ msgstr ""
+ 
+-#empty strings from id 13037 to 13049
++#: system/settings/settings.xml
++msgctxt "#13037"
++msgid "Turn Off TV CEC"
++msgstr ""
++
++#empty strings from id 13038 to 13049
+ 
+ #: xbmc/powermanagement/PowerManager.cpp
+ msgctxt "#13050"
+@@ -19837,7 +19842,11 @@
+ msgid "In a multi-screen configuration, the screens not displaying this application are blacked out."
+ msgstr ""
+ 
+-#empty string with id 36356
++#. Description of setting with label #13037 "Turn off TV CEC"
++#: system/settings/settings.xml
++msgctxt "#36356"
++msgid "Automatically turn off TV CEC when DPMS is activated"
++msgstr ""
+ 
+ #. Description of setting with label #214 "Video calibration..."
+ #: system/settings/settings.xml
+diff -uNr a/system/settings/settings.xml b/system/settings/settings.xml
+--- a/system/settings/settings.xml	2021-10-24 12:09:58.000000000 +0200
++++ b/system/settings/settings.xml	2021-12-16 14:16:21.435649426 +0100
+@@ -1607,6 +1607,14 @@
+             <formatlabel>14044</formatlabel>
+           </control>
+         </setting>
++        <setting id="powermanagement.cecstandby" type="boolean" label="13037" help="36356">
++          <level>2</level>
++          <default>false</default>
++          <constraints>
++            <options>displaysoff</options>
++          </constraints>
++          <control type="toggle" />
++        </setting>        
+         <setting id="epg.preventupdateswhileplayingtv" type="boolean" label="19230" help="36222">
+           <level>2</level>
+           <default>false</default>
+diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
+--- a/xbmc/Application.cpp	2021-12-16 13:14:55.618887000 +0100
++++ b/xbmc/Application.cpp	2021-12-16 14:22:44.574210494 +0100
+@@ -2380,6 +2380,10 @@
+     }
+   }
+   break;
++  
++  case TMSG_TVISSTANDBY:
++    m_cecIsActive = true;
++    break;  
+ 
+   default:
+     CLog::Log(LOGERROR, "%s: Unhandled threadmessage sent, %u", __FUNCTION__, msg);
+@@ -3495,6 +3499,7 @@
+ {
+   // reset our timers
+   m_shutdownTimer.StartZero();
++  m_cecIsActive = false;
+ 
+   // screen saver timer is reset only if we're not already in screensaver or
+   // DPMS mode
+@@ -3702,10 +3707,13 @@
+   // When inhibit screensaver is enabled prevent screensaver from kicking in
+   if (m_bInhibitScreenSaver)
+     haveIdleActivity = true;
+-
++  bool havePauseIdleActivity = false; 
++  
+   // Are we playing a video and it is not paused?
+   if (m_appPlayer.IsPlayingVideo() && !m_appPlayer.IsPaused())
+     haveIdleActivity = true;
++  else if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
++    havePauseIdleActivity = true;    
+ 
+   // Are we playing some music in fullscreen vis?
+   else if (m_appPlayer.IsPlayingAudio() &&
+@@ -3757,8 +3765,17 @@
+   if (maybeDPMS
+       && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) * 60)
+   {
+-    ToggleDPMS(false);
+-    WakeUpScreenSaver();
++    if (!m_cecIsActive && CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_POWERMANAGEMENT_CECSTANDBY))
++    {
++       CApplicationMessenger::GetInstance().PostMsg(TMSG_CECSTANDBY);
++       m_cecIsActive = true;
++    }
++    
++    if (!havePauseIdleActivity)
++    {
++       ToggleDPMS(false);
++       WakeUpScreenSaver();
++    }
+   }
+   else if (maybeScreensaver
+            && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SCREENSAVER_TIME) * 60)
+@@ -3772,6 +3789,12 @@
+ // the type of screensaver displayed
+ void CApplication::ActivateScreenSaver(bool forceType /*= false */)
+ {
++  //never start the Screensaver when DPMS is active
++  if (m_dpmsIsActive)
++  {
++    return;
++  }
++  
+   const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+   if (m_appPlayer.IsPlayingAudio() && settings->GetBool(CSettings::SETTING_SCREENSAVER_USEMUSICVISINSTEAD) &&
+       !settings->GetString(CSettings::SETTING_MUSICPLAYER_VISUALISATION).empty())
+diff -uNr a/xbmc/Application.h b/xbmc/Application.h
+--- a/xbmc/Application.h	2021-12-16 13:14:55.618887000 +0100
++++ b/xbmc/Application.h	2021-12-16 14:23:27.990038199 +0100
+@@ -434,6 +434,7 @@
+   bool m_bInhibitScreenSaver = false;
+ 
+   bool m_dpmsIsActive = false;
++  bool m_cecIsActive = false;
+   bool m_dpmsIsManual = false;
+ 
+   CFileItemPtr m_itemCurrentFile;
+diff -uNr a/xbmc/messaging/ApplicationMessenger.h b/xbmc/messaging/ApplicationMessenger.h
+--- a/xbmc/messaging/ApplicationMessenger.h	2021-10-24 12:09:58.000000000 +0200
++++ b/xbmc/messaging/ApplicationMessenger.h	2021-12-16 14:24:55.833685544 +0100
+@@ -57,7 +57,7 @@
+ #define TMSG_RESTARTAPP                   TMSG_MASK_APPLICATION + 7
+ #define TMSG_ACTIVATESCREENSAVER          TMSG_MASK_APPLICATION + 8
+ #define TMSG_NETWORKMESSAGE               TMSG_MASK_APPLICATION + 9
+-// unused: TMSG_MASK_APPLICATION + 10
++#define TMSG_TVISSTANDBY                  TMSG_MASK_APPLICATION + 10
+ #define TMSG_VOLUME_SHOW                  TMSG_MASK_APPLICATION + 11
+ #define TMSG_DISPLAY_SETUP                TMSG_MASK_APPLICATION + 12
+ #define TMSG_DISPLAY_DESTROY              TMSG_MASK_APPLICATION + 13
+diff -uNr a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+--- a/xbmc/settings/Settings.cpp	2021-10-24 12:09:58.000000000 +0200
++++ b/xbmc/settings/Settings.cpp	2021-12-16 14:26:29.145305812 +0100
+@@ -395,6 +395,7 @@
+ constexpr const char* CSettings::SETTING_NETWORK_HTTPPROXYPASSWORD;
+ constexpr const char* CSettings::SETTING_NETWORK_BANDWIDTH;
+ constexpr const char* CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF;
++constexpr const char* CSettings::SETTING_POWERMANAGEMENT_CECSTANDBY;
+ constexpr const char* CSettings::SETTING_POWERMANAGEMENT_SHUTDOWNTIME;
+ constexpr const char* CSettings::SETTING_POWERMANAGEMENT_SHUTDOWNSTATE;
+ constexpr const char* CSettings::SETTING_POWERMANAGEMENT_WAKEONACCESS;
+diff -uNr a/xbmc/settings/Settings.h b/xbmc/settings/Settings.h
+--- a/xbmc/settings/Settings.h	2021-10-24 12:09:58.000000000 +0200
++++ b/xbmc/settings/Settings.h	2021-12-16 14:27:47.540983331 +0100
+@@ -395,6 +395,7 @@
+   static constexpr auto SETTING_NETWORK_HTTPPROXYPASSWORD = "network.httpproxypassword";
+   static constexpr auto SETTING_NETWORK_BANDWIDTH = "network.bandwidth";
+   static constexpr auto SETTING_POWERMANAGEMENT_DISPLAYSOFF = "powermanagement.displaysoff";
++  static constexpr auto SETTING_POWERMANAGEMENT_CECSTANDBY = "powermanagement.cecstandby";
+   static constexpr auto SETTING_POWERMANAGEMENT_SHUTDOWNTIME = "powermanagement.shutdowntime";
+   static constexpr auto SETTING_POWERMANAGEMENT_SHUTDOWNSTATE = "powermanagement.shutdownstate";
+   static constexpr auto SETTING_POWERMANAGEMENT_WAKEONACCESS = "powermanagement.wakeonaccess";
