@@ -31,7 +31,7 @@ diff -uNr a/addons/resource.language.en_gb/resources/strings.po b/addons/resourc
 diff -uNr a/system/settings/settings.xml b/system/settings/settings.xml
 --- a/system/settings/settings.xml	2021-10-24 12:09:58.000000000 +0200
 +++ b/system/settings/settings.xml	2021-12-16 14:16:21.435649426 +0100
-@@ -1607,6 +1607,14 @@
+@@ -3283,6 +3283,14 @@
              <formatlabel>14044</formatlabel>
            </control>
          </setting>
@@ -42,10 +42,10 @@ diff -uNr a/system/settings/settings.xml b/system/settings/settings.xml
 +            <options>displaysoff</options>
 +          </constraints>
 +          <control type="toggle" />
-+        </setting>        
-         <setting id="epg.preventupdateswhileplayingtv" type="boolean" label="19230" help="36222">
++        </setting>         
+         <setting id="powermanagement.shutdowntime" type="integer" label="357" help="36389">
            <level>2</level>
-           <default>false</default>
+           <default>0</default>
 diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
 --- a/xbmc/Application.cpp	2021-12-16 13:14:55.618887000 +0100
 +++ b/xbmc/Application.cpp	2021-12-16 14:22:44.574210494 +0100
