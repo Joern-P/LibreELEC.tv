@@ -3,13 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-<<<<<<< HEAD
 PKG_VERSION="22.0.0"
 PKG_SHA256="e6c41928b5b9917485bd67cec22d15e62cad7a358bf4c711a647979987601250"
-=======
-PKG_VERSION="22.0.0-rc3"
-PKG_SHA256="a26da46025d1a6a90de913239422d12e78dd1744c069a9717c04daf1716783d7"
->>>>>>> 0c8a0fa562 (mesa: update to 22.0.0-rc3)
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -68,6 +63,10 @@ if [ "${VAAPI_SUPPORT}" = "yes" ] && listcontains "${GRAPHIC_DRIVERS}" "(r600|ra
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=enabled"
 else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=disabled"
+fi
+
+if listcontains "${GRAPHIC_DRIVERS}" "crocus"; then
+  PKG_MESON_OPTS_TARGET+=" -Dprefer-crocus=true"
 fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "vmware"; then
