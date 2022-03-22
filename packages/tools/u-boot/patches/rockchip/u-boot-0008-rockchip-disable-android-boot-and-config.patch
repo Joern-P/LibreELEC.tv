@@ -21,7 +21,7 @@ index 8a20a3a31e..9441c49477 100644
  	char env_preboot[256] = {0};
  
 +#ifdef CONFIG_RKIMG_BOOTLOADER
- 	devtype_num_envset();
+ 	boot_devtype_init();
  	rockchip_dnl_mode_check();
 -#ifdef CONFIG_RKIMG_BOOTLOADER
  	boot_mode = rockchip_get_boot_mode();
@@ -59,10 +59,10 @@ diff --git a/configs/evb-rk3399_defconfig b/configs/evb-rk3399_defconfig
 index 305f0a405d..96aa34b2c0 100644
 --- a/configs/evb-rk3399_defconfig
 +++ b/configs/evb-rk3399_defconfig
-@@ -5,16 +5,14 @@ CONFIG_SPL_LIBGENERIC_SUPPORT=y
+@@ -5,16 +5,14 @@
  CONFIG_SYS_MALLOC_F_LEN=0x4000
  CONFIG_ROCKCHIP_RK3399=y
- CONFIG_ROCKCHIP_SPL_RESERVE_IRAM=0x4000
+ CONFIG_ROCKCHIP_SPL_RESERVE_IRAM=0x50000
 -CONFIG_RKIMG_BOOTLOADER=y
 -# CONFIG_USING_KERNEL_DTB is not set
  CONFIG_SPL_STACK_R_ADDR=0x80000
@@ -75,9 +75,9 @@ index 305f0a405d..96aa34b2c0 100644
  # CONFIG_DISPLAY_CPUINFO is not set
 -CONFIG_ANDROID_BOOTLOADER=y
  CONFIG_SPL_STACK_R=y
- CONFIG_SPL_STACK_R_MALLOC_SIMPLE_LEN=0x4000
+ CONFIG_SPL_STACK_R_MALLOC_SIMPLE_LEN=0x10000
  CONFIG_SPL_ATF=y
-@@ -26,18 +24,13 @@ CONFIG_FASTBOOT_FLASH_MMC_DEV=0
+@@ -26,18 +24,13 @@
  CONFIG_CMD_BOOTZ=y
  # CONFIG_CMD_IMLS is not set
  CONFIG_CMD_GPT=y
@@ -96,7 +96,7 @@ index 305f0a405d..96aa34b2c0 100644
  CONFIG_OF_SPL_REMOVE_PROPS="pinctrl-0 pinctrl-names clock-names interrupt-parent assigned-clocks assigned-clock-rates assigned-clock-parents"
  CONFIG_NET_RANDOM_ETHADDR=y
  CONFIG_REGMAP=y
-@@ -94,13 +87,5 @@ CONFIG_USB_ETHER_ASIX88179=y
+@@ -98,12 +91,6 @@
  CONFIG_USB_ETHER_MCS7830=y
  CONFIG_USB_ETHER_RTL8152=y
  CONFIG_USB_ETHER_SMSC95XX=y
@@ -105,10 +105,9 @@ index 305f0a405d..96aa34b2c0 100644
 -CONFIG_DRM_ROCKCHIP=y
 -CONFIG_DRM_ROCKCHIP_DW_MIPI_DSI=y
 -CONFIG_DRM_ROCKCHIP_ANALOGIX_DP=y
--CONFIG_DRM_ROCKCHIP_LVDS=y
--CONFIG_DRM_ROCKCHIP_RGB=y
 -CONFIG_LCD=y
  CONFIG_USE_TINY_PRINTF=y
+ CONFIG_SPL_TINY_MEMSET=y
  CONFIG_ERRNO_STR=y
 diff --git a/configs/miqi-rk3288_defconfig b/configs/miqi-rk3288_defconfig
 index ffbe701cfd..0aa4c903e4 100644
