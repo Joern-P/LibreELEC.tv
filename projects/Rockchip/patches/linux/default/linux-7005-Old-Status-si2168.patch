@@ -329,7 +329,7 @@ diff -uNr a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
  		timeout = jiffies + msecs_to_jiffies(TIMEOUT);
  		while (!time_after(jiffies, timeout)) {
  			ret = i2c_master_recv(client, cmd->args, cmd->rlen);
-@@ -422,23 +422,28 @@
+@@ -478,13 +478,9 @@
  
  	switch (c->delivery_system) {
  	case SYS_ATSC:
@@ -345,45 +345,30 @@ diff -uNr a/drivers/media/tuners/si2157.c b/drivers/media/tuners/si2157.c
 +		break;
  	case SYS_DVBT:
  	case SYS_DVBT2: /* it seems DVB-T and DVB-T2 both are 0x20 here */
--			delivery_system = 0x20;
--			break;
-+		delivery_system = 0x20;
-+		break;
- 	case SYS_DVBC_ANNEX_A:
--			delivery_system = 0x30;
--			break;
-+		delivery_system = 0x30;
-+		break;
+ 			delivery_system = 0x20;
+@@ -493,6 +489,9 @@
+ 	case SYS_DVBC_ANNEX_C:
+ 			delivery_system = 0x30;
+ 			break;
 +	case SYS_DVBC_ANNEX_B:
-+		delivery_system = 0x10;
-+		break;
-+	case SYS_ISDBT:
-+		delivery_system = 0x40;
-+		break;
-+	case SYS_DTMB:
-+		delivery_system = 0x60;
-+		break;
- 	default:
--			ret = -EINVAL;
--			goto err;
-+		ret = -EINVAL;
-+		goto err;
- 	}
- 
- 	memcpy(cmd.args, "\x14\x00\x03\x07\x00\x00", 6);
++			delivery_system = 0x10;
++			break;			
+ 	case SYS_ISDBT:
+ 			delivery_system = 0x40;
+ 			break;
 @@ -838,7 +843,21 @@
  	INIT_DELAYED_WORK(&dev->stat_work, si2157_stat_work);
  
  	/* check if the tuner is there */
 -	cmd.wlen = 0;
 +	/* wake tuner */
-+	switch (dev->chiptype)
++	switch (dev->part_id )
 +	{
-+	case SI2157_CHIPTYPE_SI2141:
++	case SI2141:
 +		memcpy(cmd.args, "\xc0\x08\x01\x02\x00\x08\x01", 7);
 +		cmd.wlen = 7;
 +		break;
-+	case SI2157_CHIPTYPE_SI2146:
++	case SI2146:
 +		memcpy(cmd.args, "\xc0\x05\x01\x00\x00\x0b\x00\x00\x01", 9);
 +		cmd.wlen = 9;
 +		break;
