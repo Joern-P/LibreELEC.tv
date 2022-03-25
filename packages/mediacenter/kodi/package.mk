@@ -241,6 +241,10 @@ configure_package() {
                          ${KODI_PLAYER}"
 }
 
+post_unpack(){
+    cp $PKG_DIR/files/* $PKG_BUILD/addons/skin.estuary/media/
+}
+
 pre_configure_target() {
   export LIBS="${LIBS} -lncurses"
 }
