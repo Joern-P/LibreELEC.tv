@@ -91,7 +91,7 @@ diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
 -    WakeUpScreenSaver();
 +    if (!m_cecIsActive && CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_POWERMANAGEMENT_CECSTANDBY))
 +    {
-+       CApplicationMessenger::GetInstance().PostMsg(TMSG_CECSTANDBY);
++       CServiceBroker::GetAppMessenger()->PostMsg(TMSG_CECSTANDBY);
 +       m_cecIsActive = true;
 +    }
 +    

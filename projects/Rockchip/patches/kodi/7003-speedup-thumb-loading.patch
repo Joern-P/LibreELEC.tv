@@ -11,24 +11,26 @@ diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
 index 3caf118b0f..723bfed38f 100644
 --- a/xbmc/video/VideoThumbLoader.cpp
 +++ b/xbmc/video/VideoThumbLoader.cpp
-@@ -19,6 +19,8 @@
+@@ -18,6 +18,8 @@
+ #include "filesystem/Directory.h"
  #include "filesystem/DirectoryCache.h"
  #include "filesystem/StackDirectory.h"
- #include "guilib/GUIComponent.h"
 +#include "filesystem/File.h"
 +#include "filesystem/CurlFile.h"
+ #include "guilib/GUIComponent.h"
  #include "guilib/GUIWindowManager.h"
  #include "guilib/StereoscopicsManager.h"
- #include "music/MusicDatabase.h"
-@@ -442,10 +444,28 @@ bool CVideoThumbLoader::LoadItemLookup(CFileItem* pItem)
+@@ -442,11 +444,28 @@
    // We can only extract flags/thumbs for file-like items
    if (!pItem->m_bIsFolder && pItem->IsVideo())
    {
 -    // An auto-generated thumb may have been cached on a different device - check we have it here
-     std::string url = pItem->GetArt("thumb");
--    if (StringUtils::StartsWith(url, "image://video@") && !CTextureCache::GetInstance().HasCachedImage(url))
+-    std::string url = pItem->GetArt("thumb");
+-    if (StringUtils::StartsWith(url, "image://video@") &&
+-        !CServiceBroker::GetTextureCache()->HasCachedImage(url))
 -      pItem->SetArt("thumb", "");
-+    if (!CTextureCache::GetInstance().HasCachedImage(url))
++    std::string url = pItem->GetArt("thumb");
++    if (!CServiceBroker::GetTextureCache()->HasCachedImage(url))
 +    {
 +      // An auto-generated thumb may have been cached on a different device - check we have it here
 +      if (StringUtils::StartsWith(url, "image://video@"))
