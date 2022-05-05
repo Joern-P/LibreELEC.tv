@@ -1912,22 +1912,6 @@ index 345cebb07ae79..0b06b1847450f 100644
  		mutex_unlock(&tty->ipw_tty_mutex);
  		return 0;
  	}
-diff --git a/drivers/tty/pty.c b/drivers/tty/pty.c
-index c8a2e5b0eff76..8ee146b14aae8 100644
---- a/drivers/tty/pty.c
-+++ b/drivers/tty/pty.c
-@@ -115,10 +115,10 @@ static int pty_write(struct tty_struct *tty, const unsigned char *buf, int c)
- 		spin_lock_irqsave(&to->port->lock, flags);
- 		/* Stuff the data into the input queue of the other end */
- 		c = tty_insert_flip_string(to->port, buf, c);
-+		spin_unlock_irqrestore(&to->port->lock, flags);
- 		/* And shovel */
- 		if (c)
- 			tty_flip_buffer_push(to->port);
--		spin_unlock_irqrestore(&to->port->lock, flags);
- 	}
- 	return c;
- }
 diff --git a/drivers/tty/serial/Kconfig b/drivers/tty/serial/Kconfig
 index f38beb28e7ae6..5c3c86d4fe716 100644
 --- a/drivers/tty/serial/Kconfig

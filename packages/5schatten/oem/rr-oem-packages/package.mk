@@ -133,7 +133,7 @@ OEM_TOOLS_GENERIC=" \
 ################################################################################
 
 # Applications
-OEM_APPLICATIONS_ROCKCHIP="gstreamer-rockchip"
+OEM_APPLICATIONS_ROCKCHIP="gstreamer-rockchip moonlight-qt"
 
 # Standalone emulators
 OEM_EMULATORS_ROCKCHIP=""

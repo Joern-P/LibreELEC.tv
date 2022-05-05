@@ -24,4 +24,8 @@ makeinstall_target() {
     echo "### Adding Retroarch to Estuary menu ###"
     patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.03-retroarch-menu.patch
 
+  # Add moonlight shortcut to menu 
+    echo "### Adding Moonlight to Estuary menu ###"
+    patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.05-moonlight-qt-menu.patch
+
 }

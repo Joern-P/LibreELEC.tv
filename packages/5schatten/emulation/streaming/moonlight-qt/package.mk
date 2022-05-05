@@ -2,19 +2,26 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="moonlight-qt"
-PKG_VERSION="12526bfca489cd19a6a3d96216d9d1000b11d268" # v1.1.1
-PKG_LICENSE="GPLv3"
+PKG_VERSION="6a0cf4bfd31e86d38f038e297ed9a765f3662d20" # v4.0.0+
+PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/moonlight-stream/moonlight-qt"
 PKG_URL="https://github.com/moonlight-stream/moonlight-qt.git"
-PKG_DEPENDS_TARGET="toolchain linux openssl alsa-lib pulseaudio ffmpeg SDL2-system SDL2_ttf qt-everywhere"
+PKG_DEPENDS_TARGET="toolchain linux openssl alsa-lib pulseaudio ffmpeg sdl2 sdl2_ttf opus-system qt5"
 PKG_LONGDESC="Moonlight is an open source implementation of NVIDIA's GameStream."
 GET_HANDLER_SUPPORT="git"
+PKG_GIT_CLONE_BRANCH="master"
+PKG_GIT_CLONE_SINGLE="yes"
 PKG_TOOLCHAIN="make"
 
 configure_package() {
   # Displayserver Support
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_DEPENDS_TARGET+=" xorg-server unclutter-xfixes"
+  fi
+
+  # Displayserver Support
+  if [ "${DISPLAYSERVER}" = "wl" ]; then
+    PKG_DEPENDS_TARGET+=" wayland"
   fi
 }
 
@@ -24,7 +31,7 @@ configure_target() {
   cd .${TARGET_NAME}
 
   # Generate qmake config
-  qmake ${PKG_BUILD}/moonlight-qt.pro PREFIX=${INSTALL}/usr
+  qmake "CONFIG+=embedded" ${PKG_BUILD}/moonlight-qt.pro PREFIX=${INSTALL}/usr
 }
 
 post_makeinstall_target() {
@@ -32,7 +39,7 @@ post_makeinstall_target() {
   cp -rfv ${PKG_DIR}/scripts/*    ${INSTALL}/usr/bin/
   safe_remove ${INSTALL}/usr/share
 
- if [ ${DISPLAYSERVER} = "no" ]; then
+  if [ ${DISPLAYSERVER} = "no" ]; then
    sed -e "s/set_QT_environment_vars.*/set_QT_environment_vars cursor/" -i ${INSTALL}/usr/bin/moonlight-qt.start
  fi
 }
