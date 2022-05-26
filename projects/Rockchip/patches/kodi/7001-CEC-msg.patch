@@ -60,32 +60,27 @@ diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
  
    default:
      CLog::Log(LOGERROR, "%s: Unhandled threadmessage sent, %u", __FUNCTION__, msg);
-@@ -3495,6 +3499,7 @@
- {
-   // reset our timers
-   m_shutdownTimer.StartZero();
-+  m_cecIsActive = false;
- 
-   // screen saver timer is reset only if we're not already in screensaver or
-   // DPMS mode
-@@ -3702,10 +3707,13 @@
+diff -uNr a/xbmc/application/ApplicationPowerHandling.cpp b/xbmc/application/ApplicationPowerHandling.cpp
+--- a/xbmc/application/ApplicationPowerHandling.cpp	2022-05-16 05:41:47.000000000 +0200
++++ b/xbmc/application/ApplicationPowerHandling.cpp	2022-05-24 09:09:17.690199437 +0200
+@@ -287,10 +287,14 @@
    // When inhibit screensaver is enabled prevent screensaver from kicking in
    if (m_bInhibitScreenSaver)
      haveIdleActivity = true;
--
-+  bool havePauseIdleActivity = false; 
-+  
++    
++  bool havePauseIdleActivity = false;    
+ 
    // Are we playing a video and it is not paused?
    if (m_appPlayer.IsPlayingVideo() && !m_appPlayer.IsPaused())
      haveIdleActivity = true;
 +  else if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
-+    havePauseIdleActivity = true;    
++    havePauseIdleActivity = true;     
  
    // Are we playing some music in fullscreen vis?
    else if (m_appPlayer.IsPlayingAudio() &&
-@@ -3757,8 +3765,17 @@
-   if (maybeDPMS
-       && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) * 60)
+@@ -349,8 +353,17 @@
+                                  CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) *
+                                  60)
    {
 -    ToggleDPMS(false);
 -    WakeUpScreenSaver();
@@ -101,32 +96,35 @@ diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
 +       WakeUpScreenSaver();
 +    }
    }
-   else if (maybeScreensaver
-            && elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SCREENSAVER_TIME) * 60)
-@@ -3772,6 +3789,12 @@
- // the type of screensaver displayed
- void CApplication::ActivateScreenSaver(bool forceType /*= false */)
+   else if (maybeScreensaver &&
+            elapsed > CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(
+@@ -471,6 +484,7 @@
  {
-+  //never start the Screensaver when DPMS is active
-+  if (m_dpmsIsActive)
-+  {
-+    return;
-+  }
-+  
-   const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
-   if (m_appPlayer.IsPlayingAudio() && settings->GetBool(CSettings::SETTING_SCREENSAVER_USEMUSICVISINSTEAD) &&
-       !settings->GetString(CSettings::SETTING_MUSICPLAYER_VISUALISATION).empty())
-diff -uNr a/xbmc/Application.h b/xbmc/Application.h
---- a/xbmc/Application.h	2021-12-16 13:14:55.618887000 +0100
-+++ b/xbmc/Application.h	2021-12-16 14:23:27.990038199 +0100
-@@ -434,6 +434,7 @@
-   bool m_bInhibitScreenSaver = false;
+   // reset system shutdown timer
+   m_shutdownTimer.StartZero();
++  m_cecIsActive = false;
+ 
+   // delete custom shutdown timer
+   if (g_alarmClock.HasAlarm("shutdowntimer"))
+diff -uNr a/xbmc/application/ApplicationPowerHandling.h b/xbmc/application/ApplicationPowerHandling.h
+--- a/xbmc/application/ApplicationPowerHandling.h	2022-05-16 05:41:47.000000000 +0200
++++ b/xbmc/application/ApplicationPowerHandling.h	2022-05-24 09:01:49.688891421 +0200
+@@ -51,6 +51,7 @@
+   void StopShutdownTimer();
+ 
+   bool IsDPMSActive() const { return m_dpmsIsActive; }
++  bool IsCECActive() const { return m_cecIsActive; }
+   bool ToggleDPMS(bool manual);
+ 
+   // Wakes up from the screensaver and / or DPMS. Returns true if woken up.
+@@ -86,6 +87,7 @@
+   std::string m_screensaverIdInUse;
  
    bool m_dpmsIsActive = false;
 +  bool m_cecIsActive = false;
    bool m_dpmsIsManual = false;
  
-   CFileItemPtr m_itemCurrentFile;
+   bool m_bInhibitIdleShutdown = false;
 diff -uNr a/xbmc/messaging/ApplicationMessenger.h b/xbmc/messaging/ApplicationMessenger.h
 --- a/xbmc/messaging/ApplicationMessenger.h	2021-10-24 12:09:58.000000000 +0200
 +++ b/xbmc/messaging/ApplicationMessenger.h	2021-12-16 14:24:55.833685544 +0100
