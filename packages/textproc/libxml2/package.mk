@@ -3,11 +3,11 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libxml2"
-PKG_VERSION="2.10.0"
-PKG_SHA256="c44124d025162767a1d3fe35b556c5855e6be7240e3dc3159490e91d5cadbba3"
+PKG_VERSION="v2.10.1"
+PKG_SHA256="fb9f90ca7cceb1930d2a890c1c222ef709352b0fea6e5430d03902133f1d476c"
 PKG_LICENSE="MIT"
 PKG_SITE="http://xmlsoft.org"
-PKG_URL="https://gitlab.gnome.org/GNOME/${PKG_NAME}/-/archive/v${PKG_VERSION}/${PKG_NAME}-v${PKG_VERSION}.tar.bz2"
+PKG_URL="https://github.com/GNOME/libxml2/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_HOST="zlib:host Python3:host"
 PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="The libxml package contains an XML library, which allows you to manipulate XML files."

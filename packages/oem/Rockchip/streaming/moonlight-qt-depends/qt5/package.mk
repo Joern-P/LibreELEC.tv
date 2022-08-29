@@ -2,11 +2,11 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking @ gmail.com)
 
 PKG_NAME="qt5"
-PKG_VERSION="016891a2a4e04ce4d11f743db2f3cfa45dd73df6" # 5.15.3+ (KDE Qt5PatchCollection)
+PKG_VERSION="12ce21bb79322ae4a685ebe03e360da64823fd86" # 5.15.5+ (KDE Qt5PatchCollection)
 PKG_LICENSE="GPL"
 PKG_SITE="http://qt-project.org"
 PKG_URL="https://invent.kde.org/qt/qt/qt5.git"
-PKG_DEPENDS_TARGET="toolchain openssl libjpeg-turbo libpng pcre2-system sqlite zlib freetype sdl2 libxkbcommon gstreamer gst-plugins-base gst-plugins-good gst-libav"
+PKG_DEPENDS_TARGET="toolchain openssl libjpeg-turbo libpng pcre2 sqlite zlib freetype sdl2 libxkbcommon gstreamer gst-plugins-base gst-plugins-good gst-libav"
 PKG_LONGDESC="A cross-platform application and UI framework"
 GET_HANDLER_SUPPORT="git"
 PKG_GIT_CLONE_BRANCH="kde/5.15"
@@ -174,7 +174,9 @@ configure_target() {
     if [ ${DISPLAYSERVER} = "no" ]; then
       echo "QMAKE_LIBS_EGL += -lEGL"              >> ${QMAKE_CONF}
       echo "EGLFS_DEVICE_INTEGRATION = eglfs_kms" >> ${QMAKE_CONF}
-    elif [ ${DISPLAYSERVER} = "wl" ]; then
+      echo "DEFINES += MESA_EGL_NO_X11_HEADERS"   >> ${QMAKE_CONF}
+    fi
+    if [ ! ${DISPLAYSERVER} = "x11" ]; then
       echo "DEFINES += QT_EGL_NO_X11"             >> ${QMAKE_CONF}
     fi
   fi
@@ -204,7 +206,7 @@ post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/qml
 
   # Sysroot path to Qt5 files
-  PKG_QT5_SYSROOT_PATH=${PKG_ORIG_SYSROOT_PREFIX:-${SYSROOT_PREFIX}}/usr/
+  PKG_QT5_SYSROOT_PATH=${PKG_ORIG_SYSROOT_PREFIX:-${SYSROOT_PREFIX}}/usr
 
   # Install Qt5 libs
   for PKG_QT5_LIBS in \
