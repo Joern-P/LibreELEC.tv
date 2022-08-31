@@ -4,7 +4,7 @@
 
 PKG_NAME="libxml2"
 PKG_VERSION="2.10.2"
-PKG_SHA256="d50e8a55b2797501929d3411b81d5d37ec44e9a4aa58eae9052572977c632d7a"
+PKG_SHA256=""
 PKG_LICENSE="MIT"
 PKG_SITE="http://xmlsoft.org"
 PKG_URL="https://github.com/GNOME/libxml2/archive/v${PKG_VERSION}.tar.gz"

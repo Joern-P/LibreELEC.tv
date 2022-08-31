@@ -4,7 +4,7 @@
 
 PKG_NAME="libxslt"
 PKG_VERSION="1.1.37"
-PKG_SHA256="6dbeb21aa8c938e6a39010901c0e84122bb87225b4af31f76feb4e3a5b138a5c"
+PKG_SHA256=""
 PKG_LICENSE="MIT"
 PKG_SITE="http://xmlsoft.org/xslt/"
 PKG_URL="https://github.com/GNOME/libxslt/archive/v${PKG_VERSION}.tar.gz"
