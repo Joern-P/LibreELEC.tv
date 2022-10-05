@@ -2,9 +2,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rkbin"
-# Version is: Kwiboo/tag:libreelec-4563e24
-PKG_VERSION="10f67f42c0ae9fa215b49ceabbc3d97194e6a389"
-PKG_SHA256=""
+PKG_VERSION="b0c100f1a260d807df450019774993c761beb79d"
+PKG_SHA256="c6ebf8ab556e071e3b067540e95aecff650143f0c97e129cd40c837a4f11a881"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/rockchip-linux/rkbin"
