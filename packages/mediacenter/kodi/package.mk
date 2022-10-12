@@ -282,6 +282,10 @@ configure_package() {
                          ${KODI_PIPEWIRE}"
 }
 
+post_unpack(){
+  cp $PKG_DIR/files/emu-menu-icons/* $PKG_BUILD/addons/skin.estuary/media/
+}
+
 configure_host() {
   setup_toolchain target:cmake
   cmake ${CMAKE_GENERATOR_NINJA} \

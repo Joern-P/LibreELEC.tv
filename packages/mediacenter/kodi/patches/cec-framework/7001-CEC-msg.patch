@@ -16,17 +16,17 @@ diff -uNr a/addons/resource.language.en_gb/resources/strings.po b/addons/resourc
  #: xbmc/powermanagement/PowerManager.cpp
  msgctxt "#13050"
 @@ -19837,7 +19842,11 @@
- msgid "In a multi-screen configuration, the screens not displaying this application are blacked out."
+ control; [None] no art"
  msgstr ""
- 
--#empty string with id 36356
+
+-#empty string with id 39139
 +#. Description of setting with label #13037 "Turn off TV CEC"
 +#: system/settings/settings.xml
-+msgctxt "#36356"
++msgctxt "#39139"
 +msgid "Automatically turn off TV CEC when DPMS is activated"
 +msgstr ""
  
- #. Description of setting with label #214 "Video calibration..."
+ #. Value of setting with label #39137 "Artwork level"
  #: system/settings/settings.xml
 diff -uNr a/system/settings/settings.xml b/system/settings/settings.xml
 --- a/system/settings/settings.xml	2021-10-24 12:09:58.000000000 +0200
@@ -47,8 +47,8 @@ diff -uNr a/system/settings/settings.xml b/system/settings/settings.xml
            <level>2</level>
            <default>0</default>
 diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
---- a/xbmc/Application.cpp	2021-12-16 13:14:55.618887000 +0100
-+++ b/xbmc/Application.cpp	2021-12-16 14:22:44.574210494 +0100
+--- a/xbmc/application/Application.cpp	2021-12-16 13:14:55.618887000 +0100
++++ b/xbmc/application/Application.cpp	2021-12-16 14:22:44.574210494 +0100
 @@ -2380,6 +2380,10 @@
      }
    }

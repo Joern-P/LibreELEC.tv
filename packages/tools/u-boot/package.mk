@@ -24,23 +24,6 @@ fi
 PKG_NEED_UNPACK="${PROJECT_DIR}/${PROJECT}/bootloader"
 [ -n "${DEVICE}" ] && PKG_NEED_UNPACK+=" ${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/bootloader"
 
-<<<<<<< HEAD
-case "${PROJECT}" in
-  Rockchip)
-    PKG_VERSION="524f26463d9251cb8eef248c36eec33271f06dcb"
-    PKG_SHA256=""
-    PKG_URL="https://github.com/rockchip-linux/u-boot/archive/${PKG_VERSION}.tar.gz"
-    PKG_PATCH_DIRS="rockchip"
-    ;;
-  *)
-    PKG_VERSION="2022.07"
-    PKG_SHA256="92b08eb49c24da14c1adbf70a71ae8f37cc53eeb4230e859ad8b6733d13dcf5e"
-    PKG_URL="https://ftp.denx.de/pub/u-boot/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-    ;;
-esac
-
-=======
->>>>>>> b07e4e8d6b5b80bb2fbdbb3a770d70609f8b35d8
 post_patch() {
   if [ -n "${UBOOT_SYSTEM}" ] && find_file_path bootloader/config; then
     PKG_CONFIG_FILE="${PKG_BUILD}/configs/$(${ROOT}/${SCRIPTS}/uboot_helper ${PROJECT} ${DEVICE} ${UBOOT_SYSTEM} config)"
