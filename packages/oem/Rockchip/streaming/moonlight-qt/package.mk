@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="moonlight-qt"
-PKG_VERSION="be7852dfc0cfbb4b0cd776fab365f0f0c8239cda" # v4.1.0+
+PKG_VERSION="fbbbd5e0b8c28794f9e663d7a91ff5778c7f5ddc" # v4.2.1+
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/moonlight-stream/moonlight-qt"
 PKG_URL="https://github.com/moonlight-stream/moonlight-qt.git"
@@ -11,6 +11,7 @@ PKG_LONGDESC="Moonlight is an open source implementation of NVIDIA's GameStream.
 GET_HANDLER_SUPPORT="git"
 PKG_GIT_CLONE_BRANCH="master"
 PKG_GIT_CLONE_SINGLE="yes"
+PKG_NEED_UNPACK="$(get_pkg_directory qt5)"
 PKG_TOOLCHAIN="make"
 
 configure_package() {
@@ -45,3 +46,4 @@ post_makeinstall_target() {
     sed -e "/# Change refresh.*/,+2d"                                    -i ${INSTALL}/usr/bin/*.start
   fi
 }
+

@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking @ gmail.com)
 
 PKG_NAME="qt5"
-PKG_VERSION="12ce21bb79322ae4a685ebe03e360da64823fd86" # 5.15.5+ (KDE Qt5PatchCollection)
+PKG_VERSION="06b700dde9879762f06c237a7176e02647aa59c2" # 5.15.6+r177 (KDE Qt5PatchCollection)
 PKG_LICENSE="GPL"
 PKG_SITE="http://qt-project.org"
 PKG_URL="https://invent.kde.org/qt/qt/qt5.git"
@@ -11,7 +11,7 @@ PKG_LONGDESC="A cross-platform application and UI framework"
 GET_HANDLER_SUPPORT="git"
 PKG_GIT_CLONE_BRANCH="kde/5.15"
 PKG_GIT_CLONE_SINGLE="yes"
-PKG_BUILD_FLAGS="-gold"
+PKG_BUILD_FLAGS="+gold"
 
 configure_package() {
   # Apply project specific patches
@@ -49,10 +49,10 @@ pre_configure_target() {
                              -nomake examples -no-compile-examples
                              -nomake tests
                              -ccache
+                             -use-gold-linker
                              -gstreamer 1.0
                              -force-pkg-config
                              -silent
-                             -no-use-gold-linker
                              -no-ltcg
                              -no-rpath
                              -openssl-linked

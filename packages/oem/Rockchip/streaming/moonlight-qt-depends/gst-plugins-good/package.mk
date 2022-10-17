@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="gst-plugins-good"
-PKG_VERSION="1.20.1"
-PKG_SHA256="3c66876f821d507bcdbebffb08b4f31a322727d6753f65a0f02c905ecb7084aa"
+PKG_VERSION="1.21.1"
+PKG_SHA256="959011ffaea7d4cd4e5433e408544466b4a1ea09676e6bc64f8d36efb01f5605"
 PKG_LICENSE="LGPL-2.1-or-later"
 PKG_SITE="https://gstreamer.freedesktop.org/modules/gst-plugins-good.html"
 PKG_URL="https://gstreamer.freedesktop.org/src/gst-plugins-good/${PKG_NAME}-${PKG_VERSION}.tar.xz"
