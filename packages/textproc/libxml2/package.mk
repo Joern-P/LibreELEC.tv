@@ -7,7 +7,7 @@ PKG_VERSION="2.10.3"
 PKG_SHA256="302bbb86400b8505bebfbf7b3d1986e9aa05073198979f258eed4be481ff5f83"
 PKG_LICENSE="MIT"
 PKG_SITE="http://xmlsoft.org"
-PKG_URL="https://github.com/GNOME/libxml2/archive/v${PKG_VERSION}.tar.gz"
+PKG_URL="https://gitlab.gnome.org/GNOME/${PKG_NAME}/-/archive/v${PKG_VERSION}/${PKG_NAME}-v${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_HOST="zlib:host Python3:host"
 PKG_DEPENDS_TARGET="toolchain zlib"
 PKG_LONGDESC="The libxml package contains an XML library, which allows you to manipulate XML files."
@@ -35,3 +35,4 @@ post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
   rm -rf ${INSTALL}/usr/lib/xml2Conf.sh
 }
+
