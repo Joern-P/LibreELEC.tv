@@ -1,0 +1,11 @@
+diff -uNr a/xbmc/application/ApplicationPowerHandling.cpp b/xbmc/application/ApplicationPowerHandling.cpp
+--- a/xbmc/application/ApplicationPowerHandling.cpp	2022-05-16 05:41:47.000000000 +0200
++++ b/xbmc/application/ApplicationPowerHandling.cpp	2022-05-24 09:09:17.690199437 +0200
+@@ -111,6 +111,7 @@
+         SetRenderGUI(false);
+         CheckOSScreenSaverInhibitionSetting();
+         CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::GUI, "OnDPMSActivated");
++        CServiceBroker::GetAppMessenger()->PostMsg(TMSG_CECSTANDBY);
+         return true;
+       }
+     }

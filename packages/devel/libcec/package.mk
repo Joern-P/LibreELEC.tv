@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libcec"
-PKG_VERSION="6.0.2"
-PKG_SHA256=""
+PKG_VERSION="4.0.7"
+PKG_SHA256="bcd92c376993a5721d346edcc09eb17289451f9156b1d1d113c9663c2046315a"
 PKG_LICENSE="GPL"
 PKG_SITE="http://libcec.pulse-eight.com/"
 PKG_URL="https://github.com/Pulse-Eight/libcec/archive/libcec-${PKG_VERSION}.tar.gz"
@@ -40,3 +40,4 @@ post_makeinstall_target() {
     mv ${PYTHON_DIR}/dist-packages ${PYTHON_DIR}/site-packages
   fi
 }
+

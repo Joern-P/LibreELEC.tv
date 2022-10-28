@@ -46,24 +46,10 @@ diff -uNr a/system/settings/settings.xml b/system/settings/settings.xml
          <setting id="powermanagement.shutdowntime" type="integer" label="357" help="36389">
            <level>2</level>
            <default>0</default>
-diff -uNr a/xbmc/Application.cpp b/xbmc/Application.cpp
---- a/xbmc/application/Application.cpp	2021-12-16 13:14:55.618887000 +0100
-+++ b/xbmc/application/Application.cpp	2021-12-16 14:22:44.574210494 +0100
-@@ -2380,6 +2380,10 @@
-     }
-   }
-   break;
-+  
-+  case TMSG_TVISSTANDBY:
-+    m_cecIsActive = true;
-+    break;  
- 
-   default:
-     CLog::Log(LOGERROR, "%s: Unhandled threadmessage sent, %u", __FUNCTION__, msg);
 diff -uNr a/xbmc/application/ApplicationPowerHandling.cpp b/xbmc/application/ApplicationPowerHandling.cpp
 --- a/xbmc/application/ApplicationPowerHandling.cpp	2022-05-16 05:41:47.000000000 +0200
 +++ b/xbmc/application/ApplicationPowerHandling.cpp	2022-05-24 09:09:17.690199437 +0200
-@@ -287,10 +287,14 @@
+@@ -293,12 +293,16 @@
    // When inhibit screensaver is enabled prevent screensaver from kicking in
    if (m_bInhibitScreenSaver)
      haveIdleActivity = true;
@@ -71,13 +57,15 @@ diff -uNr a/xbmc/application/ApplicationPowerHandling.cpp b/xbmc/application/App
 +  bool havePauseIdleActivity = false;    
  
    // Are we playing a video and it is not paused?
-   if (m_appPlayer.IsPlayingVideo() && !m_appPlayer.IsPaused())
+   const auto& components = CServiceBroker::GetAppComponents();
+   const auto appPlayer = components.GetComponent<CApplicationPlayer>();
+   if (appPlayer && appPlayer->IsPlayingVideo() && !appPlayer->IsPaused())
      haveIdleActivity = true;
-+  else if (m_appPlayer.IsPlayingVideo() && m_appPlayer.IsPaused())
-+    havePauseIdleActivity = true;     
++  else if (appPlayer && appPlayer->IsPlayingVideo() && appPlayer->IsPaused())
++    havePauseIdleActivity = true;      
  
    // Are we playing some music in fullscreen vis?
-   else if (m_appPlayer.IsPlayingAudio() &&
+   else if (appPlayer && appPlayer->IsPlayingAudio() &&
 @@ -349,8 +353,17 @@
                                   CSettings::SETTING_POWERMANAGEMENT_DISPLAYSOFF) *
                                   60)
@@ -125,17 +113,6 @@ diff -uNr a/xbmc/application/ApplicationPowerHandling.h b/xbmc/application/Appli
    bool m_dpmsIsManual = false;
  
    bool m_bInhibitIdleShutdown = false;
-diff -uNr a/xbmc/messaging/ApplicationMessenger.h b/xbmc/messaging/ApplicationMessenger.h
---- a/xbmc/messaging/ApplicationMessenger.h	2021-10-24 12:09:58.000000000 +0200
-+++ b/xbmc/messaging/ApplicationMessenger.h	2021-12-16 14:24:55.833685544 +0100
-@@ -82,6 +82,7 @@
- #define TMSG_RENDERER_PREINIT             TMSG_MASK_APPLICATION + 31
- #define TMSG_RENDERER_UNINIT              TMSG_MASK_APPLICATION + 32
- #define TMSG_EVENT                        TMSG_MASK_APPLICATION + 33
-+#define TMSG_TVISSTANDBY                  TMSG_MASK_APPLICATION + 34
- 
- #define TMSG_GUI_INFOLABEL                TMSG_MASK_GUIINFOMANAGER + 0
- #define TMSG_GUI_INFOBOOL                 TMSG_MASK_GUIINFOMANAGER + 1
 diff -uNr a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
 --- a/xbmc/settings/Settings.cpp	2021-10-24 12:09:58.000000000 +0200
 +++ b/xbmc/settings/Settings.cpp	2021-12-16 14:26:29.145305812 +0100

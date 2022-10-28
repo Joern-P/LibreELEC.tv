@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking @ gmail.com)
 
 PKG_NAME="qt5"
-PKG_VERSION="06b700dde9879762f06c237a7176e02647aa59c2" # 5.15.6+r177 (KDE Qt5PatchCollection)
+PKG_VERSION="3957567b39b97ec72c8e6dd7a800ac9c70b47529" # 5.15.6+r181 (KDE Qt5PatchCollection)
 PKG_LICENSE="GPL"
 PKG_SITE="http://qt-project.org"
 PKG_URL="https://invent.kde.org/qt/qt/qt5.git"
@@ -12,6 +12,18 @@ GET_HANDLER_SUPPORT="git"
 PKG_GIT_CLONE_BRANCH="kde/5.15"
 PKG_GIT_CLONE_SINGLE="yes"
 PKG_BUILD_FLAGS="+gold"
+
+post_unpack() {
+  # Clean up superflous Qt5 submodules
+  for PKG_QT5_SUBMODULES in \
+    qt3d qtactiveqt qtandroidextras qtcanvas3d qtcharts qtconnectivity qtdatavis3d qtdoc qtdocgallery \
+    qtfeedback qtlocation qtlottie qtmacextras qtnetworkauth qtpurchasing qtqa qtquickcontrols qtquicktimeline \
+    qtpim qtremoteobjects qtrepotools qtscript qtscxml qtsensors qtserialport qtserialbus qtspeech qtsystems \
+    qttranslations qtvirtualkeyboard qtwebchannel qtwebengine qtwebglplugin qtwebview qtwinextras qtx11extras
+  do
+    rm -rf ${PKG_BUILD}/${PKG_QT5_SUBMODULES}
+  done
+}
 
 configure_package() {
   # Apply project specific patches
