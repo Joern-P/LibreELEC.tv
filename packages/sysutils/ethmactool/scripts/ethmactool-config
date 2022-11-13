@@ -65,7 +65,7 @@ case $COMPATIBLE in
     MAC_STEPS="from_cmdline aml_from_efuse_gxbb aml_from_efuse_gxl aml_from_cpu_sn"
     ;;
   *)
-    MAC_STEPS="from_cpu_sn"
+    MAC_STEPS="from_cmdline"
     ;;
 esac
 

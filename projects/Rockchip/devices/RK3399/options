@@ -27,7 +27,7 @@
     KERNEL_TARGET="Image"
 
   # Vulkan implementation to use (vulkan-loader / no)
-    VULKAN="vulkan-loader"    
+    VULKAN="no"    
 
   # Mali GPU family
     MALI_FAMILY="t860"
@@ -40,4 +40,4 @@
     ADDON_PROJECT="ARMv8"
 
   # additional packages
-    ADDITIONAL_PACKAGES+=" pciutils"
+    ADDITIONAL_PACKAGES+=" pciutils ethmactool"
