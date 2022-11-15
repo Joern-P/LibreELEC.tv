@@ -40,4 +40,4 @@
     ADDON_PROJECT="ARMv8"
 
   # additional packages
-    ADDITIONAL_PACKAGES+=" pciutils ethmactool"
+    ADDITIONAL_PACKAGES+=" pciutils"
