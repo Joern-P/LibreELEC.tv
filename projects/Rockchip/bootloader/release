@@ -20,4 +20,4 @@ if [ -n "${UBOOT_SYSTEM}" ]; then
   fi
 fi
 
-cp -av "${SRCDIR}"/"${DEVICE,,}"*.dtb "${DSTDIR}"
+cp -av "${SRCDIR}"/"${DEVICE,,}"-${UBOOT_SYSTEM}.dtb "${DSTDIR}"

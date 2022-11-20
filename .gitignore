@@ -41,3 +41,5 @@ tools/mkpkg/*.git
 # ignore old linux configs
 projects/**/*.old
 
+#ignore privat mac
+projects/Rockchip/patches/linux/default/private.patch
