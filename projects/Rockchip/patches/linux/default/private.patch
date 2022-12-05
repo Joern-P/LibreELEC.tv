@@ -1,0 +1,12 @@
+diff -uNr a/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi b/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi
+--- a/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi	2022-11-17 08:39:20.492386000 +0100
++++ b/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi	2022-11-19 13:59:44.706031846 +0100
+@@ -190,6 +190,7 @@
+ 	phy-supply = <&vcc3v3_s3>;
+ 	tx_delay = <0x28>;
+ 	rx_delay = <0x11>;
++	mac-address = [AA 2C C7 B1 F2 72];
+ 	status = "okay";
+ 
+ 	mdio {
+
