@@ -9,4 +9,3 @@ diff -uNr a/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi b/arch/arm64/boot/d
  	status = "okay";
  
  	mdio {
-
