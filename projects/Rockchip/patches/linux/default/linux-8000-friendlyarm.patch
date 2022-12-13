@@ -20,17 +20,6 @@ diff -uNr a/arch/arm64/boot/dts/rockchip/rk3399-nanopi4.dtsi b/arch/arm64/boot/d
  	mmc-hs200-1_8v;
  	non-removable;
  	status = "okay";
-diff -uNr a/arch/arm64/configs/friendlywrt.config b/arch/arm64/configs/friendlywrt.config
---- a/arch/arm64/configs/friendlywrt.config	1970-01-01 01:00:00.000000000 +0100
-+++ b/arch/arm64/configs/friendlywrt.config	2022-12-01 07:21:33.000000000 +0100
-@@ -0,0 +1,7 @@
-+CONFIG_ARM64_VA_BITS=48
-+# CONFIG_ARM64_VA_BITS_39 is not set
-+CONFIG_ARM64_VA_BITS_48=y
-+CONFIG_HZ=100
-+CONFIG_HZ_100=y
-+# CONFIG_HZ_300 is not set
-+CONFIG_OVERLAY_FS_METACOPY=y
 diff -uNr a/block/partitions/check.h b/block/partitions/check.h
 --- a/block/partitions/check.h	2022-11-10 18:15:43.000000000 +0100
 +++ b/block/partitions/check.h	2022-12-01 07:21:33.000000000 +0100
