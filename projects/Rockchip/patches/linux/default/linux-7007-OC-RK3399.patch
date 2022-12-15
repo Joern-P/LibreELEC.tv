@@ -7,7 +7,7 @@ diff -uNr a/arch/arm64/boot/dts/rockchip/rk3399-opp.dtsi b/arch/arm64/boot/dts/r
  		};
 +		opp06 {
 +			opp-hz = /bits/ 64 <1608000000>;
-+			opp-microvolt = <1200000>;
++			opp-microvolt = <1175000>;
 +		};		
  	};
  
@@ -18,7 +18,7 @@ diff -uNr a/arch/arm64/boot/dts/rockchip/rk3399-opp.dtsi b/arch/arm64/boot/dts/r
  		};
 +		opp08 {
 +			opp-hz = /bits/ 64 <2016000000>;
-+			opp-microvolt = <1275000>;
++			opp-microvolt = <1250000>;
 +		};		
  	};
  
