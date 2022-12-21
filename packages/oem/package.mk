@@ -10,3 +10,8 @@ PKG_DEPENDS_TARGET="toolchain ${PROJECT}"
 PKG_SECTION="virtual"
 PKG_LONGDESC="OEM: Metapackage for various OEM packages"
 
+# Entware support
+if [ "$ENTWARE_SUPPORT" = "yes" ]; then
+  ln -sf /storage/.opt $INSTALL/opt
+  PKG_DEPENDS_TARGET+=" entware"
+fi
