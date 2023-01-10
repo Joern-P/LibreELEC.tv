@@ -40,7 +40,7 @@
     ADDON_PROJECT="ARMv8"
 
   # additional packages
-    ADDITIONAL_PACKAGES+=" pciutils sdl2 rkmpp"
+    ADDITIONAL_PACKAGES+=" pciutils"
 
   # build with entware installer
     ENTWARE_SUPPORT="yes"

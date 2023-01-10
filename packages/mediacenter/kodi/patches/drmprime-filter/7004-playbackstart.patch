@@ -16,7 +16,7 @@ index e438c02bc9..81d71475fe 100644
        {
          if (m_pInputStream->IsRealtime())
 -          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(1000);
-+          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(500);
++          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(800);
          else
            clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime;
  
@@ -44,4 +44,22 @@ index e438c02bc9..81d71475fe 100644
            }
          }
        }
-
+diff --git a/xbmc/dbwrappers/sqlitedataset.cpp b/xbmc/dbwrappers/sqlitedataset.cpp
+index c5c2c9b2f25e7..ef9c92777cd33 100644
+--- a/xbmc/dbwrappers/sqlitedataset.cpp
++++ b/xbmc/dbwrappers/sqlitedataset.cpp
+@@ -350,12 +350,13 @@ int SqliteDatabase::connect(bool create)
+       active = true;
+       return DB_CONNECTION_OK;
+     }
+-
+-    return DB_CONNECTION_NONE;
+   }
+   catch (const DbErrors&)
+   {
+   }
++
++  sqlite3_close(conn);
++
+   return DB_CONNECTION_NONE;
+ }
