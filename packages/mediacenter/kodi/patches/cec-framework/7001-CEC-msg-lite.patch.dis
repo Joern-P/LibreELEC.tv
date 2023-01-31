@@ -1,0 +1,19 @@
+diff -uNr a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp	2023-01-30 09:23:58.468330000 +0100
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp	2023-01-31 13:11:54.314273654 +0100
+@@ -176,6 +176,15 @@
+         StandbyDevices();
+     }
+   }
++  else if (flag == ANNOUNCEMENT::GUI && sender == CAnnouncementManager::ANNOUNCEMENT_SENDER &&
++           message == "OnDPMSActivated")
++  {
++      m_standbySent = CDateTime::GetCurrentDateTime();
++      m_cecAdapter->StandbyDevices(CECDEVICE_BROADCAST);
++      CLog::Log(LOGDEBUG, "{} - standbyCEC", __FUNCTION__);
++
++    }
++  }
+   else if (flag == ANNOUNCEMENT::System && sender == CAnnouncementManager::ANNOUNCEMENT_SENDER &&
+            message == "OnSleep")
+   {
