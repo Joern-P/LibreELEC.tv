@@ -1,107 +1,28 @@
-diff -uNr a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
---- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp	2022-12-15 21:39:02.845031000 +0100
-+++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp	2022-12-16 08:59:13.040248984 +0100
-@@ -189,12 +189,12 @@
-   else if (flag == ANNOUNCEMENT::System && sender == CAnnouncementManager::ANNOUNCEMENT_SENDER &&
-            message == "OnWake")
-   {
--    CLog::Log(LOGDEBUG, "{} - reconnecting to the CEC adapter after standby mode", __FUNCTION__);
--    if (ReopenConnection())
-+    std::unique_lock<CCriticalSection> lock(m_critSection);
-+    if (m_bStarted)
-     {
-+      CLog::Log(LOGDEBUG, "%s - reuse open CEC adapter connection after standby mode", __FUNCTION__);      
-       bool bActivate(false);
-       {
--        std::unique_lock<CCriticalSection> lock(m_critSection);
-         bActivate = m_bActiveSourceBeforeStandby;
-         m_bActiveSourceBeforeStandby = false;
-       }
-@@ -385,40 +385,35 @@
- 
-   m_queryThread->StopThread(true);
- 
--  bool bSendStandbyCommands(false);
--  {
--    std::unique_lock<CCriticalSection> lock(m_critSection);
--    bSendStandbyCommands = m_iExitCode != EXITCODE_REBOOT && m_iExitCode != EXITCODE_RESTARTAPP &&
--                           !m_bDeviceRemoved &&
--                           (!m_bGoingToStandby || GetSettingBool("standby_tv_on_pc_standby")) &&
--                           GetSettingBool("enabled");
-+  if ( m_iExitCode == EXITCODE_RESTARTAPP
-+    || m_iExitCode == EXITCODE_REBOOT
-+    || m_bDeviceRemoved)
-+      return;
- 
--    if (m_bGoingToStandby)
--      m_bActiveSourceBeforeStandby = m_cecAdapter->IsLibCECActiveSource();
--  }
-+  bool bActiveSource = m_cecAdapter->IsLibCECActiveSource();
-+
-+  if (m_bGoingToStandby)
-+    m_bActiveSourceBeforeStandby = bActiveSource;
- 
--  if (bSendStandbyCommands)
-+  if (bActiveSource)
-   {
--    if (m_cecAdapter->IsLibCECActiveSource())
-+   if ( GetSettingBool("standby_tv_on_pc_standby") && !m_configuration.powerOffDevices.IsEmpty())
-     {
--      if (!m_configuration.powerOffDevices.IsEmpty())
--      {
--        CLog::Log(LOGDEBUG, "{} - sending standby commands", __FUNCTION__);
--        m_standbySent = CDateTime::GetCurrentDateTime();
--        m_cecAdapter->StandbyDevices();
--      }
--      else if (m_bSendInactiveSource)
--      {
--        CLog::Log(LOGDEBUG, "{} - sending inactive source commands", __FUNCTION__);
--        m_cecAdapter->SetInactiveView();
--      }
-+      CLog::Log(LOGDEBUG, "%s - sending standby commands", __FUNCTION__);
-+      m_standbySent = CDateTime::GetCurrentDateTime();
-+      m_cecAdapter->StandbyDevices();
-     }
--    else
-+
-+    if (m_bSendInactiveSource)
-     {
--      CLog::Log(LOGDEBUG, "{} - XBMC is not the active source, not sending any standby commands",
--                __FUNCTION__);
-+      CLog::Log(LOGDEBUG, "%s - sending inactive source commands", __FUNCTION__);
-+      m_cecAdapter->SetInactiveView();
-     }
-   }
-+  else
-+  {
-+    CLog::Log(LOGDEBUG, "%s - Kodi is not the active source, not sending any unregister commands", __FUNCTION__);
-+  }  
- 
-   m_cecAdapter->Close();
- 
-@@ -621,19 +616,15 @@
-   switch (iActionOnTvStandby)
-   {
-     case LOCALISED_ID_POWEROFF:
--      m_bStarted = false;
-       CServiceBroker::GetAppMessenger()->PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_SHUTDOWN);
-       break;
-     case LOCALISED_ID_SUSPEND:
--      m_bStarted = false;
-       CServiceBroker::GetAppMessenger()->PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_SUSPEND);
-       break;
-     case LOCALISED_ID_HIBERNATE:
--      m_bStarted = false;
-       CServiceBroker::GetAppMessenger()->PostMsg(TMSG_SYSTEM_POWERDOWN, TMSG_HIBERNATE);
-       break;
-     case LOCALISED_ID_QUIT:
--      m_bStarted = false;
-       CServiceBroker::GetAppMessenger()->PostMsg(TMSG_QUIT);
-       break;
-     case LOCALISED_ID_PAUSE:
-@@ -1806,7 +1797,10 @@
+From 7f9c6b7f5c4367c86264747eec789e45e3a737dd Mon Sep 17 00:00:00 2001
+From: Raybuntu <57228613+Raybuntu@users.noreply.github.com>
+Date: Wed, 12 Aug 2020 14:40:00 +0100
+Subject: [PATCH] PeripheralCecAdapter: Don't flood TV with isActiveSource
+ requests
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 907affc2c6d..786860b5c8b 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1825,14 +1825,16 @@ void CPeripheralCecAdapter::ProcessStandbyDevices(void)
+     std::unique_lock<CCriticalSection> lock(m_critSection);
+     int iScreensaverDelay = GetSettingInt("screensaver_delay_standby");
+     if ((m_ScreensaverStandbySent.IsValid() &&
+-        (CDateTime::GetCurrentDateTime() - m_ScreensaverStandbySent < CDateTimeSpan(0, 0, 0, iScreensaverDelay))) ||
+-        (!m_cecAdapter->IsLibCECActiveSource()))
++        (CDateTime::GetCurrentDateTime() - m_ScreensaverStandbySent < CDateTimeSpan(0, 0, 0, iScreensaverDelay))))
+       return;
      bStandby = m_bStandbyPending;
      m_bStandbyPending = false;
+     m_ScreensaverStandbySent.SetValid(false);
      if (bStandby)
 -      m_bGoingToStandby = true;
 +      if (m_cecAdapter->IsLibCECActiveSource())
@@ -111,3 +32,35 @@ diff -uNr a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals
    }
  
    if (bStandby)
+From 70f0b430e3db62dcbc040d9167511cf6aebae376 Mon Sep 17 00:00:00 2001
+From: Portisch <hugo.portisch@yahoo.de>
+Date: Mon, 18 Jan 2021 16:30:25 +0100
+Subject: [PATCH] PeripheralCecAdapter: reuse open CEC adapter connection on
+ suspend resume After suspend the CEC master (TV) should still be available.
+ So no extra ReopenConnection should be needed.
+
+---
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index fe099e6b578..cccf09c2ef1 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -201,12 +201,12 @@ void CPeripheralCecAdapter::Announce(ANNOUNCEMENT::AnnouncementFlag flag,
+   else if (flag == ANNOUNCEMENT::System && sender == CAnnouncementManager::ANNOUNCEMENT_SENDER &&
+            message == "OnWake")
+   {
+-    CLog::Log(LOGDEBUG, "{} - reconnecting to the CEC adapter after standby mode", __FUNCTION__);
+-    if (ReopenConnection())
++    std::unique_lock<CCriticalSection> lock(m_critSection);
++    if (m_bStarted)
+     {
++      CLog::Log(LOGDEBUG, "{} - reuse open CEC adapter connection after standby mode", __FUNCTION__);
+       bool bActivate(false);
+       {
+-        std::unique_lock<CCriticalSection> lock(m_critSection);
+         bActivate = m_bActiveSourceBeforeStandby;
+         m_bActiveSourceBeforeStandby = false;
+       }
+

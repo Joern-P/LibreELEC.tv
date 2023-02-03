@@ -35,4 +35,3 @@ post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/bin
   rm -rf ${INSTALL}/usr/lib/xml2Conf.sh
 }
-
