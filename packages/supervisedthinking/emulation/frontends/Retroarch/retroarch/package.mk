@@ -131,7 +131,9 @@ pre_configure_target() {
 
   # ARM NEON Support
   if target_has_feature neon; then
-    PKG_CONFIGURE_OPTS_TARGET+=" --enable-neon"
+      if [ "${ARCH}" = "arm" ]; then
+    	PKG_CONFIGURE_OPTS+=" --enable-neon"
+      fi
   fi
 
   # SSE Support

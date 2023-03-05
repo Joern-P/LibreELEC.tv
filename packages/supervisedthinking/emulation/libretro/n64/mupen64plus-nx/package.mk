@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="mupen64plus-nx"
-PKG_VERSION="bc241538b9ef85d8b22c392d7699dc73f460e283"
-PKG_SHA256="77862d3eb8b379e0d1958b1d5d378321a00f359a3ef735ce3aaa6ede305a5b38"
+PKG_VERSION="5a63aadedc29655254d8fc7b4da3a325472e198b"
+PKG_SHA256="25075737dbfe6436cef9bdc5f8439dd977ea9b64a824fde4b7bf8a0c88582d9f"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_URL="https://github.com/libretro/mupen64plus-libretro-nx/archive/${PKG_VERSION}.tar.gz"
@@ -31,6 +31,7 @@ configure_package() {
   # OpenGLES Support
   if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+    PKG_MAKE_OPTS_TARGET+=" GLES=1 FORCE_GLES=1"
   fi
 
   # Vulkan Support
@@ -49,7 +50,7 @@ pre_configure_target() {
       PKG_MAKE_OPTS_TARGET+=" platform=${DEVICE}"
     ;;
     Rockchip)
-      PKG_MAKE_OPTS_TARGET+=" platform=${DEVICE}"
+      [ "${ARCH}" = "arm"] && PKG_MAKE_OPTS_TARGET+=" platform=${DEVICE}" || true
     ;;
     *)
       # Arch ARM
@@ -70,6 +71,15 @@ pre_configure_target() {
         PKG_MAKE_OPTS_TARGET+=" HAVE_VULKAN=1"
       fi
     ;;
+  esac
+  
+  case ${ARCH} in
+    i386)
+      PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=x86"
+      ;;
+    *)
+      PKG_MAKE_OPTS_TARGET+=" WITH_DYNAREC=${ARCH}"
+      ;;
   esac
   # Fix Mesa 3D based OpenGL ES builds
   if [ ! "${DISPLAYSERVER}" = "x11" ] && [ "${OPENGLES}" = "mesa" ]; then

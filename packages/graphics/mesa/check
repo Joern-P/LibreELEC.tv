@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="23.0.0"
-PKG_SHA256="01f3cff3763f09e0adabcb8011e4aebc6ad48f6a4dd4bae904fe918707d253e4"
+PKG_VERSION="22.3.5"
+PKG_SHA256="3eed2ecae2bc674494566faab9fcc9beb21cd804c7ba2b59a1694f3d7236e6a9"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host zstd"
+PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 
 get_graphicdrivers
@@ -37,11 +37,21 @@ if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 \
                            -Ddri3=enabled \
                            -Dglx=dri"
+  if [ "${DEVICE}" = "Odin" ]; then
+     PKG_MESON_OPTS_TARGET+=" -Dglx-direct=true"
+  fi
+  if [ "${PROJECT}" = "L4T" ]; then
+    PKG_DEPENDS_TARGET+=" libglvnd"
+    PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
+  fi
 elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland \
                            -Ddri3=disabled \
                            -Dglx=disabled"
+elif [ "${DISTRO}" = "Lakka" -o "${PROJECT}" = "L4T" ]; then
+  PKG_DEPENDS_TARGET+=" libglvnd"
+  PKG_MESON_OPTS_TARGET+=" -Dplatforms="" -Ddri3=enabled -Dglx=disabled -Dglvnd=true"
 else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
                            -Ddri3=disabled \
@@ -52,7 +62,9 @@ if listcontains "${GRAPHIC_DRIVERS}" "(nvidia|nvidia-ng)"; then
   PKG_DEPENDS_TARGET+=" libglvnd"
   PKG_MESON_OPTS_TARGET+=" -Dglvnd=true"
 else
-  PKG_MESON_OPTS_TARGET+=" -Dglvnd=false"
+  if [ ! "${DISTRO}" = "Lakka" -a ! "${PROJECT}" = "L4T" ]; then
+    PKG_MESON_OPTS_TARGET+=" -Dglvnd=false"
+  fi
 fi
 
 if [ "${LLVM_SUPPORT}" = "yes" ]; then
@@ -77,7 +89,7 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=disabled"
 fi
 
-if listcontains "${GRAPHIC_DRIVERS}" "vmware"; then
+if listcontains "${GRAPHIC_DRIVERS}" "vmware" || listcontains "${GRAPHIC_DRIVERS}" "freedreno"; then
   PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=enabled"
 else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=disabled"
@@ -95,3 +107,10 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
 fi
+
+post_makeinstall_target() {
+  if [ "${PROJECT}" = "L4T" ]; then
+    safe_remove ${INSTALL}/usr/lib/libgbm.so.1
+  fi
+}
+

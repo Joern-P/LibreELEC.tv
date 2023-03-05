@@ -28,7 +28,7 @@ PKG_MAKE_OPTS_TARGET="-f Makefile.libretro GIT_VERSION=${PKG_VERSION:0:7}"
 pre_configure_target() {
   cd ${PKG_BUILD}
   
-  if target_has_feature neon; then
+  if target_has_feature neon && [ "${ARCH}" = "arm" ]; then
     PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=1 HAVE_NEON_ASM=1 BUILTIN_GPU=neon"
    else
     PKG_MAKE_OPTS_TARGET+=" HAVE_NEON=0"
@@ -36,7 +36,7 @@ pre_configure_target() {
   
   case ${TARGET_ARCH} in
     aarch64)
-      PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64 platform=aarch64"
+      PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64 platform=unix"
       ;;
     arm)
       PKG_MAKE_OPTS_TARGET+=" DYNAREC=ari64"

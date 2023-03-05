@@ -2,8 +2,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="moonlight-common-c"
-PKG_VERSION="9da632949649e8b6ea30887fdcbdc12c7c540b38"
-PKG_SHA256="4e370183520c791983ecfe2916211f1a8d46b08227f5f7dec56c6e27604a7e3f"
+PKG_VERSION="b77072d39984019b4234d9f2adc3b673b6d57812"
+PKG_SHA256="dd3f5f250a2e3339635d652b05d0769edcd4c051d0439eb87a144f2c18dcfddf"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/moonlight-stream/moonlight-common-c"

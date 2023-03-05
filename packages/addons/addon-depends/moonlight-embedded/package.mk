@@ -2,13 +2,13 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="moonlight-embedded"
-PKG_VERSION="395f474cb87f1b05251e2fce098b502952af3ba9"
-PKG_SHA256="8d749d07144fe22febe292abc8a06b93509cfac389fbeb219f18f7925a354c1e"
+PKG_VERSION="4c58ac9f3923c11ff75620dacf7c79317de456cf"
+PKG_SHA256="94a2f5677ceb0bc535cd9767f3e21bfaa161d82a960b749c0e1f4fa50275ef49"
 PKG_ARCH="any"
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://github.com/TheChoconut/moonlight-embedded"
-PKG_URL="https://github.com/TheChoconut/moonlight-embedded/archive/${PKG_VERSION}.tar.gz"
-PKG_MAINTAINER="TheChoconut"
+PKG_SITE="https://github.com/moonlight-stream/moonlight-embedded"
+PKG_URL="https://github.com/moonlight-stream/moonlight-embedded/archive/${PKG_VERSION}.tar.gz"
+PKG_MAINTAINER="moonlight-stream"
 PKG_DEPENDS_TARGET="toolchain curl pulseaudio systemd alsa-lib moonlight-common-c libevdev sdlgamecontrollerdb enet opus-system"
 PKG_SECTION=""
 PKG_SHORTDESC="Open source NVIDIA GameStream Linux client"

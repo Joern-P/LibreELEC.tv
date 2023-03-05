@@ -25,6 +25,8 @@ pre_configure_target() {
       PKG_MAKE_OPTS_TARGET+="-neon"
     fi
     PKG_MAKE_OPTS_TARGET+="-${TARGET_FLOAT}float-${TARGET_CPU}"
+  elif [ "${ARCH}" = "aarch64" ]; then
+    PKG_MAKE_OPTS_TARGET+=" PTR64=1 ARM_ENABLED=1 LCPU=arm64"
   fi
   # Fix linking
   export LD="${CXX}"

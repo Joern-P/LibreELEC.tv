@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
-PKG_NAME="dolphin"
+PKG_NAME="dolphin-ST"
 PKG_VERSION="ba6ee9d7ba9730e5b2165ff0ee18cbc23762b129" #r5.0-18336
 PKG_ARCH="x86_64"
 PKG_LICENSE="GPL-2.0-or-later"
