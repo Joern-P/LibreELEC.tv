@@ -6,8 +6,11 @@
   # generated code.
     case $TARGET_ARCH in
       aarch64)
+        TARGET_FLOAT="hard"
         TARGET_CPU="cortex-a72.cortex-a53"
-        TARGET_CPU_FLAGS="+crc+crypto"
+        TARGET_CPU_FLAGS="+crc+crypto+fp+simd"
+        TARGET_FPU="fp-armv8"
+
         ;;
       arm)
         TARGET_KERNEL_ARCH="arm64"

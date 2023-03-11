@@ -3,8 +3,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="llvm"
-PKG_VERSION="15.0.7"
-PKG_SHA256="8b5fcb24b4128cf04df1b0b9410ce8b1a729cb3c544e6da885d234280dedeac6"
+PKG_VERSION="15.0.3"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="http://llvm.org/"
 PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${PKG_VERSION}/llvm-project-${PKG_VERSION}.src.tar.xz"
@@ -14,6 +13,7 @@ PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."
 PKG_TOOLCHAIN="cmake"
 
 PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
+                       -DCMAKE_BUILD_TYPE=Release \
                        -DLLVM_BUILD_TOOLS=OFF \
                        -DLLVM_BUILD_UTILS=OFF \
                        -DLLVM_BUILD_EXAMPLES=OFF \
@@ -28,12 +28,11 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_ENABLE_DOXYGEN=OFF \
                        -DLLVM_ENABLE_SPHINX=OFF \
                        -DLLVM_ENABLE_OCAMLDOC=OFF \
-                       -DLLVM_ENABLE_BINDINGS=OFF \
-                       -DLLVM_ENABLE_TERMINFO=OFF \
-                       -DLLVM_ENABLE_ASSERTIONS=OFF \
+                       -DLLVM_ENABLE_BINDINGS=ON \
+                       -DLLVM_ENABLE_TERMINFO=ON \
+                       -DLLVM_ENABLE_ASSERTIONS=ON \
                        -DLLVM_ENABLE_WERROR=OFF \
                        -DLLVM_ENABLE_ZLIB=OFF \
-                       -DLLVM_ENABLE_ZSTD=OFF \
                        -DLLVM_ENABLE_LIBXML2=OFF \
                        -DLLVM_BUILD_LLVM_DYLIB=ON \
                        -DLLVM_LINK_LLVM_DYLIB=ON \
@@ -51,13 +50,13 @@ pre_configure() {
 pre_configure_host() {
   case "${TARGET_ARCH}" in
     "arm")
-      LLVM_BUILD_TARGETS="X86\;ARM"
+      LLVM_BUILD_TARGETS="X86;ARM"
       ;;
     "aarch64")
-      LLVM_BUILD_TARGETS="X86\;AArch64"
+      LLVM_BUILD_TARGETS="X86;AArch64"
       ;;
-    "x86_64")
-      LLVM_BUILD_TARGETS="X86\;AMDGPU"
+    i*86|x86_64)
+      LLVM_BUILD_TARGETS="AMDGPU;X86"
       ;;
   esac
 
@@ -82,6 +81,18 @@ post_makeinstall_host() {
 }
 
 pre_configure_target() {
+  case "${TARGET_ARCH}" in
+    arm)
+      LLVM_BUILD_TARGETS="X86;ARM"
+      ;;
+    aarch64)
+      LLVM_BUILD_TARGETS="X86;AArch64"
+      ;;
+    i*86|x86_64)
+      LLVM_BUILD_TARGETS="AMDGPU;X86"
+      ;;
+  esac
+
   mkdir -p ${PKG_BUILD}/.${TARGET_NAME}
   cd ${PKG_BUILD}/.${TARGET_NAME}
   PKG_CMAKE_OPTS_TARGET="${PKG_CMAKE_OPTS_COMMON} \
@@ -91,7 +102,8 @@ pre_configure_target() {
                          -DLLVM_ENABLE_PROJECTS='' \
                          -DLLVM_TARGETS_TO_BUILD=AMDGPU \
                          -DLLVM_TARGET_ARCH="${TARGET_ARCH}" \
-                         -DLLVM_TABLEGEN=${TOOLCHAIN}/bin/llvm-tblgen"
+                         -DLLVM_TABLEGEN=${TOOLCHAIN}/bin/llvm-tblgen \
+			 -DLLVM_TARGETS_TO_BUILD=${LLVM_BUILD_TARGETS}"
 }
 
 post_makeinstall_target() {
@@ -103,3 +115,4 @@ post_makeinstall_target() {
   rm -rf ${INSTALL}/usr/lib/libLTO.so
   rm -rf ${INSTALL}/usr/share
 }
+

@@ -46,4 +46,7 @@ if [ "${MEDIACENTER}" = "kodi" ]; then
   if listcontains "${GRAPHIC_DRIVERS}" "nvidia-ng"; then
     PKG_DEPENDS_TARGET+=" nvidia-vaapi-driver"
   fi
+  if [ "${TARGET_ARCH}" = "aarch64" ]; then
+    PKG_DEPENDS_TARGET+=" inputstream.adaptive "
+  fi
 fi
