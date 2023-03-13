@@ -1,0 +1,136 @@
+diff -uNr a/ffbuild/common.mak b/ffbuild/common.mak
+--- a/ffbuild/common.mak	2022-09-24 22:59:48.000000000 +0200
++++ b/ffbuild/common.mak	2022-10-17 22:35:02.000000000 +0200
+@@ -101,7 +101,7 @@
+ 
+ %.o: %.asm
+ 	$(COMPILE_X86ASM)
+-	-$(if $(ASMSTRIPFLAGS), $(STRIP) $(ASMSTRIPFLAGS) $@)
++	$(if $(STRIP), $(if $(ASMSTRIPFLAGS), $(STRIP) $(ASMSTRIPFLAGS) $@))
+ 
+ %.o: %.rc
+ 	$(WINDRES) $(IFLAGS) $(foreach ARG,$(CC_DEPFLAGS),--preprocessor-arg "$(ARG)") -o $@ $<
+diff -uNr a/ffbuild/version.sh b/ffbuild/version.sh
+--- a/ffbuild/version.sh	2022-09-24 22:59:48.000000000 +0200
++++ b/ffbuild/version.sh	2022-10-17 22:35:02.000000000 +0200
+@@ -2,6 +2,7 @@
+ 
+ # Usage: version.sh <ffmpeg-root-dir> <output-version.h> <extra-version>
+ 
++if [ -d $1/.git ]; then  # only check for a git rev, if the src tree is in a git repo
+ # check for git short hash
+ if ! test "$revision"; then
+     if (cd "$1" && grep git RELEASE 2> /dev/null >/dev/null) ; then
+@@ -27,6 +28,7 @@
+       git_hash="${srcdir##*-}";;
+   esac
+ fi
++fi
+ 
+ # no revision number found
+ test "$revision" || revision=$(cd "$1" && cat RELEASE 2> /dev/null)
+diff -uNr a/libavcodec/dxva2.c b/libavcodec/dxva2.c
+--- a/libavcodec/dxva2.c	2022-09-24 22:59:48.000000000 +0200
++++ b/libavcodec/dxva2.c	2022-10-17 22:35:02.000000000 +0200
+@@ -777,16 +777,18 @@
+ #if CONFIG_D3D11VA
+     if (avctx->pix_fmt == AV_PIX_FMT_D3D11)
+         return (intptr_t)frame->data[1];
+-    if (avctx->pix_fmt == AV_PIX_FMT_D3D11VA_VLD) {
++    if (avctx->pix_fmt == AV_PIX_FMT_D3D11VA_VLD && surface) {
+         D3D11_VIDEO_DECODER_OUTPUT_VIEW_DESC viewDesc;
+         ID3D11VideoDecoderOutputView_GetDesc((ID3D11VideoDecoderOutputView*) surface, &viewDesc);
+         return viewDesc.Texture2D.ArraySlice;
+     }
+ #endif
+ #if CONFIG_DXVA2
+-    for (i = 0; i < DXVA_CONTEXT_COUNT(avctx, ctx); i++) {
+-        if (avctx->pix_fmt == AV_PIX_FMT_DXVA2_VLD && ctx->dxva2.surface[i] == surface)
+-            return i;
++    if (avctx->pix_fmt == AV_PIX_FMT_DXVA2_VLD) {
++        for (i = 0; i < DXVA_CONTEXT_COUNT(avctx, ctx); i++) {
++            if (ctx->dxva2.surface[i] == surface)
++                return i;
++        }
+     }
+ #endif
+ 
+diff -uNr a/libavcodec/dxva2_h264.c b/libavcodec/dxva2_h264.c
+--- a/libavcodec/dxva2_h264.c	2022-09-24 22:59:48.000000000 +0200
++++ b/libavcodec/dxva2_h264.c	2022-10-17 22:35:02.000000000 +0200
+@@ -506,6 +506,14 @@
+ 
+     if (ctx_pic->slice_count <= 0 || ctx_pic->bitstream_size <= 0)
+         return -1;
++
++    // Wait for an I-frame before start decoding. Workaround for ATI UVD and UVD+ GPUs
++    if (!h->got_first_iframe) {
++        if (!(ctx_pic->pp.wBitFields & (1 << 15)))
++            return -1;
++        h->got_first_iframe = 1;
++    }
++
+     ret = ff_dxva2_common_end_frame(avctx, h->cur_pic_ptr->f,
+                                     &ctx_pic->pp, sizeof(ctx_pic->pp),
+                                     &ctx_pic->qm, sizeof(ctx_pic->qm),
+diff -uNr a/libavcodec/h264dec.c b/libavcodec/h264dec.c
+--- a/libavcodec/h264dec.c	2022-09-24 22:59:48.000000000 +0200
++++ b/libavcodec/h264dec.c	2022-10-17 22:35:02.000000000 +0200
+@@ -448,6 +448,7 @@
+ 
+     h->next_outputed_poc = INT_MIN;
+     h->prev_interlaced_frame = 1;
++    h->got_first_iframe = 0;
+     idr(h);
+ 
+     h->poc.prev_frame_num = -1;
+diff -uNr a/libavcodec/h264dec.h b/libavcodec/h264dec.h
+--- a/libavcodec/h264dec.h	2022-09-24 22:59:48.000000000 +0200
++++ b/libavcodec/h264dec.h	2022-10-17 22:35:02.000000000 +0200
+@@ -532,6 +532,8 @@
+      * slices) anymore */
+     int setup_finished;
+ 
++    int got_first_iframe;
++
+     int cur_chroma_format_idc;
+     int cur_bit_depth_luma;
+     int16_t slice_row[MAX_SLICES]; ///< to detect when MAX_SLICES is too low
+diff -uNr a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
+--- a/libavcodec/h264_slice.c	2022-09-24 22:59:48.000000000 +0200
++++ b/libavcodec/h264_slice.c	2022-10-17 22:35:02.000000000 +0200
+@@ -971,6 +971,7 @@
+ 
+     h->first_field           = 0;
+     h->prev_interlaced_frame = 1;
++    h->got_first_iframe = 0;
+ 
+     init_scan_tables(h);
+     ret = ff_h264_alloc_tables(h);
+diff -uNr a/libavcodec/vaapi_h264.c b/libavcodec/vaapi_h264.c
+--- a/libavcodec/vaapi_h264.c	2022-09-24 22:59:48.000000000 +0200
++++ b/libavcodec/vaapi_h264.c	2022-10-17 22:35:02.000000000 +0200
+@@ -314,6 +314,11 @@
+     H264SliceContext *sl = &h->slice_ctx[0];
+     int ret;
+ 
++    if (pic->nb_slices == 0) {
++        ret = AVERROR_INVALIDDATA;
++        goto finish;
++    }
++
+     ret = ff_vaapi_decode_issue(avctx, pic);
+     if (ret < 0)
+         goto finish;
+diff -uNr a/Makefile b/Makefile
+--- a/Makefile	2022-09-24 22:59:48.000000000 +0200
++++ b/Makefile	2022-10-17 22:35:02.000000000 +0200
+@@ -137,7 +137,7 @@
+ .version: M=@
+ 
+ libavutil/ffversion.h .version:
+-	$(M)$(VERSION_SH) $(SRC_PATH) libavutil/ffversion.h $(EXTRA_VERSION)
++	$(M)$(VERSION_SH) $(SRC_PATH) libavutil/ffversion.h Kodi
+ 	$(Q)touch .version
+ 
+ # force version.sh to run whenever version might have changed
