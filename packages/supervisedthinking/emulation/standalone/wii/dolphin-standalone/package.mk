@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
-PKG_NAME="dolphin-ST"
-PKG_VERSION="ba6ee9d7ba9730e5b2165ff0ee18cbc23762b129" #r5.0-18336
-PKG_ARCH="x86_64"
+PKG_NAME="dolphin-standalone"
+PKG_VERSION="41272dc5f1b62f4a5a0562cc29eb3e83367d0f14" #r5.0-18407
+PKG_ARCH="any"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/dolphin-emu/dolphin"
 PKG_URL="https://github.com/dolphin-emu/dolphin.git"
-PKG_DEPENDS_TARGET="toolchain linux glibc systemd openal-soft-system libevdev curl ffmpeg libpng zlib bzip2 zstd bluez pulseaudio alsa-lib libogg-system libvorbis-system libSM enet-system qt5 unclutter-xfixes"
+PKG_DEPENDS_TARGET="toolchain linux glibc systemd openal-soft-system libevdev curl ffmpeg libpng zlib bzip2 zstd bluez pulseaudio alsa-lib libogg-system libvorbis-system"
 PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
 GET_HANDLER_SUPPORT="git"
 PKG_GIT_CLONE_BRANCH="master"
@@ -15,22 +15,25 @@ PKG_GIT_CLONE_SINGLE="yes"
 PKG_BUILD_FLAGS="+gold"
 
 pre_configure_target() {
-  PKG_CMAKE_OPTS_TARGET="-D DISTRIBUTOR=SupervisedThinking
-                         -D USE_SHARED_ENET=on \
-                         -D ENABLE_NOGUI=off \
-                         -D ENABLE_LTO=off \
-                         -D ENABLE_TESTS=off \
-                         -D USE_DISCORD_PRESENCE=off \
-                         -D ENABLE_ANALYTICS=off"
-}
+  PKG_CMAKE_OPTS_TARGET="-D USE_SHARED_ENET=OFF \
+                         -D ENABLE_X11=OFF
+                         -D ENABLE_EGL=ON \
+                         -D ENABLE_NOGUI=OFF \
+                         -D ENABLE_TESTS=OFF\
+			 -D CMAKE_BUILD_TYPE=Release \
+                         -D ENABLE_ALSA=ALSA \
+                         -D ENABLE_PULSEAUDIO=ON \
+                         -D ENABLE_QT=OFF \
+                         -D BUILD_SHARED_LIBS=OFF 
+                         -D USE_DISCORD_PRESENCE=OFF \
+                         -D ENABLE_ANALYTICS=OFF"
+}                         
 
 pre_make_target() {
   # fix cross compiling
   find ${PKG_BUILD} -name flags.make -exec sed  -i "s:isystem :I:g" \{} \;
   find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
   
-  # Export QT path
-  export Qt5Gui_DIR=${SYSROOT_PREFIX}/usr/lib
 }
 
 post_makeinstall_target() {
@@ -43,4 +46,3 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/share/applications
   safe_remove ${INSTALL}/usr/share/icons
 }
-

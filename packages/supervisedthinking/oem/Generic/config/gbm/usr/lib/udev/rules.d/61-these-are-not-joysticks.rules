@@ -3,6 +3,7 @@
 # This file is auto-generated. For more information:
 # https://github.com/denilsonsa/udev-joystick-blacklist
 
+SUBSYSTEM=="input", ATTRS{idVendor}=="0121", ATTRS{idProduct}=="6172", MODE="0666" DRIVERS=="wiimote", MODE="0666"
 SUBSYSTEM=="input", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="009d", ENV{ID_INPUT_JOYSTICK}=="?*", ENV{ID_INPUT_JOYSTICK}=""
 SUBSYSTEM=="input", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="009d", KERNEL=="js[0-9]*", MODE="0000", ENV{ID_INPUT_JOYSTICK}=""
 SUBSYSTEM=="input", ATTRS{idVendor}=="045e", ATTRS{idProduct}=="00b0", ENV{ID_INPUT_JOYSTICK}=="?*", ENV{ID_INPUT_JOYSTICK}=""

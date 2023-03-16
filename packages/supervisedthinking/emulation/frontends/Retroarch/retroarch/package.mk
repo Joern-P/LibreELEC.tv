@@ -2,11 +2,11 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="retroarch"
-PKG_VERSION="ad89b0c655fc1d25adfcdf40268e95c5d0391111" #v1.14.0
+PKG_VERSION="938ab716bd290b0f469068500966a834b5782929" #v1.15.0
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="https://github.com/libretro/RetroArch.git"
-PKG_DEPENDS_TARGET="toolchain linux glibc systemd dbus openssl expat alsa-lib libpng libusb libass speex flac-system tinyalsa fluidsynth-system freetype zlib bzip2 ffmpeg common-overlays-lr core-info-lr database-lr glsl-shaders-lr overlay-borders-lr samples-lr retroarch-assets retroarch-joypad-autoconfig libxkbcommon"
+PKG_DEPENDS_TARGET="toolchain linux glibc systemd dbus openssl expat alsa-lib libpng libusb libass speex flac-system tinyalsa fluidsynth-system freetype zlib bzip2 ffmpeg common-overlays-lr core-info-lr database-lr glsl-shaders-lr overlay-borders-lr samples-lr retroarch-assets retroarch-joypad-autoconfig libxkbcommon openal-soft-system"
 PKG_LONGDESC="Reference frontend for the libretro API."
 GET_HANDLER_SUPPORT="git"
 PKG_BUILD_FLAGS="+lto +speed"
@@ -63,7 +63,8 @@ pre_configure_target() {
                              --disable-al \
                              --disable-xvideo \
                              --disable-qt \
-                             --disable-discord"
+                             --disable-discord \
+                             --enable-AL"
 
   # OpenGL support
   if [ "${OPENGL_SUPPORT}" = "yes" ]; then

@@ -34,6 +34,16 @@ pre_configure_target() {
     fi
   fi
   
+    # ARCH arm
+  if [ "${ARCH}" = "aarch64" ]; then
+    PKG_MAKE_OPTS_TARGET+=" DYNAREC=arm64 HOST_CPU=armv8"
+
+    # ARM NEON optimization
+    if target_has_feature neon; then
+      PKG_MAKE_OPTS_TARGET+=" NEON=0"
+    fi
+  fi
+  
   # build against GLESv2 instead of OpenGL
   if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
     PKG_MAKE_OPTS_TARGET+=" USE_GLES=1"
@@ -42,6 +52,13 @@ pre_configure_target() {
       PKG_MAKE_OPTS_TARGET+=" VC=1"
     fi
   fi
+}
+
+pre_build_init() {
+  PKG_MAKE_OPTS_INIT="ARCH=${TARGET_ARCH} \
+                      HOSTCC=${HOST_CC} \
+                      CROSS_COMPILE=${TARGET_PREFIX}"
+
 }
 
 makeinstall_target() {

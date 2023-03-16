@@ -1,0 +1,32 @@
+diff -uNr a/Makefile b/Makefile
+--- a/Makefile	2023-03-13 10:05:24.360809000 +0100
++++ b/Makefile	2023-03-13 10:26:47.360431000 +0100
+@@ -391,7 +391,11 @@
+    LDFLAGS += -shared -Wl,--version-script=$(LIBRETRO_DIR)/link.T -Wl,--no-undefined -ldl
+ 
+    ifneq (,$(findstring RK33,$(platform)))
+-      CPUFLAGS += -march=armv8-a+crc -mfloat-abi=hard -mfpu=neon-fp-armv8
++      ifeq ($(ARCH), aarch64)
++      	 CPUFLAGS += -march=armv8-a+crc+fp
++      else
++      	 CPUFLAGS += -march=armv8-a+crc -mfloat-abi=hard -mfpu=neon-fp-armv8
++      endif
+       ifneq (,$(findstring RK3399,$(platform)))
+          CPUFLAGS += -mtune=cortex-a72.cortex-a53
+          ifeq ($(FORCE_GLES),1)
+@@ -413,8 +417,13 @@
+    endif
+ 
+    GL_LIB := -lGLESv2
+-   HAVE_NEON = 1
+-   WITH_DYNAREC=arm
++   ifeq ($(ARCH), aarch64)
++   	HAVE_NEON = 0
++   	WITH_DYNAREC=aarch64
++   else
++   	HAVE_NEON = 1
++   	WITH_DYNAREC=arm
++   endif
+    COREFLAGS += -DUSE_GENERIC_GLESV2 -DOS_LINUX
+    ASFLAGS = -f elf -d ELF_TYPE
+ 

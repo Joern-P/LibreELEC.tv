@@ -1,0 +1,30 @@
+From bf0fe0281acae2d18683206965909cd679009033 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?bl=C3=A5haj?= <blaahaj@hotmail.com>
+Date: Tue, 24 Nov 2020 21:22:39 +0100
+Subject: [PATCH] Fix bounding box incorrectly disabled on OpenGL ES 3.1, 3.2
+
+---
+ Source/Core/VideoBackends/OGL/Render.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Source/Core/VideoBackends/OGL/Render.cpp b/Source/Core/VideoBackends/OGL/Render.cpp
+index 2bc5e6af5ec8..04f04155471e 100644
+--- a/Source/Core/VideoBackends/OGL/Render.cpp
++++ b/Source/Core/VideoBackends/OGL/Render.cpp
+@@ -426,7 +426,6 @@ Renderer::Renderer(std::unique_ptr<GLContext> main_gl_context, float backbuffer_
+       ((GLExtensions::Version() >= 310) || GLExtensions::Supports("GL_NV_primitive_restart"));
+   g_Config.backend_info.bSupportsFragmentStoresAndAtomics =
+       GLExtensions::Supports("GL_ARB_shader_storage_buffer_object");
+-  g_Config.backend_info.bSupportsBBox = g_Config.backend_info.bSupportsFragmentStoresAndAtomics;
+   g_Config.backend_info.bSupportsGSInstancing = GLExtensions::Supports("GL_ARB_gpu_shader5");
+   g_Config.backend_info.bSupportsSSAA = GLExtensions::Supports("GL_ARB_gpu_shader5") &&
+                                         GLExtensions::Supports("GL_ARB_sample_shading");
+@@ -655,6 +654,8 @@ Renderer::Renderer(std::unique_ptr<GLContext> main_gl_context, float backbuffer_
+     glEnable(GL_PROGRAM_POINT_SIZE);
+   }
+ 
++  g_Config.backend_info.bSupportsBBox = g_Config.backend_info.bSupportsFragmentStoresAndAtomics;
++
+   // Either method can do early-z tests. See PixelShaderGen for details.
+   g_Config.backend_info.bSupportsEarlyZ =
+       g_ogl_config.bSupportsImageLoadStore || g_ogl_config.bSupportsConservativeDepth;
