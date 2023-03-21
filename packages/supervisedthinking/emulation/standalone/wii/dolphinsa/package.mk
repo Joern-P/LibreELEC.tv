@@ -1,90 +1,51 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2022-present BrooksyTech (https://github.com/brooksytech)
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="dolphinsa"
-PKG_LICENSE="GPLv2"
-PKG_DEPENDS_TARGET="toolchain libevdev libdrm sdl2 ffmpeg zlib libpng lzo libusb zstd ecm openal-soft pulseaudio alsa-lib"
-PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements. "
-PKG_TOOLCHAIN="cmake"
+PKG_VERSION="5b69c67b3ac895998c8964b019f98e0eb0ff0222" #r5.0-18407
+PKG_ARCH="x86_64 aarch64"
+PKG_LICENSE="GPL-2.0-or-later"
+PKG_SITE="https://github.com/dolphin-emu/dolphin"
+PKG_URL="https://github.com/dolphin-emu/dolphin.git"
+PKG_DEPENDS_TARGET="toolchain linux glibc systemd openal-soft-system libevdev curl sdl2 ffmpeg libpng zlib bzip2 zstd bluez pulseaudio alsa-lib libogg-system libvorbis-system"
+PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
+GET_HANDLER_SUPPORT="git"
+PKG_GIT_CLONE_BRANCH="master"
+PKG_GIT_CLONE_SINGLE="yes"
+PKG_BUILD_FLAGS="+gold"
 
-case ${DEVICE} in
-  RK3588|handheld)
-    PKG_SITE="https://github.com/dolphin-emu/dolphin"
-    PKG_URL="${PKG_SITE}.git"
-    PKG_VERSION="4d164fcb77487b0cb732e0423961fd042c3e7e3b"
-    PKG_PATCH_DIRS+=" wayland"
-  ;;
-  *)
-    PKG_SITE="https://github.com/rtissera/dolphin"
-    PKG_URL="${PKG_SITE}.git"
-    PKG_VERSION="0b160db48796f727311cea16072174d96b784f80"
-    GET_HANDLER_SUPPORT="git"
-    PKG_GIT_CLONE_BRANCH="egldrm"
-    PKG_PATCH_DIRS+=" legacy"
-  ;;
-esac
+pre_configure_target() {
+  PKG_CMAKE_OPTS_TARGET="-D CMAKE_BUILD_TYPE=Release
+                         -D BUILD_SHARED_LIBS=OFF \
+                         -D USE_MGBA=OFF \
+                         -D USE_UPNP=OFF \
+                         -D ENABLE_TESTS=OFF \
+                         -D ENABLE_AUTOUPDATE=OFF \
+                         -D ENABLE_X11=OFF \
+                         -D ENABLE_VULKAN=OFF \
+                         -D ENABLE_TESTS=off \
+                         -D ENABLE_QT=OFF \
+                         -D USE_DISCORD_PRESENCE=off \
+                         -D ENABLE_ANALYTICS=off"
+}
 
-if [ ! "${OPENGL}" = "no" ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
-  PKG_CMAKE_OPTS_TARGET+="		-DENABLE_EGL=ON"
-fi
-
-if [ "${OPENGLES_SUPPORT}" = yes ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_CMAKE_OPTS_TARGET+="		-DENABLE_EGL=ON"
-fi
-
-if [ "${DISPLAYSERVER}" = "wl" ]; then
-  PKG_DEPENDS_TARGET+=" wayland ${WINDOWMANAGER} xorg-server xrandr libXi"
-  PKG_CMAKE_OPTS_TARGET+="     -DENABLE_WAYLAND=ON"
-fi
-
-if [ "${VULKAN_SUPPORT}" = "yes" ]
-then
-  PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers"
-  PKG_CMAKE_OPTS_TARGET+=" -DENABLE_VULKAN=ON"
-fi
-
-PKG_CMAKE_OPTS_TARGET+=" -DENABLE_HEADLESS=ON \
-                         -DENABLE_EVDEV=ON \
-                         -DUSE_DISCORD_PRESENCE=OFF \
-                         -DBUILD_SHARED_LIBS=OFF \
-                         -DUSE_MGBA=OFF \
-                         -DLINUX_LOCAL_DEV=ON \
-                         -DENABLE_TESTS=OFF \
-                         -DENABLE_LLVM=OFF \
-                         -DENABLE_ANALYTICS=OFF \
-                         -DENABLE_LTO=ON \
-                         -DENABLE_QT=OFF \
-                         -DENCODE_FRAMEDUMPS=OFF \
-                         -DENABLE_CLI_TOOL=OFF \
-                         -DENABLE_X11=OFF"
+pre_make_target() {
+  # fix cross compiling
+  find ${PKG_BUILD} -name flags.make -exec sed  -i "s:isystem :I:g" \{} \;
+  find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
+ 
+  
+}
 
 
-makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/bin
-  cp -rf ${PKG_BUILD}/.${TARGET_NAME}/Binaries/dolphin* ${INSTALL}/usr/bin
-  cp -rf ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin
-
-  chmod +x ${INSTALL}/usr/bin/start_dolphin_gc.sh
-  chmod +x ${INSTALL}/usr/bin/start_dolphin_wii.sh
-
+post_makeinstall_target() {
+  # Copy scripts & config files
   mkdir -p ${INSTALL}/usr/config/dolphin-emu
-  cp -rf ${PKG_BUILD}/Data/Sys/* ${INSTALL}/usr/config/dolphin-emu
-  cp -rf ${PKG_DIR}/config/${DEVICE}/* ${INSTALL}/usr/config/dolphin-emu
+    #cp ${PKG_DIR}/scripts/* ${INSTALL}/usr/bin/
+    cp -PR ${PKG_DIR}/config/* ${INSTALL}/usr/config/dolphin-emu/
+
+  # Clean up
+  safe_remove ${INSTALL}/usr/share/applications
+  safe_remove ${INSTALL}/usr/share/icons
 }
 
-post_install() {
-    case ${DEVICE} in
-      RK3566 | RK3399)
-        DOLPHIN_PLATFORM="drm"
-      ;;
-      *)
-        DOLPHIN_PLATFORM="wayland"
-      ;;
-    esac
-    sed -e "s/@DOLPHIN_PLATFORM@/${DOLPHIN_PLATFORM}/g" \
-        -i  ${INSTALL}/usr/bin/start_dolphin_gc.sh
-    sed -e "s/@DOLPHIN_PLATFORM@/${DOLPHIN_PLATFORM}/g" \
-        -i  ${INSTALL}/usr/bin/start_dolphin_wii.sh
-}

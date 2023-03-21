@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="gliden64"
-PKG_VERSION="1a711257ed78131aff4d0e39933df14082f52f0c"
+PKG_VERSION="263a7bd2ca81759ece98209bd282a6c1173a129f"
 PKG_SHA256="3aea5a1d03dec0209e6fa877dc920114f09b53098b22bc700afdf8b7cf101ac3"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/gonetz/GLideN64"
@@ -36,7 +36,11 @@ pre_configure_target() {
   PKG_CMAKE_SCRIPT="${PKG_BUILD}/src/CMakeLists.txt"
 
   PKG_CMAKE_OPTS_TARGET="-DVEC4_OPT=On \
-                         -DCRC_OPT=On \
+                         -DCRC_ARMV8=ON\
+                         -DEGL=ON \
+                         -DGL_PROFILE=ON \
+                         -DEGL_NO_X11=ON \
+                         -DMESA=ON \
                          -DUSE_SYSTEM_LIBS=On \
                          -DMUPENPLUSAPI=On"
 
