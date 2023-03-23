@@ -40,4 +40,3 @@ post_makeinstall_target() {
     mv ${PYTHON_DIR}/dist-packages ${PYTHON_DIR}/site-packages
   fi
 }
-

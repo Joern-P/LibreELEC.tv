@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="busybox"
-PKG_VERSION="1.32.1"
-PKG_SHA256="9d57c4bd33974140fd4111260468af22856f12f5b5ef7c70c8d9b75c712a0dee"
+PKG_VERSION="1.36.0"
+PKG_SHA256="542750c8af7cb2630e201780b4f99f3dcceeb06f505b479ec68241c1e6af61a5"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
 PKG_URL="https://busybox.net/downloads/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
@@ -212,9 +212,4 @@ makeinstall_init() {
       -e "s/@SYSTEM_SIZE@/${SYSTEM_SIZE}/g" \
       -i ${INSTALL}/init
   chmod 755 ${INSTALL}/init
-}
-
-post_makeinstall_target() {
-  # workaround for broken xz decompression - use xz binary instead
-  rm -rf ${INSTALL}/usr/bin/xz
 }

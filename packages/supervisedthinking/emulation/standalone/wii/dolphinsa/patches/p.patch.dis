@@ -1,0 +1,15 @@
+diff -uNr a/Source/Core/Common/Thread.cpp b/Source/Core/Common/Thread.cpp
+--- a/Source/Core/Common/Thread.cpp	2023-03-21 17:21:09.000000000 +0100
++++ b/Source/Core/Common/Thread.cpp	2023-03-21 17:53:26.570790754 +0100
+@@ -131,9 +131,8 @@
+ #endif
+   CPU_ZERO(&cpu_set);
+ 
+-  for (int i = 0; i != sizeof(mask) * 8; ++i)
+-    if ((mask >> i) & 1)
+-      CPU_SET(i, &cpu_set);
++  CPU_SET(4, &cpu_set);
++  CPU_SET(5, &cpu_set);
+ 
+   pthread_setaffinity_np(thread, sizeof(cpu_set), &cpu_set);
+ #else

@@ -29,4 +29,3 @@ fi
 if [ "${ISCSI_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" open-iscsi"
 fi
-

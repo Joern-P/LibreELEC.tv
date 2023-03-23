@@ -222,7 +222,7 @@ configure_target() {
               --disable-libtheora \
               --disable-libvo-amrwbenc \
               --disable-libvorbis \
-              --enable-libvpx \
+              --disable-libvpx \
               --disable-libx264 \
               --disable-libxavs \
               --disable-libxvid \

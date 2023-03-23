@@ -46,4 +46,3 @@ post_makeinstall_target() {
 post_install() {
   enable_service brcmfmac-firmware.service
 }
-
