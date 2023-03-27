@@ -22,6 +22,8 @@ configure_package() {
 }
 
 pre_configure_target() {
+
+
   export SYSROOT_PREFIX=${SYSROOT_PREFIX}
 
   # ARCH arm
@@ -57,8 +59,14 @@ pre_configure_target() {
 pre_build_init() {
   PKG_MAKE_OPTS_INIT="ARCH=${TARGET_ARCH} \
                       HOSTCC=${HOST_CC} \
-                      CROSS_COMPILE=${TARGET_PREFIX}"
+                      CROSS_COMPILE=${TARGET_PREFIX}"     
 
+}
+
+pre_make_target() {
+  # fix cross compiling
+  find ${PKG_BUILD} -name flags.make -exec sed  -i "s:isystem :I:g" \{} \;
+  find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
 }
 
 makeinstall_target() {

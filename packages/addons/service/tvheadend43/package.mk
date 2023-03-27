@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="5aa50b12fc4bab29855edba8557f0ad8fe26e2d1"
-PKG_SHA256="6ab04d86d9267cb2f540ee6557bd208e66791465b547cfce60d7797fbd26cffa"
+PKG_VERSION="21a5c6399aaba600886f1bc1ad0ce79d454b8ba8"
+PKG_SHA256=""
 PKG_VERSION_NUMBER="4.3-2091"
 PKG_REV="0"
 PKG_ARCH="any"

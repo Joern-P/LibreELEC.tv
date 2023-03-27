@@ -47,6 +47,7 @@ if [ "${MEDIACENTER}" = "kodi" ]; then
     PKG_DEPENDS_TARGET+=" nvidia-vaapi-driver"
   fi
   if [ "${TARGET_ARCH}" = "aarch64" ]; then
-    PKG_DEPENDS_TARGET+=" inputstream.adaptive "
+    PKG_DEPENDS_TARGET+=" inputstream.adaptive pvr.hts "
+    #PKG_DEPENDS_TARGET+=" inputstream.adaptive pvr.hts syncthing mariadb tvheadend43 docker "
   fi
 fi
