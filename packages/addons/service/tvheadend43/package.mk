@@ -2,15 +2,15 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="21a5c6399aaba600886f1bc1ad0ce79d454b8ba8"
+PKG_VERSION="a1cb8cffb1d5af17c9bce2b3ef65319ab984854f"
 PKG_SHA256=""
 PKG_VERSION_NUMBER="4.3-2091"
-PKG_REV="0"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain avahi comskip curl dvb-apps ffmpegx libdvbcsa libhdhomerun \
+PKG_DEPENDS_TARGET="toolchain avahi curl dvb-apps ffmpegx libdvbcsa \
                     libiconv openssl pcre2 pngquant:host Python3:host tvh-dtv-scan-tables"
 PKG_DEPENDS_CONFIG="ffmpegx"
 PKG_SECTION="service"
@@ -51,7 +51,7 @@ else
   # for != "x86_64" targets
   # specific transcoding options
   PKG_TVH_TRANSCODING="${PKG_TVH_TRANSCODING} \
-    --disable-libvpx \
+    --enable-libvpx \
     --disable-libx265"
 fi
 
@@ -72,7 +72,7 @@ pre_configure_target() {
                              --enable-dvbcsa \
                              --disable-dvben50221 \
                              --disable-dvbscan \
-                             --enable-hdhomerun_client \
+                             --disable-hdhomerun_client \
                              --disable-hdhomerun_static \
                              --enable-epoll \
                              --enable-inotify \
@@ -95,7 +95,7 @@ pre_configure_target() {
   LDFLAGS+=" -L$(get_install_dir ffmpegx)/usr/local/lib"
 
 # pass libhdhomerun to build
-  CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/hdhomerun"
+  #CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/hdhomerun"
 
   export CROSS_COMPILE="${TARGET_PREFIX}"
   export CFLAGS+=" -I${SYSROOT_PREFIX}/usr/include/iconv -L${SYSROOT_PREFIX}/usr/lib/iconv"
@@ -121,7 +121,7 @@ addon() {
 
   cp -P ${PKG_INSTALL}/usr/bin/tvheadend ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
   cp -P ${PKG_INSTALL}/usr/lib/capmt_ca.so ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
-  cp -P $(get_install_dir comskip)/usr/bin/comskip ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
+  #p -P $(get_install_dir comskip)/usr/bin/comskip ${ADDON_BUILD}/${PKG_ADDON_ID}/bin
 
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     cp -P $(get_install_dir x265)/usr/lib/libx265.so.199 ${ADDON_BUILD}/${PKG_ADDON_ID}/lib

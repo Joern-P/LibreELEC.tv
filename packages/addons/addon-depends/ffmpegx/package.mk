@@ -2,8 +2,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="4.4.3"
-PKG_SHA256="6c5b6c195e61534766a0b5fe16acc919170c883362612816d0a1c7f4f947006e"
+PKG_VERSION="5.1.3"
+PKG_SHA256="1b113593ff907293be7aed95acdda5e785dd73616d7d4ec90a0f6adbc5a0312e"
 PKG_LICENSE="LGPLv2.1+"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="https://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
@@ -64,9 +64,9 @@ pre_configure_target() {
 
     PKG_FFMPEG_X26x_GENERIC="\
     --enable-libx264 \
-    --enable-encoder=x264 \
+    --enable-encoder=libx264 \
     --enable-libx265 \
-    --enable-encoder=x265"
+    --enable-encoder=libx265"
   fi
 
 # Encoders
@@ -75,6 +75,7 @@ pre_configure_target() {
     --enable-libvpx \
     --enable-encoder=libvpx_vp8 \
     --enable-encoder=libvpx_vp9 \
+    --enable-encoder=vp8_v4l2m2m \
     ${PKG_FFMPEG_X26x_GENERIC} \
     --enable-libaom \
     --enable-encoder=libaom_av1 \
@@ -134,7 +135,6 @@ configure_target() {
     ${PKG_FFMPEG_ENCODERS} \
     \
     `#General options` \
-    --enable-avresample \
     --disable-lzma \
     --disable-alsa \
     ${PKG_FFMPEG_X11_GRAB} \

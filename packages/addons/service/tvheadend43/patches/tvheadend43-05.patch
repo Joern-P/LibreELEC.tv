@@ -1,0 +1,374 @@
+From d31ad7a2783b07ceb061ce24dcc30e3f04ab25e3 Mon Sep 17 00:00:00 2001
+From: alingherghescu <alin_gherghescu@yahoo.com>
+Date: Fri, 24 Mar 2023 09:52:43 -0700
+Subject: [PATCH] update to ffmpeg5.1.2
+
+- update iptv_libav.c
+- Makefile.ffmpeg updated to 5.1.2
+- src/muxer/muxer_libav.c --> updated with #define USE_FFMPEG5
+- src/transcoding/transcode/hwaccels/vaapi.c --> incorporated the struct from libavcodec/vaapi.h (probably not the most optimal option)
+- src/transcoding/transcode/video.c --> updated the variable type according to ffmpeg5
+---
+ Makefile.ffmpeg                             |  4 ++--
+ src/input/mpegts/iptv/iptv_libav.c          |  1 +
+ src/muxer/muxer_libav.c                     | 13 +++++++++++++
+ src/transcoding/codec.h                     |  4 ++--
+ src/transcoding/codec/codec.c               | 16 ++++++++--------
+ src/transcoding/codec/internals.h           |  4 ++--
+ src/transcoding/codec/profile.c             |  4 ++--
+ src/transcoding/codec/profile_video_class.c |  2 +-
+ src/transcoding/transcode/context.c         |  7 +++----
+ src/transcoding/transcode/hwaccels/vaapi.c  |  5 +++--
+ src/transcoding/transcode/internals.h       |  2 +-
+ src/transcoding/transcode/stream.c          |  2 +-
+ src/transcoding/transcode/video.c           |  7 ++++++-
+ 13 files changed, 45 insertions(+), 26 deletions(-)
+
+diff --git a/Makefile.ffmpeg b/Makefile.ffmpeg
+index 25f956e83a..3763bff018 100644
+--- a/Makefile.ffmpeg
++++ b/Makefile.ffmpeg
+@@ -108,10 +108,10 @@ FFNVCODEC_TB   = $(FFNVCODEC).tar.gz
+ FFNVCODEC_URL  = https://github.com/FFmpeg/nv-codec-headers/releases/download/n$(FFNVCODEC_VER)/nv-codec-headers-$(FFNVCODEC_VER).tar.gz
+ FFNVCODEC_SHA1 = 89bee0d3025b813c513084ad8546b0261623fbb0
+ 
+-FFMPEG         = ffmpeg-4.4.3
++FFMPEG         = ffmpeg-5.1.2
+ FFMPEG_TB      = $(FFMPEG).tar.bz2
+ FFMPEG_URL     = https://ffmpeg.org/releases/$(FFMPEG_TB)
+-FFMPEG_SHA1    = a900f77ed16a18421983b499114c1595b8b765f2
++FFMPEG_SHA1    = f5215c15ca50a43856f641c714c6070aa148dd66
+ 
+ 
+ # ##############################################################################
+diff --git a/src/input/mpegts/iptv/iptv_libav.c b/src/input/mpegts/iptv/iptv_libav.c
+index 8e32887274..d6445f8276 100644
+--- a/src/input/mpegts/iptv/iptv_libav.c
++++ b/src/input/mpegts/iptv/iptv_libav.c
+@@ -23,6 +23,7 @@
+ 
+ #include <fcntl.h>
+ #include <signal.h>
++#include <libavcodec/avcodec.h>
+ 
+ #define WRITE_BUFFER_SIZE (188*500)
+ 
+diff --git a/src/muxer/muxer_libav.c b/src/muxer/muxer_libav.c
+index 9650a18163..9efb050c48 100644
+--- a/src/muxer/muxer_libav.c
++++ b/src/muxer/muxer_libav.c
+@@ -15,12 +15,17 @@
+  *  You should have received a copy of the GNU General Public License
+  *  along with this program.  If not, see <htmlui://www.gnu.org/licenses/>.
+  */
++#define USE_FFMPEG5
+ 
+ #include <assert.h>
+ #include <unistd.h>
+ #include <sys/stat.h>
+ #include <libavformat/avformat.h>
+ #include <libavutil/mathematics.h>
++#ifdef USE_FFMPEG5
++#include <libavcodec/bsf.h>
++#include <libavcodec/avcodec.h>
++#endif
+ 
+ #include "tvheadend.h"
+ #include "streaming.h"
+@@ -343,7 +348,11 @@ lav_muxer_init(muxer_t* m, struct streaming_start *ss, const char *name)
+   AVDictionary *opts = NULL;
+   lav_muxer_t *lm = (lav_muxer_t*)m;
+   char app[128];
++#ifdef USE_FFMPEG5
++  const AVOutputFormat *fmt;
++#else
+   AVOutputFormat *fmt;
++#endif
+   const char *muxer_name;
+   int rc = -1;
+ 
+@@ -690,7 +699,11 @@ lav_muxer_create(const muxer_config_t *m_cfg,
+ {
+   const char *mux_name;
+   lav_muxer_t *lm;
++#ifdef USE_FFMPEG5
++  const AVOutputFormat *fmt;
++#else
+   AVOutputFormat *fmt;
++#endif
+ 
+   switch(m_cfg->m_type) {
+   case MC_MPEGPS:
+diff --git a/src/transcoding/codec.h b/src/transcoding/codec.h
+index c274c40ba2..dd41c84f8e 100644
+--- a/src/transcoding/codec.h
++++ b/src/transcoding/codec.h
+@@ -59,7 +59,7 @@ struct tvh_codec {
+     const char *name;
+     size_t size;
+     const codec_profile_class_t *idclass;
+-    AVCodec *codec;
++    const AVCodec *codec;
+     const AVProfile *profiles;
+     int (*profile_init)(TVHCodecProfile *, htsmsg_t *conf);
+     void (*profile_destroy)(TVHCodecProfile *);
+@@ -114,7 +114,7 @@ tvh_codec_profile_get_name(TVHCodecProfile *self);
+ const char *
+ tvh_codec_profile_get_title(TVHCodecProfile *self);
+ 
+-AVCodec *
++const AVCodec *
+ tvh_codec_profile_get_avcodec(TVHCodecProfile *self);
+ 
+ 
+diff --git a/src/transcoding/codec/codec.c b/src/transcoding/codec/codec.c
+index 93885d9a65..631d362073 100644
+--- a/src/transcoding/codec/codec.c
++++ b/src/transcoding/codec/codec.c
+@@ -79,21 +79,21 @@ extern TVHCodec tvh_codec_omx_h264;
+ /* AVCodec ================================================================== */
+ 
+ static enum AVMediaType
+-codec_get_type(AVCodec *self)
++codec_get_type(const AVCodec *self)
+ {
+     return self->type;
+ }
+ 
+ 
+ static const char *
+-codec_get_type_string(AVCodec *self)
++codec_get_type_string(const AVCodec *self)
+ {
+     return av_get_media_type_string(self->type);
+ }
+ 
+ 
+ const char *
+-codec_get_title(AVCodec *self)
++codec_get_title(const AVCodec *self)
+ {
+     static __thread char codec_title[TVH_TITLE_LEN];
+ 
+@@ -113,7 +113,7 @@ codec_get_title(AVCodec *self)
+ /* TVHCodec ================================================================= */
+ 
+ static void
+-tvh_codec_video_init(TVHVideoCodec *self, AVCodec *codec)
++tvh_codec_video_init(TVHVideoCodec *self, const AVCodec *codec)
+ {
+     if (!self->pix_fmts) {
+         self->pix_fmts = codec->pix_fmts;
+@@ -121,7 +121,7 @@ tvh_codec_video_init(TVHVideoCodec *self, AVCodec *codec)
+ }
+ 
+ static void
+-tvh_codec_audio_init(TVHAudioCodec *self, AVCodec *codec)
++tvh_codec_audio_init(TVHAudioCodec *self, const AVCodec *codec)
+ {
+     static int default_sample_rates[] = {
+         44100, 48000, 96000, 192000, 0
+@@ -142,7 +142,7 @@ tvh_codec_audio_init(TVHAudioCodec *self, AVCodec *codec)
+ 
+ 
+ static void
+-tvh_codec_init(TVHCodec *self, AVCodec *codec)
++tvh_codec_init(TVHCodec *self, const AVCodec *codec)
+ {
+     if (!self->profiles) {
+         self->profiles = codec->profiles;
+@@ -164,7 +164,7 @@ static void
+ tvh_codec_register(TVHCodec *self)
+ {
+     static const size_t min_size = sizeof(TVHCodecProfile);
+-    AVCodec *codec = NULL;
++    const AVCodec *codec = NULL;
+ 
+     if (tvh_str_default(self->name, NULL) == NULL ||
+         self->size < min_size || !self->idclass) {
+@@ -221,7 +221,7 @@ tvh_codec_get_type_string(TVHCodec *self)
+ }
+ 
+ 
+-AVCodec *
++const AVCodec *
+ tvh_codec_get_codec(TVHCodec *self)
+ {
+     return self->codec;
+diff --git a/src/transcoding/codec/internals.h b/src/transcoding/codec/internals.h
+index 5e79c3fc1b..f7a7ac96ce 100644
+--- a/src/transcoding/codec/internals.h
++++ b/src/transcoding/codec/internals.h
+@@ -132,7 +132,7 @@ codec_profile_class_profile_get_opts(void *obj, uint32_t opts);
+ /* AVCodec ================================================================== */
+ 
+ const char *
+-codec_get_title(AVCodec *self);
++codec_get_title(const AVCodec *self);
+ 
+ 
+ /* TVHCodec ================================================================= */
+@@ -143,7 +143,7 @@ tvh_codec_get_type(TVHCodec *self);
+ const char *
+ tvh_codec_get_type_string(TVHCodec *self);
+ 
+-AVCodec *
++const AVCodec *
+ tvh_codec_get_codec(TVHCodec *self);
+ 
+ int
+diff --git a/src/transcoding/codec/profile.c b/src/transcoding/codec/profile.c
+index 202e17a7db..fd05146367 100644
+--- a/src/transcoding/codec/profile.c
++++ b/src/transcoding/codec/profile.c
+@@ -197,7 +197,7 @@ tvh_codec_profile_get_title(TVHCodecProfile *self)
+ }
+ 
+ 
+-AVCodec *
++const AVCodec *
+ tvh_codec_profile_get_avcodec(TVHCodecProfile *self)
+ {
+     TVHCodec *codec = tvh_codec_profile_get_codec(self);
+@@ -211,7 +211,7 @@ tvh_codec_profile_is_copy(TVHCodecProfile *self, tvh_ssc_t *ssc)
+ {
+     const idclass_t *idclass = NULL;
+     const codec_profile_class_t *codec_profile_class = NULL;
+-    AVCodec *avcodec = NULL;
++    const AVCodec *avcodec = NULL;
+     tvh_sct_t out_type = SCT_UNKNOWN;
+ 
+ 
+diff --git a/src/transcoding/codec/profile_video_class.c b/src/transcoding/codec/profile_video_class.c
+index c5ac19f05a..35bd9353a3 100644
+--- a/src/transcoding/codec/profile_video_class.c
++++ b/src/transcoding/codec/profile_video_class.c
+@@ -140,7 +140,7 @@ static int
+ codec_profile_video_class_deinterlace_set(void *obj, const void *val)
+ {
+     TVHVideoCodecProfile *self = (TVHVideoCodecProfile *)obj;
+-    AVCodec *avcodec = NULL;
++    const AVCodec *avcodec = NULL;
+ 
+     if (self &&
+         (avcodec = tvh_codec_profile_get_avcodec((TVHCodecProfile *)self))) {
+diff --git a/src/transcoding/transcode/context.c b/src/transcoding/transcode/context.c
+index 8e4534095d..d951a92464 100644
+--- a/src/transcoding/transcode/context.c
++++ b/src/transcoding/transcode/context.c
+@@ -183,13 +183,12 @@ _context_wrap(TVHContext *self, AVPacket *avpkt, th_pkt_t *pkt)
+ // creation
+ 
+ static AVCodecContext *
+-tvh_context_alloc_avctx(TVHContext *context, AVCodec *avcodec)
++tvh_context_alloc_avctx(TVHContext *context, const AVCodec *avcodec)
+ {
+     AVCodecContext *avctx = NULL;
+ 
+     if ((avctx = avcodec_alloc_context3(avcodec))) {
+         avctx->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+-        avctx->refcounted_frames = 1;
+         avctx->opaque = context;
+     }
+     return avctx;
+@@ -197,7 +196,7 @@ tvh_context_alloc_avctx(TVHContext *context, AVCodec *avcodec)
+ 
+ 
+ static int
+-tvh_context_setup(TVHContext *self, AVCodec *iavcodec, AVCodec *oavcodec)
++tvh_context_setup(TVHContext *self, const AVCodec *iavcodec, const AVCodec *oavcodec)
+ {
+     enum AVMediaType media_type = iavcodec->type;
+     const char *media_type_name = av_get_media_type_string(media_type);
+@@ -684,7 +683,7 @@ tvh_context_handle(TVHContext *self, th_pkt_t *pkt)
+ 
+ TVHContext *
+ tvh_context_create(TVHStream *stream, TVHCodecProfile *profile,
+-                   AVCodec *iavcodec, AVCodec *oavcodec, pktbuf_t *input_gh)
++                   const AVCodec *iavcodec, const AVCodec *oavcodec, pktbuf_t *input_gh)
+ {
+     TVHContext *self = NULL;
+ 
+diff --git a/src/transcoding/transcode/hwaccels/vaapi.c b/src/transcoding/transcode/hwaccels/vaapi.c
+index a5ae381064..28ada3b26b 100644
+--- a/src/transcoding/transcode/hwaccels/vaapi.c
++++ b/src/transcoding/transcode/hwaccels/vaapi.c
+@@ -21,7 +21,6 @@
+ #include "../internals.h"
+ #include "vaapi.h"
+ 
+-#include <libavcodec/vaapi.h>
+ #include <libavutil/hwcontext.h>
+ #include <libavutil/hwcontext_vaapi.h>
+ #include <libavutil/pixdesc.h>
+@@ -37,7 +36,9 @@ typedef struct tvh_vaapi_device {
+ 
+ 
+ typedef struct tvh_vaapi_context_t {
+-    struct vaapi_context;
++    void *display;
++    uint32_t config_id;
++    uint32_t context_id;
+     const char *logpref;
+     VAEntrypoint entrypoint;
+     enum AVPixelFormat io_format;
+diff --git a/src/transcoding/transcode/internals.h b/src/transcoding/transcode/internals.h
+index 65dd188ab8..e0776cec40 100644
+--- a/src/transcoding/transcode/internals.h
++++ b/src/transcoding/transcode/internals.h
+@@ -191,7 +191,7 @@ tvh_context_deliver(TVHContext *self, th_pkt_t *pkt);
+ 
+ TVHContext *
+ tvh_context_create(TVHStream *stream, TVHCodecProfile *profile,
+-                   AVCodec *iavcodec, AVCodec *oavcodec, pktbuf_t *input_gh);
++                   const AVCodec *iavcodec, const AVCodec *oavcodec, pktbuf_t *input_gh);
+ 
+ void
+ tvh_context_destroy(TVHContext *self);
+diff --git a/src/transcoding/transcode/stream.c b/src/transcoding/transcode/stream.c
+index 0435404d6b..b3117e3bcb 100644
+--- a/src/transcoding/transcode/stream.c
++++ b/src/transcoding/transcode/stream.c
+@@ -56,7 +56,7 @@ static int
+ tvh_stream_setup(TVHStream *self, TVHCodecProfile *profile, tvh_ssc_t *ssc)
+ {
+     enum AVCodecID icodec_id = streaming_component_type2codec_id(ssc->es_type);
+-    AVCodec *icodec = NULL, *ocodec = NULL;
++    const AVCodec *icodec = NULL, *ocodec = NULL;
+ 
+     if (icodec_id == AV_CODEC_ID_NONE) {
+         tvh_stream_log(self, LOG_ERR, "unknown decoder id for '%s'",
+diff --git a/src/transcoding/transcode/video.c b/src/transcoding/transcode/video.c
+index bf24450c29..4e78c08fe1 100644
+--- a/src/transcoding/transcode/video.c
++++ b/src/transcoding/transcode/video.c
+@@ -17,6 +17,7 @@
+  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+ 
++#define USE_FFMPEG5
+ 
+ #include "internals.h"
+ 
+@@ -309,7 +310,6 @@ tvh_video_context_open(TVHContext *self, TVHOpenPhase phase, AVDictionary **opts
+ static int
+ tvh_video_context_encode(TVHContext *self, AVFrame *avframe)
+ {
+-    avframe->pts = avframe->best_effort_timestamp;
+     if (avframe->pts <= self->pts) {
+         tvh_context_log(self, LOG_WARNING,
+                         "Invalid pts (%"PRId64") <= last (%"PRId64"), dropping frame",
+@@ -343,7 +343,12 @@ static int
+ tvh_video_context_wrap(TVHContext *self, AVPacket *avpkt, th_pkt_t *pkt)
+ {
+     uint8_t *qsdata = NULL;
++#ifdef USE_FFMPEG5
++    size_t qsdata_size = 0;
++#else
+     int qsdata_size = 0;
++#endif
++    
+     enum AVPictureType pict_type = AV_PICTURE_TYPE_NONE;
+ 
+     if (avpkt->flags & AV_PKT_FLAG_KEY) {
+

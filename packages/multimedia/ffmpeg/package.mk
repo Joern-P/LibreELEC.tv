@@ -3,11 +3,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="52d055b34d09601b54c07f31220842c1fd90d150"
-PKG_SHA256="7d0ae756f0d7f42bb64418e1c7af660d9a8c2d323ba0e1d78c64b2eb6cc9b209"
+PKG_VERSION="5.1.3"
+PKG_SHA256="1b113593ff907293be7aed95acdda5e785dd73616d7d4ec90a0f6adbc5a0312e"
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://github.com/FFmpeg/FFmpeg/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="http://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex libvpx-system"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_PATCH_DIRS="libreelec"
