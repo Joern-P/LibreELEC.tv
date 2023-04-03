@@ -153,18 +153,6 @@ index d8557ff8a0f80..69540fed20379 100644
    return true;
  }
  
-diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
-index ec2016cc060ff..bed1bfa88ed64 100644
---- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
-+++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
-@@ -308,6 +308,7 @@ bool CDVDVideoCodecDRMPRIME::Open(CDVDStreamInfo& hints, CDVDCodecOptions& optio
-   m_pCodecContext->opaque = static_cast<void*>(this);
-   m_pCodecContext->get_format = GetFormat;
-   m_pCodecContext->get_buffer2 = GetBuffer;
-+  m_pCodecContext->thread_safe_callbacks = 1;
-   m_pCodecContext->codec_tag = hints.codec_tag;
-   m_pCodecContext->coded_width = hints.width;
-   m_pCodecContext->coded_height = hints.height;
 diff --git a/xbmc/interfaces/python/XBPython.cpp b/xbmc/interfaces/python/XBPython.cpp
 index ee8ed93ff56ed..21f2de1382735 100644
 --- a/xbmc/interfaces/python/XBPython.cpp
