@@ -2,14 +2,14 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.beetle-psx"
-PKG_VERSION="0.9.44.44-Nexus"
-PKG_SHA256="b0353183fbc07f8b0997d9f8a61756a3fc784d1899208fed620adc33f796c6d2"
+PKG_VERSION="0.9.44.48-Nexus"
+PKG_SHA256="d7ba2c8bbf89791ac68c2a8a569cfdf9ec10dbf1fed7065bb5498739d2b7db24"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.beetle-psx"
 PKG_URL="https://github.com/kodi-game/game.libretro.beetle-psx/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-beetle-psx"
+PKG_DEPENDS_TARGET="toolchain libretro-beetle-psx"
 PKG_SECTION=""
 PKG_LONGDESC="game.libretro.beetle-psx: Beetle PSX for Kodi"
 
