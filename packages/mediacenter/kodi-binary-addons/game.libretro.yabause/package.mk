@@ -2,14 +2,14 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="game.libretro.yabause"
-PKG_VERSION="0.9.15.44-Nexus"
-PKG_SHA256="77d9503897015d9c0b36962c81e8c83addd9256c08fd5c0088d60ad60644d93f"
+PKG_VERSION="0.9.15.43-Nexus"
+PKG_SHA256="c485c7ff558e16260c558aac6f6a074ba95fd51b7af34b4e52f09752c96f90a8"
 PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-game/game.libretro.yabause"
 PKG_URL="https://github.com/kodi-game/game.libretro.yabause/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libretro-yabause"
+PKG_DEPENDS_TARGET="toolchain kodi-platform libretro-yabause"
 PKG_SECTION=""
 PKG_LONGDESC="game.libretro.yabause: Yabause emulator for Kodi"
 

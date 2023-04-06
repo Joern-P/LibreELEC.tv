@@ -18,4 +18,3 @@ PKG_BUILD_FLAGS="+lto"
 
 PKG_IS_ADDON="embedded"
 PKG_ADDON_TYPE="kodi.peripheral"
-

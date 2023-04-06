@@ -7,19 +7,15 @@ PKG_SHA256="5b4f1b5d2eaacca013a46ed9a7105162500d15ed9d25da3f88b212226cd999e2"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/fuse-libretro"
 PKG_URL="https://github.com/libretro/fuse-libretro/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain bzip2"
-PKG_LONGDESC="A port of the Fuse Unix Spectrum Emulator to libretro "
-PKG_TOOLCHAIN="make"
+PKG_DEPENDS_TARGET="toolchain kodi-platform"
+PKG_LONGDESC="game.libretro.fuse: fuse for Kodi"
 
 PKG_LIBNAME="fuse_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="FUSE_LIB"
 
-PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
-
-pre_make_target() {
-  CFLAGS+=" -DHAVE_LIBBZ2"
-  CXXFLAGS+=" -DHAVE_LIBBZ2"
+make_target() {
+  make
 }
 
 makeinstall_target() {

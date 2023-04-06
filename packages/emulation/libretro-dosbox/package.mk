@@ -7,18 +7,20 @@ PKG_SHA256="83d8b06eebc67f85ff7505271330b1f1c8ef6c4233ef85d070b0789eab83c33d"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/dosbox-libretro"
 PKG_URL="https://github.com/libretro/dosbox-libretro/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain"
-PKG_LONGDESC="libretro wrapper for the DOSBox emulator"
-PKG_TOOLCHAIN="make"
+PKG_DEPENDS_TARGET="toolchain kodi-platform"
+PKG_LONGDESC="game.libretro.dosbox: DOSBox for Kodi"
+PKG_BUILD_FLAGS="+pic"
 
 PKG_LIBNAME="dosbox_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="DOSBOX_LIB"
 
-PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
-
 pre_make_target() {
-  CXXFLAGS+=" -std=gnu++11"
+  export CXXFLAGS="${CXXFLAGS} -std=gnu++11"
+}
+
+make_target() {
+  make -f Makefile.libretro
 }
 
 makeinstall_target() {
