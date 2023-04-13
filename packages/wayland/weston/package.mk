@@ -7,7 +7,7 @@ PKG_SHA256="a413f68c252957fc3191c3650823ec356ae8c124ccc0cb440da5cdc4e2cb9e57"
 PKG_LICENSE="MIT"
 PKG_SITE="https://wayland.freedesktop.org/"
 PKG_URL="https://gitlab.freedesktop.org/wayland/weston/uploads/f5648c818fba5432edc3ea63c4db4813/${PKG_NAME}-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain wayland wayland-protocols libdrm libxkbcommon libinput cairo pango libjpeg-turbo dbus seatd"
+PKG_DEPENDS_TARGET="toolchain wayland wayland-protocols libdrm libxkbcommon libinput cairo pango libjpeg-turbo dbus seatd mesa"
 PKG_LONGDESC="Reference implementation of a Wayland compositor"
 
 PKG_MESON_OPTS_TARGET="-Dbackend-drm=true \
@@ -15,7 +15,7 @@ PKG_MESON_OPTS_TARGET="-Dbackend-drm=true \
                        -Dbackend-headless=false \
                        -Dbackend-rdp=false \
                        -Dscreenshare=false \
-                       -Dbackend-wayland=false \
+                       -Dbackend-wayland=true \
                        -Dbackend-x11=false \
                        -Dbackend-default=drm \
                        -Drenderer-gl=true \
@@ -24,9 +24,9 @@ PKG_MESON_OPTS_TARGET="-Dbackend-drm=true \
                        -Dremoting=false \
                        -Dpipewire=false \
                        -Dshell-desktop=true \
-                       -Dshell-fullscreen=false \
+                       -Dshell-fullscreen=true \
                        -Dshell-ivi=false \
-                       -Dshell-kiosk=false \
+                       -Dshell-kiosk=true \
                        -Ddesktop-shell-client-default="weston-desktop-shell" \
                        -Dcolor-management-lcms=false \
                        -Dlauncher-logind=false \
