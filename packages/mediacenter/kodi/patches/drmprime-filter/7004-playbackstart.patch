@@ -16,7 +16,7 @@ index e438c02bc9..81d71475fe 100644
        {
          if (m_pInputStream->IsRealtime())
 -          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(1000);
-+          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(800);
++          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(1000);
          else
            clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime;
  
