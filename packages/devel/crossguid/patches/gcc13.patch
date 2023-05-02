@@ -1,0 +1,11 @@
+diff -uNr a/include/crossguid/guid.hpp b/include/crossguid/guid.hpp
+--- a/include/crossguid/guid.hpp	2019-05-29 17:36:34.000000000 +0200
++++ b/include/crossguid/guid.hpp	2023-04-27 08:10:42.652316569 +0200
+@@ -36,6 +36,7 @@
+ #include <string_view>
+ #include <utility>
+ #include <iomanip>
++#include <cstdint>
+ 
+ #define BEGIN_XG_NAMESPACE namespace xg {
+ #define END_XG_NAMESPACE }
