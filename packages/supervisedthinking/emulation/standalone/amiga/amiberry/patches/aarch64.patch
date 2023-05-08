@@ -1,0 +1,56 @@
+diff -uNr a/Makefile b/Makefile
+--- a/Makefile	2023-03-06 12:04:31.000000000 +0100
++++ b/Makefile	2023-05-05 13:27:06.788313104 +0200
+@@ -253,13 +253,12 @@
+ # RK3399 e.g. PINE64 RockPro64 
+ # RK3326 e.g. Odroid Go Advance - 32-bit userspace
+ else ifneq (,$(findstring RK,$(PLATFORM)))
+-	CPPFLAGS += $(CPPFLAGS32) $(NEON_FLAGS)
+-	HAVE_NEON = 1
+ 
+ 	ifneq (,$(findstring RK33,$(PLATFORM)))
+-	  CPUFLAGS = -mfloat-abi=hard -mfpu=neon-fp-armv8
+ 	  ifneq (,$(findstring RK3399,$(PLATFORM)))
+-		CPUFLAGS += -mcpu=cortex-a72
++		CPUFLAGS = -mcpu=cortex-a72
++		CPPFLAGS += $(CPPFLAGS64) -DUSE_RENDER_THREAD
++		AARCH64 = 1
+ 	  else ifneq (,$(findstring RK3328,$(PLATFORM)))
+ 		CPUFLAGS += -mcpu=cortex-a53
+ 		CPPFLAGS += -DUSE_RENDER_THREAD
+diff -uNr a/src/floppybridge/CommonBridgeTemplate.h b/src/floppybridge/CommonBridgeTemplate.h
+--- a/src/floppybridge/CommonBridgeTemplate.h	2023-03-06 12:04:31.000000000 +0100
++++ b/src/floppybridge/CommonBridgeTemplate.h	2023-05-05 14:01:53.970292339 +0200
+@@ -39,6 +39,7 @@
+ #include <vector>
+ #include <deque>
+ #include <mutex>
++#include <string>
+ #include <condition_variable>
+ #include "floppybridge_abstract.h"
+ #include "RotationExtractor.h"
+@@ -541,4 +542,4 @@
+ 
+ };
+ 
+-#endif
+\ Kein Zeilenumbruch am Dateiende.
++#endif
+diff -uNr a/src/floppybridge/ftdi.h b/src/floppybridge/ftdi.h
+--- a/src/floppybridge/ftdi.h	2023-03-06 12:04:31.000000000 +0100
++++ b/src/floppybridge/ftdi.h	2023-05-05 14:09:30.942586413 +0200
+@@ -21,6 +21,7 @@
+   This is a FTDI driver class, based on the FTDI2XX.h file from FTDI.
+   This library dynamically loads the DLL rather than static linking to it.
+ */
++#include <cstdint>
+ 
+ #ifndef FTDI_CLASS_H
+ #define FTDI_CLASS_H
+@@ -275,4 +276,4 @@
+ };
+ 
+ #endif
+-#endif
+\ Kein Zeilenumbruch am Dateiende.
++#endif

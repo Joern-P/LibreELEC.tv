@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="23.0.3"
-PKG_SHA256="386362a5d80df3b096636b67f340e1ce67b705b44767d5bdd11d2ed1037192d5"
+PKG_VERSION="23.1.0-rc4"
+PKG_SHA256="98ef6dccded17a884aa47dc74d610158bdf19a148eb1beb7e44be191714a124f"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -13,8 +13,7 @@ PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 
 get_graphicdrivers
 
-PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
-                       -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
+PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-omx=disabled \
                        -Dgallium-nine=false \
