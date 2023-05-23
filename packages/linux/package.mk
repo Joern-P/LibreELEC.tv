@@ -29,8 +29,8 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   *)
-    PKG_VERSION="6.3.1"
-    PKG_SHA256="78620fb4a7d5e0db1d4eb8d5b1c6e207ba5d19564efa63967a59b6daf89b3f2a"
+    PKG_VERSION="6.3.3"
+    PKG_SHA256="8975216a6cee827390586758ed69d19743367098d1fc5dd5694987bb529e44e5"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -228,6 +228,7 @@ make_target() {
       NO_GTK2=1 \
       NO_LIBNUMA=1 \
       NO_LIBAUDIT=1 \
+      NO_LIBTRACEEVENT=1 \
       NO_LZMA=1 \
       NO_SDT=1 \
       CROSS_COMPILE="${TARGET_PREFIX}" \
