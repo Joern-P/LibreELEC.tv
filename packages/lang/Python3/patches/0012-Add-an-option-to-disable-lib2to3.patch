@@ -48,9 +48,9 @@ index 403380e181..f5d0573067 100644
 -		lib2to3/tests/data \
 -		lib2to3/tests/data/fixers \
 -		lib2to3/tests/data/fixers/myfixes \
- 		test test/audiodata \
- 		test/capath test/cjkencodings \
- 		test/data test/decimaltestdata \
+ 		test \
+ 		test/audiodata \
+ 		test/capath \
 @@ -2013,6 +2010,14 @@ ifeq (@PYDOC@,yes)
  LIBSUBDIRS += pydoc_data
  endif
@@ -117,4 +117,5 @@ index 3e55f5b2e0..c490b0b08f 100644
            version = sys.version.split()[0],
 -- 
 2.34.1
+
 
