@@ -54,6 +54,7 @@ makeinstall_target() {
 
     # Only install u-boot.img et al when building a board specific image
     if [ -n "${UBOOT_SYSTEM}" ]; then
+      echo ppppp ${FOUND_PATH}	
       find_file_path bootloader/install && . ${FOUND_PATH}
     fi
 
