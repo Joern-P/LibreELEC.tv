@@ -32,17 +32,6 @@ diff -uNr a/xbmc/guilib/iimage.h b/xbmc/guilib/iimage.h
  
  class IImage
  {
-diff -uNr a/xbmc/pictures/Picture.h b/xbmc/pictures/Picture.h
---- a/xbmc/pictures/Picture.h	2023-03-11 23:16:38.000000000 +0100
-+++ b/xbmc/pictures/Picture.h	2023-04-27 10:38:17.384356035 +0200
-@@ -11,6 +11,7 @@
- #include "pictures/PictureScalingAlgorithm.h"
- #include "utils/Job.h"
- 
-+#include <cstdint>
- #include <string>
- #include <vector>
- 
 diff -uNr a/xbmc/platform/Filesystem.h b/xbmc/platform/Filesystem.h
 --- a/xbmc/platform/Filesystem.h	2023-03-11 23:16:38.000000000 +0100
 +++ b/xbmc/platform/Filesystem.h	2023-04-27 10:56:41.217587152 +0200

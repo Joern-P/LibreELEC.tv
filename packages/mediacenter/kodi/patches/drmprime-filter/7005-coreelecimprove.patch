@@ -439,10 +439,11 @@ index e476f1840a..9d99092364 100644
 +++ b/xbmc/platform/linux/SysfsPath.h
 @@ -11,6 +11,7 @@
  #include "utils/log.h"
- #include "utils/StringUtils.h"
- 
+
+ #include <exception>
 +#include <filesystem>
  #include <fstream>
+ #include <optional>
  #include <string>
 
 From 9fe4a1348d80c4fc958b1ad2d883adf4b458447f Mon Sep 17 00:00:00 2001
