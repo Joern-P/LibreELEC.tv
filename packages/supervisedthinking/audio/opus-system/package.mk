@@ -3,7 +3,7 @@
 
 PKG_NAME="opus-system"
 PKG_VERSION="$(get_pkg_version ${PKG_NAME::-7})"
-PKG_SHA256="4834a8944c33a7ecab5cad9454eeabe4680ca1842cb8f5a2437572dbf636de8f"
+PKG_SHA256="659e6b223e42a51b0a898632b9a5f406ccd5c2e00aa526ddd1264789774b94e5"
 PKG_LICENSE="BSD"
 PKG_SITE="http://www.opus-codec.org"
 PKG_URL="https://github.com/xiph/opus/archive/v${PKG_VERSION}.tar.gz"

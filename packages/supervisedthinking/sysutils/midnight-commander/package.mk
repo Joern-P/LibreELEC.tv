@@ -3,7 +3,7 @@
 
 PKG_NAME="midnight-commander"
 PKG_VERSION="$(get_pkg_version mc)"
-PKG_SHA256="09c8b9689d065e5a59d380338ed0bc0d529b3dcab860a40655333928a2b2e0ba"
+PKG_SHA256="6f17de6c380ad4e8b71b31c3e9e3a6bae8cb05f08d42d8896dd26e269ceeb387"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="http://www.midnight-commander.org"
 PKG_URL="https://github.com/MidnightCommander/mc/archive/${PKG_VERSION}.tar.gz"
