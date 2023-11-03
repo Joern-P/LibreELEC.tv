@@ -3,32 +3,29 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="6.0"
-PKG_SHA256="57be87c22d9b49c112b6d24bc67d42508660e6b718b3db89c44e47e289137082"
+PKG_VERSION="4.4.4"
+PKG_SHA256="e80b380d595c809060f66f96a5d849511ef4a76a26b76eacf5778b94c3570309"
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
 PKG_URL="http://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
-PKG_PATCH_DIRS="libreelec"
+PKG_PATCH_DIRS="kodi libreelec"
 
 case "${PROJECT}" in
   Amlogic)
-    PKG_VERSION="6859fc2a8791c0fcc25851b77fed15a691ceb332"
-    PKG_FFMPEG_BRANCH="dev/6.0/rpi_import_1"
-    PKG_SHA256="d9ba353b5ab95489bb999cec958bed154534ccb46c154fb8b9d6848188f7ef8c"
+    PKG_VERSION="f9638b6331277e53ecd9276db5fe6dcd91d44c57"
+    PKG_FFMPEG_BRANCH="dev/4.4/rpi_import_1"
+    PKG_SHA256="3b42cbffd15d95d59e402475fcdb1aaac9ae6a8404a521b95d1fe79c6b2baad4"
     PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
+    PKG_PATCH_DIRS="libreelec dav1d"
     ;;
   RPi)
-    PKG_FFMPEG_RPI="--disable-mmal --enable-sand"
+    PKG_FFMPEG_RPI="--disable-mmal --disable-rpi --enable-sand"
     PKG_PATCH_DIRS+=" rpi"
     ;;
   *)
     PKG_PATCH_DIRS+=" v4l2-request v4l2-drmprime"
-    case "${PROJECT}" in
-      Allwinner|Rockchip)
-        PKG_PATCH_DIRS+=" vf-deinterlace-v4l2m2m"
-    esac
     ;;
 esac
 
@@ -51,8 +48,14 @@ if [ "${V4L2_SUPPORT}" = "yes" ]; then
   PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
   PKG_FFMPEG_V4L2="--enable-v4l2_m2m --enable-libdrm"
 
-  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" -o "${DEVICE}" = "iMX8" -o "${DEVICE}" = "RPi4" ]; then
+  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" -o "${DEVICE}" = "iMX8" ]; then
     PKG_V4L2_REQUEST="yes"
+  elif [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPi4" -o "${DEVICE}" = "RPi5" ]; then
+    PKG_V4L2_REQUEST="yes"
+    PKG_FFMPEG_HWACCEL="--disable-hwaccel=h264_v4l2request \
+                        --disable-hwaccel=mpeg2_v4l2request \
+                        --disable-hwaccel=vp8_v4l2request \
+                        --disable-hwaccel=vp9_v4l2request"
   else
     PKG_V4L2_REQUEST="no"
   fi

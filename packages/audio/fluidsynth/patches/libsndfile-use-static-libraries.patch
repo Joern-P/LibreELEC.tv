@@ -8,4 +8,3 @@
          else (SndFile_WITH_EXTERNAL_LIBS)
              message ( NOTICE "Seems like libsndfile was compiled without OGG/Vorbis support." )
          endif (SndFile_WITH_EXTERNAL_LIBS)
-

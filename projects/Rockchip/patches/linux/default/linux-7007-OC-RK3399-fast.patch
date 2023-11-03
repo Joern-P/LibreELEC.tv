@@ -1,0 +1,25 @@
+diff -uNr a/arch/arm64/boot/dts/rockchip/rk3399-opp.dtsi b/arch/arm64/boot/dts/rockchip/rk3399-opp.dtsi
+--- a/arch/arm64/boot/dts/rockchip/rk3399-opp.dtsi	2021-10-27 09:56:57.000000000 +0200
++++ b/arch/arm64/boot/dts/rockchip/rk3399-opp.dtsi	2021-12-16 12:26:36.495700859 +0100
+@@ -33,6 +33,10 @@
+ 			opp-hz = /bits/ 64 <1416000000>;
+ 			opp-microvolt = <1125000>;
+ 		};
++		opp06 {
++			opp-hz = /bits/ 64 <1704000000>;
++			opp-microvolt = <1225000>;
++		};		
+ 	};
+ 
+ 	cluster1_opp: opp-table1 {
+@@ -72,6 +76,10 @@
+ 			opp-hz = /bits/ 64 <1800000000>;
+ 			opp-microvolt = <1200000>;
+ 		};
++		opp08 {
++			opp-hz = /bits/ 64 <2088000000>;
++			opp-microvolt = <1250000>;
++		};		
+ 	};
+ 
+ 	gpu_opp_table: opp-table2 {	

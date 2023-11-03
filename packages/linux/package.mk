@@ -23,14 +23,14 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="default"
     ;;
   raspberrypi)
-    PKG_VERSION="2442399ad0ceff0abce7983df8782859f806c744" # 6.1.55
-    PKG_SHA256="2951ad9e311dc44f4d9df7417d582e54813b6db6ab6987e0addbfab6d1ed0b89"
+    PKG_VERSION="5a52cae54a05499a8487f392cf5dfc3d8a837e6f" # 6.1.58
+    PKG_SHA256="2a59fa0d11a2892f25c89c774bede0640703fac7ea5dc51e2386b160c323817c"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   *)
-    PKG_VERSION="6.3.13"
-    PKG_SHA256=""
+    PKG_VERSION="6.1.61"
+    PKG_SHA256="ad2c9d12fc36e2dde4796a3eec8f4ddca2e278098f4e555b6e6f5f03ef6964ce"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -228,7 +228,6 @@ make_target() {
       NO_GTK2=1 \
       NO_LIBNUMA=1 \
       NO_LIBAUDIT=1 \
-      NO_LIBTRACEEVENT=1 \
       NO_LZMA=1 \
       NO_SDT=1 \
       CROSS_COMPILE="${TARGET_PREFIX}" \

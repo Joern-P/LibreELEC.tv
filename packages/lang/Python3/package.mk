@@ -3,8 +3,8 @@
 
 PKG_NAME="Python3"
 # When changing PKG_VERSION remember to sync PKG_PYTHON_VERSION!
-PKG_VERSION="3.11.4"
-PKG_SHA256="2f0e409df2ab57aa9fc4cbddfb976af44e4e55bf6f619eee6bc5c2297264a7f6"
+PKG_VERSION="3.11.6"
+PKG_SHA256="0fab78fa7f133f4f38210c6260d90d7c0d5c7198446419ce057ec7ac2e6f5f38"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.python.org/"
 PKG_URL="https://www.python.org/ftp/python/${PKG_VERSION}/${PKG_NAME::-1}-${PKG_VERSION}.tar.xz"
@@ -42,7 +42,7 @@ PKG_CONFIGURE_OPTS_HOST="ac_cv_prog_HAS_HG=/bin/false
                          --with-doc-strings
                          --with-system-ffi
                          --without-pymalloc
-                         --without-ensurepip
+                         --with-ensurepip=no
 "
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
@@ -55,6 +55,8 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
                            ac_cv_func_chflags_works=no
                            ac_cv_func_printf_zd=yes
                            ac_cv_buggy_getaddrinfo=no
+                           ac_cv_header_bluetooth_bluetooth_h=no
+                           ac_cv_header_bluetooth_h=no
                            --disable-pyc-build
                            --disable-ossaudiodev
                            --enable-sqlite3
@@ -87,6 +89,10 @@ pre_configure_host() {
   export PYTHON_MODULES_INCLUDE="${HOST_INCDIR}"
   export PYTHON_MODULES_LIB="${HOST_LIBDIR}"
   export DISABLED_EXTENSIONS="readline _curses _curses_panel ${PKG_PY_DISABLED_MODULES}"
+  # control patch Python3-0300-generate-legacy-pyc-bytecode
+  # this needs to be set when building host based py file
+  # do not set this for py compiles being done for target use
+  export DONT_BUILD_LEGACY_PYC=1
 }
 
 post_make_host() {

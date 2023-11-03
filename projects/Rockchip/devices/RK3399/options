@@ -6,10 +6,8 @@
   # generated code.
     case $TARGET_ARCH in
       aarch64)
-        TARGET_FLOAT="hard"
         TARGET_CPU="cortex-a72.cortex-a53"
         TARGET_CPU_FLAGS="+crc+crypto"
-
         ;;
       arm)
         TARGET_KERNEL_ARCH="arm64"
@@ -27,9 +25,6 @@
 
   # Kernel target
     KERNEL_TARGET="Image"
-
-  # Vulkan implementation to use (vulkan-loader / no)
-    VULKAN="no"    
 
   # Mali GPU family
     MALI_FAMILY="t860"
