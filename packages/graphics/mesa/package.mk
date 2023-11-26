@@ -3,13 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-if [ "${DEVICE}" = "RPi5" ]; then
-  PKG_VERSION="23.2.1"
-  PKG_SHA256="64de0616fc2d801f929ab1ac2a4f16b3e2783c4309a724c8a259b20df8bbc1cc"
-else
-  PKG_VERSION="23.2.1"
-  PKG_SHA256="64de0616fc2d801f929ab1ac2a4f16b3e2783c4309a724c8a259b20df8bbc1cc"
-fi
+PKG_VERSION="23.3.0-rc4"
+PKG_SHA256="ecf0f1748ade2e3d5a0196a736ddd8c4802f527278e8962d2fafddfa0e630ac3"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -38,8 +33,6 @@ PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
 
 if [ "${DEVICE}" = "RPi5" ]; then
   PKG_MESON_OPTS_TARGET+=" -Ddraw-use-llvm=false"
-else
-  PKG_MESON_OPTS_TARGET+=" -Ddri-drivers="
 fi
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then

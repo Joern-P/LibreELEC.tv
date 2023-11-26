@@ -17,4 +17,8 @@ makeinstall_target() {
   patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.05-moonlight-qt-menu.patch
   patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.03-retroarch-menu.patch
   patch -d ${INSTALL}/usr/share/kodi/addons/skin.estuary -p1 < ${PKG_DIR}/files/kodi-theme-Estuary-100.02-emulationstation-menu.patch
+
+  for file in ${INSTALL}/usr/share/kodi/addons/skin.estuary/extras/backgrounds/*.jpg; do 
+	mogrify -resize 960x540! -colorspace Gray -quality 90 "$file"
+  done
 }

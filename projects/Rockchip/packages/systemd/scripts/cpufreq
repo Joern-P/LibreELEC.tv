@@ -17,7 +17,7 @@ if [ "${SYS_CPUFREQ_GOV}" = "ondemand" ]; then
     echo 100000 > "${sampling_rate}"
   done
   for sampling_down_factor in $(find /sys/devices/system/cpu -name sampling_down_factor); do
-    echo 50 > "${sampling_down_factor}"
+    echo 15 > "${sampling_down_factor}"
   done
 else
   echo "cpufreq: settings not found for current cpu governor." | systemd-cat -p info
