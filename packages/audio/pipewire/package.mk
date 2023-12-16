@@ -2,8 +2,8 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pipewire"
-PKG_VERSION="0.3.83"
-PKG_SHA256="b681bbf590cd02deec41802444ba5b05fe4df3e497eaa80260d1c5f7bb830bda"
+PKG_VERSION="0.3.66"
+PKG_SHA256="36b6028434c16aacfc6695073b7ca4996c5476eb92833340566d27538b635508"
 PKG_LICENSE="LGPL"
 PKG_SITE="https://pipewire.org"
 PKG_URL="https://github.com/PipeWire/pipewire/archive/${PKG_VERSION}.tar.gz"
@@ -11,7 +11,7 @@ PKG_DEPENDS_TARGET="toolchain libpthread-stubs dbus ncurses alsa-lib systemd lib
 PKG_LONGDESC="PipeWire is a server and user space API to deal with multimedia pipeline"
 
 if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
-  PKG_DEPENDS_TARGET+=" bluez fdk-aac sbc ldacBT libfreeaptx"
+  PKG_DEPENDS_TARGET+=" bluez sbc ldacBT libfreeaptx"
   PKG_PIPEWIRE_BLUETOOTH="-Dbluez5=enabled \
                           -Dbluez5-backend-hsp-native=disabled \
                           -Dbluez5-backend-hfp-native=disabled \
@@ -19,7 +19,7 @@ if [ "${BLUETOOTH_SUPPORT}" = "yes" ]; then
                           -Dbluez5-backend-hsphfpd=disabled \
                           -Dbluez5-codec-aptx=enabled \
                           -Dbluez5-codec-ldac=enabled \
-                          -Dbluez5-codec-aac=enabled"
+                          -Dbluez5-codec-aac=disabled"
 else
   PKG_PIPEWIRE_BLUETOOTH="-Dbluez5=disabled"
 fi

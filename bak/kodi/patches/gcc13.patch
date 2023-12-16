@@ -1,0 +1,89 @@
+diff -uNr a/xbmc/cores/RetroPlayer/cheevos/Cheevos.h b/xbmc/cores/RetroPlayer/cheevos/Cheevos.h
+--- a/xbmc/cores/RetroPlayer/cheevos/Cheevos.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/cores/RetroPlayer/cheevos/Cheevos.h	2023-04-27 10:08:03.596265266 +0200
+@@ -12,6 +12,8 @@
+ 
+ #include <map>
+ #include <string>
++#include <cstdint>
++
+ 
+ namespace KODI
+ {
+diff -uNr a/xbmc/cores/VideoPlayer/VideoRenderers/ColorManager.h b/xbmc/cores/VideoPlayer/VideoRenderers/ColorManager.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/ColorManager.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/ColorManager.h	2023-04-27 10:54:48.641912229 +0200
+@@ -13,6 +13,7 @@
+ #endif
+ 
+ #include <string>
++#include <cstdint>
+ 
+ extern "C"
+ {
+diff -uNr a/xbmc/guilib/iimage.h b/xbmc/guilib/iimage.h
+--- a/xbmc/guilib/iimage.h	2023-04-26 18:20:07.470219000 +0200
++++ b/xbmc/guilib/iimage.h	2023-04-27 10:26:25.768447534 +0200
+@@ -11,6 +11,7 @@
+ #include "guilib/TextureFormats.h"
+ 
+ #include <string>
++#include <cstdint>
+ 
+ class IImage
+ {
+diff -uNr a/xbmc/platform/Filesystem.h b/xbmc/platform/Filesystem.h
+--- a/xbmc/platform/Filesystem.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/platform/Filesystem.h	2023-04-27 10:56:41.217587152 +0200
+@@ -9,6 +9,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ #include <system_error>
+ namespace KODI
+ {
+diff -uNr a/xbmc/utils/CharArrayParser.h b/xbmc/utils/CharArrayParser.h
+--- a/xbmc/utils/CharArrayParser.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/utils/CharArrayParser.h	2023-04-27 10:41:43.131954918 +0200
+@@ -9,6 +9,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ 
+ /*!
+  *\brief Wraps a char array, providing a set of methods for parsing data from it.
+diff -uNr a/xbmc/utils/CSSUtils.h b/xbmc/utils/CSSUtils.h
+--- a/xbmc/utils/CSSUtils.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/utils/CSSUtils.h	2023-04-27 10:46:57.935203362 +0200
+@@ -9,6 +9,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ 
+ namespace UTILS
+ {
+diff -uNr a/xbmc/utils/DRMHelpers.h b/xbmc/utils/DRMHelpers.h
+--- a/xbmc/utils/DRMHelpers.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/utils/DRMHelpers.h	2023-04-27 10:51:09.386530360 +0200
+@@ -9,6 +9,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ 
+ namespace DRMHELPERS
+ {
+diff -uNr a/xbmc/utils/StreamUtils.h b/xbmc/utils/StreamUtils.h
+--- a/xbmc/utils/StreamUtils.h	2023-03-11 23:16:38.000000000 +0100
++++ b/xbmc/utils/StreamUtils.h	2023-04-27 10:49:08.026861079 +0200
+@@ -9,6 +9,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ 
+ static constexpr int MP4_BOX_HEADER_SIZE = 8;
+ 
