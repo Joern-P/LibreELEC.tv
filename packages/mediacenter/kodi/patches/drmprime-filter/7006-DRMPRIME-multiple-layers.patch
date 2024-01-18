@@ -1,3 +1,13 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
+@@ -386,7 +386,6 @@
+ 
+   glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+ 
+-  buf.fence->DestroyFence();
+   buf.fence->CreateFence();
+ }
+ 
 From 7bd158559278432d240856469f3b207f52d46662 Mon Sep 17 00:00:00 2001
 From: Lukas Rusak <lorusak@gmail.com>
 Date: Tue, 14 Sep 2021 09:59:08 -0700
@@ -1444,4 +1454,16 @@ index a82da2225b7e2..312cd4fca48a2 100644
    if (ret < 0)
    {
      CLog::Log(LOGERROR, "CVideoLayerBridgeDRMPRIME::{} - failed to add fb {}, ret = {}",
+     
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
+@@ -511,7 +511,7 @@
+   glDeleteBuffers(1, &indexVBO);
+ 
+   m_progressiveShader->Disable();
+-
++  buf.fence->DestroyFence();
+   buf.fence->CreateFence();
+ 
+   VerifyGLState();     
 
