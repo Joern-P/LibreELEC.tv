@@ -2,12 +2,10 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="5.1.3"
-PKG_SHA256="1b113593ff907293be7aed95acdda5e785dd73616d7d4ec90a0f6adbc5a0312e"
-PKG_LICENSE="LGPLv2.1+"
-PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
-PKG_DEPENDS_TARGET="toolchain aom bzip2 openssl lame libvorbis opus x264 zlib"
+PKG_VERSION="3aad30a781dd4fc7ab76776ca588126d69e74edd"
+PKG_SHA256="38702798f93bf67267fe1b259ff0cc44bf7dd1e5aefff091015dea7dc6dfcad2"
+PKG_URL="https://github.com/nyanmisaka/ffmpeg-rockchip/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain aom bzip2 openssl lame libvorbis opus x264 zlib rkmpp rga"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding."
 PKG_BUILD_FLAGS="-sysroot"
 
@@ -73,9 +71,16 @@ pre_configure_target() {
     PKG_FFMPEG_ENCODERS="\
     `#Video encoders` \
     --enable-libvpx \
+    --enable-libdrm \
+    --enable-rkmpp \
+    --enable-rkrga \
+    --disable-v4l2_m2m \
     --enable-encoder=libvpx_vp8 \
     --enable-encoder=libvpx_vp9 \
-    --enable-encoder=vp8_v4l2m2m \
+    --enable-encoder=h264_rkmpp \
+    --enable-encoder=hevc_rkmpp \
+    --enable-hwaccel=h264_rkmpp \
+    --enable-hwaccel=hevc_rkmp \
     ${PKG_FFMPEG_X26x_GENERIC} \
     --enable-libaom \
     --enable-encoder=libaom_av1 \

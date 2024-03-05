@@ -2,7 +2,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="18effa8ad93e901f3cdaa534123d910f14453d1f"
+PKG_VERSION="9ac61d7677feaf1078e2f3752cd8e580e2e61267"
 PKG_SHA256=""
 PKG_VERSION_NUMBER="4.3-2092"
 PKG_REV="1"
@@ -52,6 +52,7 @@ else
   # specific transcoding options
   PKG_TVH_TRANSCODING="${PKG_TVH_TRANSCODING} \
     --enable-libvpx \
+    --enable-rkmpp \
     --disable-libx265"
 fi
 

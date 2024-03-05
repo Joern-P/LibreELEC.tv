@@ -11,7 +11,7 @@ PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_SECTION="libretro"
 PKG_SHORTDESC="Dolphin Libretro, a Gamecube & Wii emulator core for Retroarch"
-PKG_TOOLCHAIN="cmake"
+
 
 if [ ! "${OPENGL}" = "no" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
