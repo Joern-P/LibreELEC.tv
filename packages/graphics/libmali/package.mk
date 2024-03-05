@@ -2,38 +2,43 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libmali"
-PKG_VERSION="d4000def121b818ae0f583d8372d57643f723fdc"
-PKG_SHA256="4f2103fc927cc006ee5c9b647e899f50b0dcaeee127fec713387d06a333eb404"
+PKG_VERSION="b9619b998cd9a019dacd6f5a4058c757ec0ed382"
+PKG_SHA256="1386b968b45f2d0ffce05fbbdbc1059a747232f89d9078bad73a405b7cbaeede"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
+MALI_LIB_VERSION="1.9.0"
 PKG_SITE="https://github.com/LibreELEC/libmali"
-PKG_URL="https://github.com/LibreELEC/libmali/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/tsukumijima/libmali-rockchip/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="OpenGL ES user-space binary for the ARM Mali GPU family"
-PKG_STAMP="${MALI_FAMILY}"
 
 PKG_DEPENDS_TARGET="libdrm"
-
-if listcontains "${MALI_FAMILY}" "(t620|t720)"; then
-  PKG_DEPENDS_TARGET+=" wayland"
-fi
-
-listcontains "${MALI_FAMILY}" "4[0-9]+" && PKG_DEPENDS_TARGET+=" mali-utgard"
-listcontains "${MALI_FAMILY}" "t[0-9]+" && PKG_DEPENDS_TARGET+=" mali-midgard"
-listcontains "${MALI_FAMILY}" "g[0-9]+" && PKG_DEPENDS_TARGET+=" mali-bifrost"
-
-PKG_CMAKE_OPTS_TARGET="-DMALI_VARIANT=${MALI_FAMILY// /;}"
-
 if [ "${TARGET_ARCH}" = "aarch64" ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DMALI_ARCH=aarch64-linux-gnu"
+  INSTARCH="aarch64-linux-gnu"
+elif [ "${TARGET_ARCH}" = "arm" ]; then
+  INSTARCH="arm-linux-gnueabihf"
 fi
+
+PKG_MESON_OPTS_TARGET+=" -Darch=${TARGET_ARCH} \
+                         -Dgpu=${MALI_FAMILY} \
+                         -Dversion=${MALI_VERSION} \
+                         -Dplatform=gbm \
+                         -Dhooks=false \
+                         -Dkhr-header=true"
 
 post_makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -v ${PKG_DIR}/scripts/libmali-setup ${INSTALL}/usr/bin
 
-  if [ $(ls -1q ${INSTALL}/usr/lib/libmali-*.so | wc -l) -gt 1 ]; then
-    ln -sfv /var/lib/libmali/libmali.so ${INSTALL}/usr/lib/libmali.so
-  fi
+  #if [ $(ls -1q ${INSTALL}/usr/lib/libmali-*.so | wc -l) -gt 1 ]; then
+  #  ln -sfv /var/lib/libmali/libmali.so ${INSTALL}/usr/lib/libmali.so
+  #fi
+  for lib in libEGL.so.1 libgbm.so.1 libGLESv1_CM.so.1 libGLESv2.so.2 libMaliOpenCL.so.1
+  do
+    rm -f ${INSTALL}/usr/lib/${lib}
+    ln -s libmali.so.${MALI_LIB_VERSION} ${INSTALL}/usr/lib/${lib}
+    rm -f ${SYSROOT_PREFIX}/usr/lib/${lib}
+    ln -s libmali.so.${MALI_LIB_VERSION} ${SYSROOT_PREFIX}/usr/lib/${lib}
+  done
 }
 
 post_install() {

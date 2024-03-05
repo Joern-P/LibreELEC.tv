@@ -1,77 +1,156 @@
+#!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
-# Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
+# Copyright (C) 2017-2021 Team LibreELEC (https://libreelec.tv)
+# Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
 
-[ -z "${SYSTEM_ROOT}" ] && SYSTEM_ROOT=""
-[ -z "${BOOT_ROOT}" ] && BOOT_ROOT="/flash"
-[ -z "${BOOT_PART}" ] && BOOT_PART=$(df "${BOOT_ROOT}" | tail -1 | awk {' print $1 '})
-if [ -z "${BOOT_DISK}" ]; then
-  case ${BOOT_PART} in
-    /dev/sd[a-z][0-9]*)
-      BOOT_DISK=$(echo ${BOOT_PART} | sed -e "s,[0-9]*,,g")
-      ;;
-    /dev/mmcblk*)
-      BOOT_DISK=$(echo ${BOOT_PART} | sed -e "s,p[0-9]*,,g")
-      ;;
-  esac
-fi
 
-# mount ${BOOT_ROOT} r/w
-  mount -o remount,rw ${BOOT_ROOT}
-
-# update device tree
-  for all_dtb in ${BOOT_ROOT}/*.dtb; do
-    dtb=$(basename ${all_dtb})
-
-    # device tree mappings for update from vendor to mainline kernel
-    case "${dtb}" in
-      rk3288-miniarm.dtb)
-        new_dtb=rk3288-tinker-s.dtb
+if [ -z "${1}" ]
+then
+  [ -z "$SYSTEM_ROOT" ] && SYSTEM_ROOT=""
+  [ -z "$BOOT_ROOT" ] && BOOT_ROOT="/flash"
+  [ -z "$BOOT_PART" ] && BOOT_PART=$(df "$BOOT_ROOT" | tail -1 | awk {' print $1 '})
+  if [ -z "$BOOT_DISK" ]; then
+    case $BOOT_PART in
+      /dev/sd[a-z][0-9]*)
+        BOOT_DISK=$(echo $BOOT_PART | sed -e "s,[0-9]*,,g")
         ;;
-      rk3328-box.dtb|rk3328-box-trn9.dtb|rk3328-box-z28.dtb|rk3328-rockbox.dtb)
-        new_dtb=rk3328-a1.dtb
-        ;;
-      rk3399-rock-pi-4.dtb)
-        new_dtb=rk3399-rock-pi-4b.dtb
-        ;;
-      *)
-        new_dtb="${dtb}"
+      /dev/mmcblk*)
+        BOOT_DISK=$(echo $BOOT_PART | sed -e "s,p[0-9]*,,g")
         ;;
     esac
+  fi
 
-    if [ "${dtb}" != "${new_dtb}" -a -f ${SYSTEM_ROOT}/usr/share/bootloader/${new_dtb} ]; then
-      echo -n "Replacing ${dtb} with ${new_dtb} ... "
-      cp -p ${SYSTEM_ROOT}/usr/share/bootloader/${new_dtb} ${BOOT_ROOT} && \
-      sed -e "s/FDT \/${dtb}/FDT \/${new_dtb}/g" \
-          -i ${BOOT_ROOT}/extlinux/extlinux.conf && \
-      rm -f ${BOOT_ROOT}/${dtb}
-      echo "done"
-    else
-      if [ -f ${SYSTEM_ROOT}/usr/share/bootloader/${dtb} ]; then
-        echo -n "Updating ${dtb}... "
-        cp -p ${SYSTEM_ROOT}/usr/share/bootloader/${dtb} ${BOOT_ROOT}
-        echo "done"
-      elif [ "$(grep -c "FDT /${dtb}" ${BOOT_ROOT}/extlinux/extlinux.conf)" -ne 0 ]; then
-	 non_existend_dtb="${dtb}"
-      fi
-    fi
+  # mount $BOOT_ROOT r/w
+    mount -o remount,rw $BOOT_ROOT
+
+  for arg in $(cat /proc/cmdline); do
+    case $arg in
+      boot=*)
+        boot="${arg#*=}"
+        case $boot in
+          /dev/mmc*)
+            UUID_SYSTEM="$(blkid $boot | sed 's/.* UUID="//;s/".*//g')"
+            ;;
+          UUID=*|LABEL=*)
+            UUID_SYSTEM="$(blkid | sed 's/"//g' | grep -m 1 -i " $boot " | sed 's/.* UUID=//;s/ .*//g')"
+            ;;
+          FOLDER=*)
+            UUID_SYSTEM="$(blkid ${boot#*=} | sed 's/.* UUID="//;s/".*//g')"
+            ;;
+        esac
+      ;;
+      disk=*)
+        disk="${arg#*=}"
+        case $disk in
+          /dev/mmc*)
+            UUID_STORAGE="$(blkid $disk | sed 's/.* UUID="//;s/".*//g')"
+            ;;
+          UUID=*|LABEL=*)
+            UUID_STORAGE="$(blkid | sed 's/"//g' | grep -m 1 -i " $disk " | sed 's/.* UUID=//;s/ .*//g')"
+            ;;
+          FOLDER=*)
+            UUID_STORAGE="$(blkid ${disk#*=} | sed 's/.* UUID="//;s/".*//g')"
+            ;;
+        esac
+      ;;
+    esac
   done
+else
+  BOOT_DISK="${1}"
+  BOOT_ROOT="${2}"
+  UUID_SYSTEM="${3}"
+  UUID_STORAGE="${4}"
+fi
+
+CONFS=$SYSTEM_ROOT/usr/share/bootloader/extlinux/*.conf
+
+for all_conf in $CONFS; do
+  conf="$(basename ${all_conf})"
+  echo "Updating ${conf}..."
+  if [ ! -d "${BOOT_ROOT}/extlinux" ]
+  then
+    mkdir "${BOOT_ROOT}/extlinux"
+  fi
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/extlinux/${conf} $BOOT_ROOT/extlinux/${conf} &>/dev/null
+  sed -e "s/@UUID_SYSTEM@/${UUID_SYSTEM}/" \
+      -e "s/@UUID_STORAGE@/${UUID_STORAGE}/" \
+      -i $BOOT_ROOT/extlinux/${conf}
+done
+
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/boot.ini ]; then
+  echo "Updating boot.ini..."
+  cp -p $SYSTEM_ROOT/usr/share/bootloader/boot.ini $BOOT_ROOT/boot.ini &>/dev/null
+    sed -e "s/@UUID_SYSTEM@/${UUID_SYSTEM}/" \
+      -e "s/@UUID_STORAGE@/${UUID_STORAGE}/" \
+      -i $BOOT_ROOT/boot.ini
+
+  # Set correct R3xS dtb in boot.ini
+  DTB_NAME=$(cat $BOOT_ROOT/device.name)
+  if [ $DTB_NAME = 'R33S' ]; then
+    echo "Setting R33S dtb in boot.ini..."
+    sed -i '/rk3326-gameconsole-r3/c\  load mmc 1:1 ${dtb_loadaddr} rk3326-gameconsole-r33s.dtb' $BOOT_ROOT/boot.ini
+  elif [ $DTB_NAME = 'R36S' ]; then
+    echo "Setting R36S/R35S dtb in boot.ini..."
+    sed -i '/rk3326-gameconsole-r3/c\  load mmc 1:1 ${dtb_loadaddr} rk3326-gameconsole-r36s.dtb' $BOOT_ROOT/boot.ini
+  fi
+fi
+
+# update device tree
+for all_dtb in $SYSTEM_ROOT/usr/share/bootloader/*.dtb; do
+  dtb="$(basename ${all_dtb})"
+    echo -n "Updating $dtb... "
+    cp -p $SYSTEM_ROOT/usr/share/bootloader/$dtb $BOOT_ROOT &>/dev/null
+    echo "done"
+done
+
+echo "UPDATE" > /storage/.boot.hint
 
 # update bootloader
- if [ -f ${SYSTEM_ROOT}/usr/share/bootloader/u-boot-rockchip.bin ]; then
-    echo -n "Updating fit image u-boot-rockchip.bin ... "
-    dd if=${SYSTEM_ROOT}/usr/share/bootloader/u-boot-rockchip.bin of=${BOOT_DISK} bs=32k seek=1 conv=fsync,notrunc &>/dev/null
-    echo "done"
-  fi
 
-# mount ${BOOT_ROOT} r/o
+MYDEV=$(awk '/^Hardware/ {print $4}' /proc/cpuinfo)
+case ${MYDEV} in
+  RK35*)
+    IDBSEEK="bs=512 seek=64"
+  ;;
+  *)
+    IDBSEEK="bs=32k seek=1"
+  ;;
+esac
+
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/idbloader.img ]; then
+  echo -n "Updating idbloader.img... "
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/idbloader.img of=$BOOT_DISK ${IDBSEEK} conv=fsync &>/dev/null
+  echo "done"
+fi
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/uboot.img ]; then
+  echo -n "Updating uboot.img... "
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/uboot.img of=$BOOT_DISK bs=512 seek=16384 conv=fsync &>/dev/null
+  echo "done"
+fi
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/rk3399-uboot.bin ]; then
+  echo -n "Updating uboot.bin... "
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/rk3399-uboot.bin of=$BOOT_DISK bs=512 seek=64 conv=fsync &>/dev/null
+  echo "done"
+fi
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/u-boot.itb ]; then
+  echo -n "Updating uboot.itb... "
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/u-boot.itb of=$BOOT_DISK bs=512 seek=16384 conv=fsync &>/dev/null
+  echo "done"
+fi
+if [ -f $SYSTEM_ROOT/usr/share/bootloader/trust.img ]; then
+  echo -n "Updating trust.img... "
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/trust.img of=$BOOT_DISK bs=512 seek=24576 conv=fsync &>/dev/null
+  parted $BOOT_DISK name 2 trust &>/dev/null ||:
+  echo "done"
+elif [ -f $SYSTEM_ROOT/usr/share/bootloader/resource.img ]; then
+  echo -n "Updating resource.img... "
+  dd if=$SYSTEM_ROOT/usr/share/bootloader/resource.img of=$BOOT_DISK bs=512 seek=24576 conv=fsync &>/dev/null
+  parted $BOOT_DISK name 2 resource &>/dev/null ||:
+  echo "done"
+fi
+
+# mount $BOOT_ROOT r/o
   sync
-  mount -o remount,ro ${BOOT_ROOT}
+  mount -o remount,ro $BOOT_ROOT &>/dev/null
 
-# warning if device tree was not updated
-  if [ -n "${non_existend_dtb}" ]; then
-    echo "The device tree ${non_existend_dtb} your installation uses does not exist in this update package."
-    echo "The updated system will continue to use the device tree from the previous system and your installation might be broken."
-    echo "Please check documentation to find out which boards are supported by this package."
-    sleep 10
-  fi
-
+sync

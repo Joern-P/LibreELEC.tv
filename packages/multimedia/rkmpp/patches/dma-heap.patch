@@ -1,0 +1,853 @@
+From 1c92144b40d087a9224e7a2784e8170016cff087 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Tue, 26 Sep 2023 22:34:14 +0800
+Subject: [PATCH 1/9] fix[h264d]: Update hor align to 64 for high10 and rga3
+ use case
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c | 2 +-
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c | 2 +-
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+index 2e1adfcd..4c83033a 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+@@ -230,7 +230,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+index e5325ef9..55f96cd5 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+@@ -328,7 +328,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+index b9a3a3ee..b2e6f8fb 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+@@ -334,7 +334,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+
+From 9d6a04126921e9d2d636810c1a229c84e76df979 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Tue, 26 Sep 2023 23:21:26 +0800
+Subject: [PATCH 2/9] Revert "fix[hal_vp9d]: not support fast mode for rk3588"
+
+This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
+---
+ mpp/hal/rkdec/vp9d/hal_vp9d_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+index ab0b0971..61129589 100644
+--- a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
++++ b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+@@ -53,7 +53,7 @@ MPP_RET hal_vp9d_init(void *ctx, MppHalCfg *cfg)
+         p->api = &hal_vp9d_vdpu34x;
+         cfg->support_fast_mode = 1;
+         if (mpp_get_soc_type() == ROCKCHIP_SOC_RK3588)
+-            cfg->support_fast_mode = 0;
++            cfg->cfg->status.hal_task_count = 2;
+     } else {
+         p->api = &hal_vp9d_rkv;
+         cfg->support_fast_mode = 0;
+
+From cca45ee58ac0af6e7316713aa5d4e1602425cc2b Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Sun, 10 Dec 2023 17:01:42 +0800
+Subject: [PATCH 3/9] fix[allocator]: Fix validating dma_heap drivers
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ osal/mpp_runtime.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/osal/mpp_runtime.cpp b/osal/mpp_runtime.cpp
+index c2379963..123b2569 100644
+--- a/osal/mpp_runtime.cpp
++++ b/osal/mpp_runtime.cpp
+@@ -86,7 +86,9 @@ MppRuntimeService::MppRuntimeService()
+     allocator_valid[MPP_BUFFER_TYPE_NORMAL] = 1;
+     allocator_valid[MPP_BUFFER_TYPE_ION] = !access("/dev/ion", F_OK | R_OK | W_OK);
+     allocator_valid[MPP_BUFFER_TYPE_DRM] = !access("/dev/dri/card0", F_OK | R_OK | W_OK);
+-    allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap", F_OK | R_OK);
++    allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap/system-dma32", F_OK | R_OK) ||
++                                                !access("/dev/dma_heap/system-uncached", F_OK | R_OK) ||
++                                                !access("/dev/dma_heap/system-uncached-dma32", F_OK | R_OK);
+ 
+     if (!allocator_valid[MPP_BUFFER_TYPE_ION] &&
+         !allocator_valid[MPP_BUFFER_TYPE_DRM] &&
+
+From 676403c684f73a7d2c8bc2543aa83b5df7a78ec8 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Sun, 17 Dec 2023 01:44:02 +0800
+Subject: [PATCH 4/9] fix[mpp]: Fix NULL pointer warning
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/mpp.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/mpp/mpp.cpp b/mpp/mpp.cpp
+index 11727bec..afc3287b 100644
+--- a/mpp/mpp.cpp
++++ b/mpp/mpp.cpp
+@@ -776,7 +776,8 @@ MPP_RET Mpp::get_packet(MppPacket *packet)
+         MppBuffer buf = impl->buffer;
+         RK_U32 offset = (RK_U32)((char *)impl->pos - (char *)impl->data);
+ 
+-        mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
++        if (buf)
++            mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
+ 
+         mpp_dbg_pts("pts %lld\n", impl->pts);
+     }
+
+From 98fc8aa614a13ed4cdbf52d777fbbd53b6e6920d Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Fri, 5 Jan 2024 10:27:39 +0800
+Subject: [PATCH 5/9] fix[mpp_buf_slot]: Support FBC buffer size calc for NV20
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/base/mpp_buf_slot.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/mpp/base/mpp_buf_slot.cpp b/mpp/base/mpp_buf_slot.cpp
+index f5e4eb0e..5634260c 100644
+--- a/mpp/base/mpp_buf_slot.cpp
++++ b/mpp/base/mpp_buf_slot.cpp
+@@ -304,7 +304,8 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+     }
+ 
+     switch (fmt & MPP_FRAME_FMT_MASK) {
+-    case MPP_FMT_YUV420SP_10BIT: {
++    case MPP_FMT_YUV420SP_10BIT:
++    case MPP_FMT_YUV422SP_10BIT: {
+         hor_stride_pixel = hal_hor_stride * 8 / 10;
+     } break;
+     case MPP_FMT_YUV422_YVYU:
+@@ -330,6 +331,9 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+         case MPP_FMT_YUV420SP_10BIT : {
+             size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 15);
+         } break;
++        case MPP_FMT_YUV422SP_10BIT : {
++            size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 20);
++        } break;
+         case MPP_FMT_YUV420SP : {
+             size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 12);
+         } break;
+
+From 78868cb6110afac329c540443c8f4acd8f49d303 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Fri, 12 Jan 2024 15:50:05 +0800
+Subject: [PATCH 6/9] fix[hal_av1d_vdpu]: Update hor align to 64 for high10 and
+ rga3 use case
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/hal/vpu/av1d/hal_av1d_vdpu.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+index b3edaf52..7c0a9130 100644
+--- a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
++++ b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+@@ -116,7 +116,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for av1 main 10bit
+ }
+ 
+ static RK_U32 rkv_len_align(RK_U32 val)
+
+From 343360c75f935364122a33a800f06c71db6ebbc7 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Tue, 9 Jan 2024 20:08:00 +0800
+Subject: [PATCH 7/9] fix[av1d]: fix a conflict in hdr mask and afbc fmt
+
+fixes e2eeeb5
+
+```
+mpp[4101]: av1d_parser: 422p 10bit no support
+kernel: rk_vcodec: mpp_task_timeout_work:565: task 4101:7:152 processing time out!
+kernel: rk_vcodec: task 152 dump timing at 1999809835 us:
+kernel: rk_vcodec: timing: create         : 0 us
+kernel: rk_vcodec: timing: create end     : invalid
+kernel: rk_vcodec: timing: pending        : invalid
+kernel: rk_vcodec: timing: run            : invalid
+kernel: rk_vcodec: timing: timeout start  : invalid
+kernel: rk_vcodec: timing: run end        : invalid
+kernel: rk_vcodec: timing: irq            : invalid
+kernel: rk_vcodec: timing: timeout cancel : invalid
+kernel: rk_vcodec: timing: isr            : invalid
+kernel: rk_vcodec: timing: finish         : invalid
+kernel: mpp_av1dec av1d-master: resetting...
+kernel: mpp_av1dec av1d-master: reset done
+```
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/codec/dec/av1/av1d_parser.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/mpp/codec/dec/av1/av1d_parser.c b/mpp/codec/dec/av1/av1d_parser.c
+index f64e8c22..002493a6 100644
+--- a/mpp/codec/dec/av1/av1d_parser.c
++++ b/mpp/codec/dec/av1/av1d_parser.c
+@@ -743,9 +743,6 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+     mpp_frame_set_discard(frame->f, 0);
+     mpp_frame_set_pts(frame->f, s->pts);
+ 
+-    if (s->is_hdr)
+-        ctx->pix_fmt |= MPP_FRAME_HDR;
+-
+     mpp_frame_set_color_trc(frame->f, ctx->color_trc);
+     mpp_frame_set_color_primaries(frame->f, ctx->color_primaries);
+     mpp_frame_set_colorspace(frame->f, ctx->colorspace);
+@@ -770,6 +767,9 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+     } else
+         mpp_frame_set_fmt(frame->f, ctx->pix_fmt);
+ 
++    if (s->is_hdr)
++        mpp_frame_set_fmt(frame->f, mpp_frame_get_fmt(frame->f) | MPP_FRAME_HDR);
++
+     value = 4;
+     mpp_slots_set_prop(s->slots, SLOTS_NUMERATOR, &value);
+     value = 1;
+
+From fc7dc26f6ba63f65bca02051beafe8174958e5b3 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 17 Jan 2024 01:56:27 +0800
+Subject: [PATCH 8/9] fix[av1d]: fix the missing fbc_hdr_stride
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/codec/dec/av1/av1d_parser.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/mpp/codec/dec/av1/av1d_parser.c b/mpp/codec/dec/av1/av1d_parser.c
+index 002493a6..85207c30 100644
+--- a/mpp/codec/dec/av1/av1d_parser.c
++++ b/mpp/codec/dec/av1/av1d_parser.c
+@@ -752,6 +752,8 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+     mpp_frame_set_content_light(frame->f, s->content_light);
+ 
+     if (MPP_FRAME_FMT_IS_FBC(s->cfg->base.out_fmt)) {
++        RK_U32 fbc_hdr_stride = MPP_ALIGN(s->frame_width, 16);
++
+         mpp_slots_set_prop(s->slots, SLOTS_HOR_ALIGN, hor_align_16);
+         if (s->bit_depth == 10) {
+             if (ctx->pix_fmt == MPP_FMT_YUV420SP || ctx->pix_fmt == MPP_FMT_YUV420SP_10BIT)
+@@ -764,6 +766,8 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+         mpp_frame_set_offset_x(frame->f, 0);
+         mpp_frame_set_offset_y(frame->f, 0);
+         mpp_frame_set_ver_stride(frame->f, MPP_ALIGN(ctx->height, 8) + 28);
++
++        mpp_frame_set_fbc_hdr_stride(frame->f, fbc_hdr_stride);
+     } else
+         mpp_frame_set_fmt(frame->f, ctx->pix_fmt);
+ 
+
+From c5b070ec28adcdd3f8ca1cb6b56202d5781eb6ce Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Tue, 13 Feb 2024 04:26:44 +0800
+Subject: [PATCH 9/9] Revert "fix[hal_vdpu]: unify colmv buffer size
+ calculation"
+
+This reverts commit 5cb29df8d369e0d0b42797a7132d365820fd4046.
+---
+ mpp/hal/rkdec/avs2d/hal_avs2d_rkv.c     | 25 ++++++++--
+ mpp/hal/rkdec/avs2d/hal_avs2d_vdpu382.c | 25 ++++++++--
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c | 40 ++++++----------
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c | 13 +++---
+ mpp/hal/rkdec/h265d/hal_h265d_vdpu34x.c |  5 +-
+ mpp/hal/rkdec/h265d/hal_h265d_vdpu382.c | 62 ++++++++-----------------
+ mpp/hal/rkdec/inc/vdpu34x_com.h         |  2 -
+ mpp/hal/rkdec/inc/vdpu382_com.h         |  2 -
+ mpp/hal/rkdec/vdpu34x_com.c             | 24 ----------
+ mpp/hal/rkdec/vdpu382_com.c             | 24 ----------
+ mpp/hal/rkdec/vp9d/hal_vp9d_vdpu34x.c   | 52 +++++++--------------
+ mpp/hal/rkdec/vp9d/hal_vp9d_vdpu382.c   | 53 +++++++--------------
+ 12 files changed, 119 insertions(+), 208 deletions(-)
+
+diff --git a/mpp/hal/rkdec/avs2d/hal_avs2d_rkv.c b/mpp/hal/rkdec/avs2d/hal_avs2d_rkv.c
+index 93fa2c92..bf1eb003 100644
+--- a/mpp/hal/rkdec/avs2d/hal_avs2d_rkv.c
++++ b/mpp/hal/rkdec/avs2d/hal_avs2d_rkv.c
+@@ -585,12 +585,29 @@ static MPP_RET set_up_colmv_buf(void *hal)
+     Avs2dSyntax_t *syntax = &p_hal->syntax;
+     PicParams_Avs2d *pp   = &syntax->pp;
+     RK_U32 mv_size = 0;
++
+     RK_U32 ctu_size = 1 << (p_hal->syntax.pp.lcu_size);
+-    RK_U32 width = p_hal->syntax.pp.pic_width_in_luma_samples;
+-    RK_U32 height = p_hal->syntax.pp.pic_height_in_luma_samples;
++    RK_U32 segment_w = 64 * COLMV_BLOCK_SIZE * COLMV_BLOCK_SIZE / ctu_size;
++    RK_U32 segment_h = ctu_size;
++    RK_U32 pic_w_align = MPP_ALIGN(pp->pic_width_in_luma_samples, segment_w);
++    RK_U32 pic_h_align = MPP_ALIGN(pp->pic_height_in_luma_samples, segment_h);
++    RK_U32 seg_cnt_w = pic_w_align / segment_w;
++    RK_U32 seg_cnt_h = pic_h_align / segment_h;
++    RK_U32 seg_head_line_size = MPP_ALIGN(seg_cnt_w, 16);
++    RK_U32 seg_head_size = seg_head_line_size * seg_cnt_h;
++    RK_U32 seg_payload_size = seg_cnt_w * seg_cnt_h * 64 * COLMV_BYTES;
++
++    if (COLMV_COMPRESS_EN)
++        mv_size = seg_payload_size + seg_head_size;
++    else
++        mv_size = (MPP_ALIGN(p_hal->syntax.pp.pic_width_in_luma_samples, 64) *
++                   MPP_ALIGN(p_hal->syntax.pp.pic_height_in_luma_samples, 64)) >> 5;
++
++    // colmv frame size align to 128byte
++    if ((mv_size / 8) % 2 == 1) {
++        mv_size += 8;
++    }
+ 
+-    mv_size = vdpu34x_get_colmv_size(width, height, ctu_size, COLMV_BYTES,
+-                                     COLMV_BLOCK_SIZE, COLMV_COMPRESS_EN);
+     if (pp->field_coded_sequence)
+         mv_size *= 2;
+     AVS2D_HAL_TRACE("mv_size %d", mv_size);
+diff --git a/mpp/hal/rkdec/avs2d/hal_avs2d_vdpu382.c b/mpp/hal/rkdec/avs2d/hal_avs2d_vdpu382.c
+index 18b3fe77..a52ba5be 100644
+--- a/mpp/hal/rkdec/avs2d/hal_avs2d_vdpu382.c
++++ b/mpp/hal/rkdec/avs2d/hal_avs2d_vdpu382.c
+@@ -655,12 +655,29 @@ static MPP_RET set_up_colmv_buf(void *hal)
+     Avs2dSyntax_t *syntax = &p_hal->syntax;
+     PicParams_Avs2d *pp   = &syntax->pp;
+     RK_U32 mv_size = 0;
++
+     RK_U32 ctu_size = 1 << (p_hal->syntax.pp.lcu_size);
+-    RK_U32 width = p_hal->syntax.pp.pic_width_in_luma_samples;
+-    RK_U32 height = p_hal->syntax.pp.pic_height_in_luma_samples;
++    RK_U32 segment_w = 64 * COLMV_BLOCK_SIZE * COLMV_BLOCK_SIZE / ctu_size;
++    RK_U32 segment_h = ctu_size;
++    RK_U32 pic_w_align = MPP_ALIGN(pp->pic_width_in_luma_samples, segment_w);
++    RK_U32 pic_h_align = MPP_ALIGN(pp->pic_height_in_luma_samples, segment_h);
++    RK_U32 seg_cnt_w = pic_w_align / segment_w;
++    RK_U32 seg_cnt_h = pic_h_align / segment_h;
++    RK_U32 seg_head_line_size = MPP_ALIGN(seg_cnt_w, 16);
++    RK_U32 seg_head_size = seg_head_line_size * seg_cnt_h;
++    RK_U32 seg_payload_size = seg_cnt_w * seg_cnt_h * 64 * COLMV_BYTES;
++
++    if (COLMV_COMPRESS_EN)
++        mv_size = seg_payload_size + seg_head_size;
++    else
++        mv_size = (MPP_ALIGN(p_hal->syntax.pp.pic_width_in_luma_samples, 64) *
++                   MPP_ALIGN(p_hal->syntax.pp.pic_height_in_luma_samples, 64)) >> 5;
++
++    // colmv frame size align to 128byte
++    if ((mv_size / 8) % 2 == 1) {
++        mv_size += 8;
++    }
+ 
+-    mv_size = vdpu382_get_colmv_size(width, height, ctu_size, COLMV_BYTES,
+-                                     COLMV_BLOCK_SIZE, COLMV_COMPRESS_EN);
+     if (pp->field_coded_sequence)
+         mv_size *= 2;
+     AVS2D_HAL_TRACE("mv_size %d", mv_size);
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+index 55f96cd5..42c9bc8d 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+@@ -899,14 +899,21 @@ static void hal_h264d_rcb_info_update(void *hal, Vdpu34xH264dRegSet *regs)
+     }
+ }
+ 
+-static MPP_RET vdpu34x_h264d_setup_colmv_buf(void *hal, RK_U32 width, RK_U32 height)
++MPP_RET vdpu34x_h264d_gen_regs(void *hal, HalTaskInfo *task)
+ {
++    MPP_RET ret = MPP_ERR_UNKNOW;
+     H264dHalCtx_t *p_hal = (H264dHalCtx_t *)hal;
+-    RK_U32 ctu_size = 16, colmv_size = 4, colmv_byte = 16;
+-    RK_U32 colmv_compress = p_hal->pp->frame_mbs_only_flag ? 1 : 0;
+-    RK_S32 mv_size;
++    RK_S32 width = MPP_ALIGN((p_hal->pp->wFrameWidthInMbsMinus1 + 1) << 4, 64);
++    RK_S32 height = MPP_ALIGN((p_hal->pp->wFrameHeightInMbsMinus1 + 1) << 4, 64);
++    Vdpu34xH264dRegCtx *ctx = (Vdpu34xH264dRegCtx *)p_hal->reg_ctx;
++    Vdpu34xH264dRegSet *regs = ctx->regs;
++    RK_S32 mv_size = width * height / 2;
++    INP_CHECK(ret, NULL == p_hal);
+ 
+-    mv_size = vdpu34x_get_colmv_size(width, height, ctu_size, colmv_byte, colmv_size, colmv_compress);
++    if (task->dec.flags.parse_err ||
++        task->dec.flags.ref_err) {
++        goto __RETURN;
++    }
+ 
+     /* if is field mode is enabled enlarge colmv buffer and disable colmv compression */
+     if (!p_hal->pp->frame_mbs_only_flag)
+@@ -923,31 +930,13 @@ static MPP_RET vdpu34x_h264d_setup_colmv_buf(void *hal, RK_U32 width, RK_U32 hei
+         hal_bufs_init(&p_hal->cmv_bufs);
+         if (p_hal->cmv_bufs == NULL) {
+             mpp_err_f("colmv bufs init fail");
+-            return MPP_NOK;
++            goto __RETURN;
+         }
+         p_hal->mv_size = mv_size;
+         p_hal->mv_count = mpp_buf_slot_get_count(p_hal->frame_slots);
+         hal_bufs_setup(p_hal->cmv_bufs, p_hal->mv_count, 1, &size);
+     }
+ 
+-    return MPP_OK;
+-}
+-
+-MPP_RET vdpu34x_h264d_gen_regs(void *hal, HalTaskInfo *task)
+-{
+-    MPP_RET ret = MPP_ERR_UNKNOW;
+-    H264dHalCtx_t *p_hal = (H264dHalCtx_t *)hal;
+-    RK_S32 width = MPP_ALIGN((p_hal->pp->wFrameWidthInMbsMinus1 + 1) << 4, 64);
+-    RK_S32 height = MPP_ALIGN((p_hal->pp->wFrameHeightInMbsMinus1 + 1) << 4, 64);
+-    Vdpu34xH264dRegCtx *ctx = (Vdpu34xH264dRegCtx *)p_hal->reg_ctx;
+-    Vdpu34xH264dRegSet *regs = ctx->regs;
+-    INP_CHECK(ret, NULL == p_hal);
+-
+-    if (task->dec.flags.parse_err ||
+-        task->dec.flags.ref_err) {
+-        goto __RETURN;
+-    }
+-
+     if (p_hal->fast_mode) {
+         RK_U32 i = 0;
+         for (i = 0; i <  MPP_ARRAY_ELEMS(ctx->reg_buf); i++) {
+@@ -963,9 +952,6 @@ MPP_RET vdpu34x_h264d_gen_regs(void *hal, HalTaskInfo *task)
+             }
+         }
+     }
+-
+-    if (vdpu34x_h264d_setup_colmv_buf(hal, width, height))
+-        goto __RETURN;
+     prepare_spspps(p_hal, (RK_U64 *)&ctx->spspps, sizeof(ctx->spspps));
+     prepare_framerps(p_hal, (RK_U64 *)&ctx->rps, sizeof(ctx->rps));
+     prepare_scanlist(p_hal, ctx->sclst, sizeof(ctx->sclst));
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+index b2e6f8fb..84927ddb 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+@@ -938,13 +938,14 @@ static void hal_h264d_rcb_info_update(void *hal, Vdpu382H264dRegSet *regs)
+ 
+ static MPP_RET vdpu382_h264d_setup_colmv_buf(void *hal)
+ {
++    MPP_RET ret = MPP_ERR_UNKNOW;
+     H264dHalCtx_t *p_hal = (H264dHalCtx_t *)hal;
+     RK_S32 width = MPP_ALIGN((p_hal->pp->wFrameWidthInMbsMinus1 + 1) << 4, 64);
+     RK_S32 height = MPP_ALIGN((p_hal->pp->wFrameHeightInMbsMinus1 + 1) << 4, 64);
+-    RK_U32 ctu_size = 16, colmv_size = 4, colmv_byte = 16;
+     RK_S32 mv_size;
+ 
+-    mv_size = vdpu382_get_colmv_size(width, height, ctu_size, colmv_byte, colmv_size, 1);
++    /* the worst case is the frame is error with whole frame */
++    mv_size = width * height;
+     if (p_hal->cmv_bufs == NULL || p_hal->mv_size < mv_size) {
+         size_t size = mv_size;
+ 
+@@ -956,14 +957,15 @@ static MPP_RET vdpu382_h264d_setup_colmv_buf(void *hal)
+         hal_bufs_init(&p_hal->cmv_bufs);
+         if (p_hal->cmv_bufs == NULL) {
+             mpp_err_f("colmv bufs init fail");
+-            return MPP_OK;
++            goto __RETURN;
+         }
+         p_hal->mv_size = mv_size;
+         p_hal->mv_count = mpp_buf_slot_get_count(p_hal->frame_slots);
+         hal_bufs_setup(p_hal->cmv_bufs, p_hal->mv_count, 1, &size);
+     }
+ 
+-    return MPP_OK;
++__RETURN:
++    return ret;
+ }
+ 
+ MPP_RET vdpu382_h264d_gen_regs(void *hal, HalTaskInfo *task)
+@@ -995,8 +997,7 @@ MPP_RET vdpu382_h264d_gen_regs(void *hal, HalTaskInfo *task)
+             }
+         }
+     }
+-    if (vdpu382_h264d_setup_colmv_buf(hal))
+-        goto __RETURN;
++    vdpu382_h264d_setup_colmv_buf(hal);
+     prepare_spspps(p_hal, (RK_U64 *)&ctx->spspps, sizeof(ctx->spspps));
+     prepare_framerps(p_hal, (RK_U64 *)&ctx->rps, sizeof(ctx->rps));
+     prepare_scanlist(p_hal, ctx->sclst, sizeof(ctx->sclst));
+diff --git a/mpp/hal/rkdec/h265d/hal_h265d_vdpu34x.c b/mpp/hal/rkdec/h265d/hal_h265d_vdpu34x.c
+index c035e72a..4efd26f2 100644
+--- a/mpp/hal/rkdec/h265d/hal_h265d_vdpu34x.c
++++ b/mpp/hal/rkdec/h265d/hal_h265d_vdpu34x.c
+@@ -858,9 +858,6 @@ static MPP_RET hal_h265d_vdpu34x_gen_regs(void *hal,  HalTaskInfo *syn)
+     HalH265dCtx *reg_ctx = ( HalH265dCtx *)hal;
+     void *rps_ptr = NULL;
+     RK_U32 stream_buf_size = 0;
+-    DXVA_PicParams_HEVC *pp = &dxva_cxt->pp;
+-    RK_U8 ctu_size = 1 << (pp->log2_diff_max_min_luma_coding_block_size +
+-                           pp->log2_min_luma_coding_block_size_minus3 + 3);
+ 
+     if (syn->dec.flags.parse_err ||
+         syn->dec.flags.ref_err) {
+@@ -919,7 +916,7 @@ static MPP_RET hal_h265d_vdpu34x_gen_regs(void *hal,  HalTaskInfo *syn)
+ 
+     width = (dxva_cxt->pp.PicWidthInMinCbsY << log2_min_cb_size);
+     height = (dxva_cxt->pp.PicHeightInMinCbsY << log2_min_cb_size);
+-    mv_size = vdpu34x_get_colmv_size(width, height, ctu_size, 16, 16, 1);
++    mv_size = (MPP_ALIGN(width, 64) * MPP_ALIGN(height, 64)) >> 3;
+     if (reg_ctx->cmv_bufs == NULL || reg_ctx->mv_size < mv_size) {
+         size_t size = mv_size;
+ 
+diff --git a/mpp/hal/rkdec/h265d/hal_h265d_vdpu382.c b/mpp/hal/rkdec/h265d/hal_h265d_vdpu382.c
+index a232716d..f3e8b5b4 100644
+--- a/mpp/hal/rkdec/h265d/hal_h265d_vdpu382.c
++++ b/mpp/hal/rkdec/h265d/hal_h265d_vdpu382.c
+@@ -631,45 +631,6 @@ static void hal_h265d_rcb_info_update(void *hal,  void *dxva,
+ #define pocdistance(a, b) (((a) > (b)) ? ((a) - (b)) : ((b) - (a)))
+ #define MAX_INT           2147483647
+ 
+-static MPP_RET hal_h265d_vdpu382_setup_colmv_buf(void *hal, HalTaskInfo *syn)
+-{
+-    HalH265dCtx *reg_ctx = ( HalH265dCtx *)hal;
+-    h265d_dxva2_picture_context_t *dxva_cxt = (h265d_dxva2_picture_context_t *)syn->dec.syntax.data;
+-    DXVA_PicParams_HEVC *pp = &dxva_cxt->pp;
+-    RK_U8 ctu_size = 1 << (pp->log2_diff_max_min_luma_coding_block_size +
+-                           pp->log2_min_luma_coding_block_size_minus3 + 3);
+-    RK_U32 log2_min_cb_size = dxva_cxt->pp.log2_min_luma_coding_block_size_minus3 + 3;
+-
+-    RK_U32 width = (dxva_cxt->pp.PicWidthInMinCbsY << log2_min_cb_size);
+-    RK_U32 height = (dxva_cxt->pp.PicHeightInMinCbsY << log2_min_cb_size);
+-    RK_U32 mv_size = 0, colmv_size = 16, colmv_byte = 16;
+-    RK_U32 compress = reg_ctx->hw_info ? reg_ctx->hw_info->cap_colmv_compress : 1;
+-
+-
+-    mv_size = vdpu382_get_colmv_size(width, height, ctu_size, colmv_byte, colmv_size, compress);
+-
+-    if (reg_ctx->cmv_bufs == NULL || reg_ctx->mv_size < mv_size) {
+-        size_t size = mv_size;
+-
+-        if (reg_ctx->cmv_bufs) {
+-            hal_bufs_deinit(reg_ctx->cmv_bufs);
+-            reg_ctx->cmv_bufs = NULL;
+-        }
+-
+-        hal_bufs_init(&reg_ctx->cmv_bufs);
+-        if (reg_ctx->cmv_bufs == NULL) {
+-            mpp_err_f("colmv bufs init fail");
+-            return MPP_ERR_NOMEM;;
+-        }
+-
+-        reg_ctx->mv_size = mv_size;
+-        reg_ctx->mv_count = mpp_buf_slot_get_count(reg_ctx->slots);
+-        hal_bufs_setup(reg_ctx->cmv_bufs, reg_ctx->mv_count, 1, &size);
+-    }
+-
+-    return MPP_OK;
+-}
+-
+ static MPP_RET hal_h265d_vdpu382_gen_regs(void *hal,  HalTaskInfo *syn)
+ {
+     RK_S32 i = 0;
+@@ -684,6 +645,7 @@ static MPP_RET hal_h265d_vdpu382_gen_regs(void *hal,  HalTaskInfo *syn)
+     MppBuffer framebuf = NULL;
+     HalBuf *mv_buf = NULL;
+     RK_S32 fd = -1;
++    RK_U32 mv_size = 0;
+     RK_S32 distance = MAX_INT;
+     h265d_dxva2_picture_context_t *dxva_cxt =
+         (h265d_dxva2_picture_context_t *)syn->dec.syntax.data;
+@@ -744,9 +706,25 @@ static MPP_RET hal_h265d_vdpu382_gen_regs(void *hal,  HalTaskInfo *syn)
+ 
+     width = (dxva_cxt->pp.PicWidthInMinCbsY << log2_min_cb_size);
+     height = (dxva_cxt->pp.PicHeightInMinCbsY << log2_min_cb_size);
+-    ret = hal_h265d_vdpu382_setup_colmv_buf(hal, syn);
+-    if (ret)
+-        return MPP_ERR_NOMEM;
++    mv_size = (MPP_ALIGN(width, 64) * MPP_ALIGN(height, 64)) >> 3;
++    if (reg_ctx->cmv_bufs == NULL || reg_ctx->mv_size < mv_size) {
++        size_t size = mv_size;
++
++        if (reg_ctx->cmv_bufs) {
++            hal_bufs_deinit(reg_ctx->cmv_bufs);
++            reg_ctx->cmv_bufs = NULL;
++        }
++
++        hal_bufs_init(&reg_ctx->cmv_bufs);
++        if (reg_ctx->cmv_bufs == NULL) {
++            mpp_err_f("colmv bufs init fail");
++            return MPP_ERR_NULL_PTR;
++        }
++
++        reg_ctx->mv_size = mv_size;
++        reg_ctx->mv_count = mpp_buf_slot_get_count(reg_ctx->slots);
++        hal_bufs_setup(reg_ctx->cmv_bufs, reg_ctx->mv_count, 1, &size);
++    }
+ 
+     {
+         MppFrame mframe = NULL;
+diff --git a/mpp/hal/rkdec/inc/vdpu34x_com.h b/mpp/hal/rkdec/inc/vdpu34x_com.h
+index 38fbc967..f8768de8 100644
+--- a/mpp/hal/rkdec/inc/vdpu34x_com.h
++++ b/mpp/hal/rkdec/inc/vdpu34x_com.h
+@@ -501,8 +501,6 @@ void vdpu34x_setup_rcb(Vdpu34xRegCommonAddr *reg, MppDev dev, MppBuffer buf, Vdp
+ void vdpu34x_setup_statistic(Vdpu34xRegCommon *com, Vdpu34xRegStatistic *sta);
+ void vdpu34x_afbc_align_calc(MppBufSlots slots, MppFrame frame, RK_U32 expand);
+ RK_S32 vdpu34x_set_rcbinfo(MppDev dev, Vdpu34xRcbInfo *rcb_info);
+-RK_U32 vdpu34x_get_colmv_size(RK_U32 width, RK_U32 height, RK_U32 ctu_size,
+-                              RK_U32 colmv_bytes, RK_U32 colmv_size, RK_U32 compress);
+ 
+ #ifdef  __cplusplus
+ }
+diff --git a/mpp/hal/rkdec/inc/vdpu382_com.h b/mpp/hal/rkdec/inc/vdpu382_com.h
+index 732a5daf..017d6c3b 100644
+--- a/mpp/hal/rkdec/inc/vdpu382_com.h
++++ b/mpp/hal/rkdec/inc/vdpu382_com.h
+@@ -568,8 +568,6 @@ RK_S32 vdpu382_set_rcbinfo(MppDev dev, Vdpu382RcbInfo *rcb_info);
+ void vdpu382_setup_statistic(Vdpu382RegCommon *com, Vdpu382RegStatistic *sta);
+ void vdpu382_afbc_align_calc(MppBufSlots slots, MppFrame frame, RK_U32 expand);
+ void vdpu382_setup_down_scale(MppFrame frame, MppDev dev, Vdpu382RegCommon *com);
+-RK_U32 vdpu382_get_colmv_size(RK_U32 width, RK_U32 height, RK_U32 ctu_size,
+-                              RK_U32 colmv_bytes, RK_U32 colmv_size, RK_U32 compress);
+ 
+ #ifdef  __cplusplus
+ }
+diff --git a/mpp/hal/rkdec/vdpu34x_com.c b/mpp/hal/rkdec/vdpu34x_com.c
+index 19faddb1..f0e52415 100644
+--- a/mpp/hal/rkdec/vdpu34x_com.c
++++ b/mpp/hal/rkdec/vdpu34x_com.c
+@@ -266,27 +266,3 @@ void vdpu34x_afbc_align_calc(MppBufSlots slots, MppFrame frame, RK_U32 expand)
+     }
+     mpp_frame_set_ver_stride(frame, ver_stride);
+ }
+-
+-RK_U32 vdpu34x_get_colmv_size(RK_U32 width, RK_U32 height, RK_U32 ctu_size,
+-                              RK_U32 colmv_bytes, RK_U32 colmv_size, RK_U32 compress)
+-{
+-    RK_U32 colmv_total_size;
+-
+-    if (compress) {
+-        RK_U32 segment_w = (64 * colmv_size * colmv_size) / ctu_size;
+-        RK_U32 segment_h = ctu_size;
+-        RK_U32 seg_cnt_w = MPP_ALIGN(width, segment_w) / segment_w;
+-        RK_U32 seg_cnt_h = MPP_ALIGN(height, segment_h) / segment_h;
+-        RK_U32 seg_head_size = MPP_ALIGN(seg_cnt_w, 16) * seg_cnt_h;
+-        RK_U32 seg_payload_size = seg_cnt_w * seg_cnt_h * 64 * colmv_bytes;
+-
+-        colmv_total_size = seg_head_size + seg_payload_size;
+-    } else {
+-        RK_U32 colmv_block_size_w = MPP_ALIGN(width, 64) / colmv_size;
+-        RK_U32 colmv_block_size_h = MPP_ALIGN(height, 64) / colmv_size;
+-
+-        colmv_total_size = colmv_block_size_w * colmv_block_size_h * colmv_bytes;
+-    }
+-
+-    return MPP_ALIGN(colmv_total_size, 128);
+-}
+diff --git a/mpp/hal/rkdec/vdpu382_com.c b/mpp/hal/rkdec/vdpu382_com.c
+index 4e32ab5e..4b818343 100644
+--- a/mpp/hal/rkdec/vdpu382_com.c
++++ b/mpp/hal/rkdec/vdpu382_com.c
+@@ -294,27 +294,3 @@ void vdpu382_setup_down_scale(MppFrame frame, MppDev dev, Vdpu382RegCommon *com)
+     mpp_dev_set_reg_offset(dev, 199, down_scale_uv_offset);
+     mpp_meta_set_s32(meta, KEY_DEC_TBN_UV_OFFSET, down_scale_uv_offset);
+ }
+-
+-RK_U32 vdpu382_get_colmv_size(RK_U32 width, RK_U32 height, RK_U32 ctu_size,
+-                              RK_U32 colmv_bytes, RK_U32 colmv_size, RK_U32 compress)
+-{
+-    RK_U32 colmv_total_size;
+-
+-    if (compress) {
+-        RK_U32 segment_w = (64 * colmv_size * colmv_size) / ctu_size;
+-        RK_U32 segment_h = ctu_size;
+-        RK_U32 seg_cnt_w = MPP_ALIGN(width, segment_w) / segment_w;
+-        RK_U32 seg_cnt_h = MPP_ALIGN(height, segment_h) / segment_h;
+-        RK_U32 seg_head_size = MPP_ALIGN(seg_cnt_w, 16) * seg_cnt_h;
+-        RK_U32 seg_payload_size = seg_cnt_w * seg_cnt_h * 64 * colmv_bytes;
+-
+-        colmv_total_size = seg_head_size + seg_payload_size;
+-    } else {
+-        RK_U32 colmv_block_size_w = MPP_ALIGN(width, 64) / colmv_size;
+-        RK_U32 colmv_block_size_h = MPP_ALIGN(height, 64) / colmv_size;
+-
+-        colmv_total_size = colmv_block_size_w * colmv_block_size_h * colmv_bytes;
+-    }
+-
+-    return MPP_ALIGN(colmv_total_size, 128);
+-}
+diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu34x.c b/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu34x.c
+index 5da12272..ce0ea0d1 100644
+--- a/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu34x.c
++++ b/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu34x.c
+@@ -393,38 +393,6 @@ static void hal_vp9d_rcb_info_update(void *hal,  Vdpu34xVp9dRegSet *hw_regs, voi
+     }
+ }
+ 
+-static MPP_RET hal_vp9d_vdpu34x_setup_colmv_buf(void *hal, HalTaskInfo *task)
+-{
+-    HalVp9dCtx *p_hal = (HalVp9dCtx*)hal;
+-    Vdpu34xVp9dCtx *hw_ctx = (Vdpu34xVp9dCtx*)p_hal->hw_ctx;
+-    DXVA_PicParams_VP9 *pic_param = (DXVA_PicParams_VP9*)task->dec.syntax.data;
+-    RK_U32 width = pic_param->width;
+-    RK_U32 height = pic_param->height;
+-    RK_S32 mv_size = 0, colmv_size = 16, colmv_byte = 16;
+-    RK_U32 compress = p_hal->hw_info ? p_hal->hw_info->cap_colmv_compress : 1;
+-
+-    mv_size = vdpu34x_get_colmv_size(width, height, VP9_CTU_SIZE, colmv_byte, colmv_size, compress);
+-    if (hw_ctx->cmv_bufs == NULL || hw_ctx->mv_size < mv_size) {
+-        size_t size = mv_size;
+-
+-        if (hw_ctx->cmv_bufs) {
+-            hal_bufs_deinit(hw_ctx->cmv_bufs);
+-            hw_ctx->cmv_bufs = NULL;
+-        }
+-
+-        hal_bufs_init(&hw_ctx->cmv_bufs);
+-        if (hw_ctx->cmv_bufs == NULL) {
+-            mpp_err_f("colmv bufs init fail");
+-            return MPP_ERR_NOMEM;
+-        }
+-        hw_ctx->mv_size = mv_size;
+-        hw_ctx->mv_count = mpp_buf_slot_get_count(p_hal ->slots);
+-        hal_bufs_setup(hw_ctx->cmv_bufs, hw_ctx->mv_count, 1, &size);
+-    }
+-
+-    return MPP_OK;
+-}
+-
+ static MPP_RET hal_vp9d_vdpu34x_gen_regs(void *hal, HalTaskInfo *task)
+ {
+     RK_S32   i;
+@@ -450,6 +418,7 @@ static MPP_RET hal_vp9d_vdpu34x_gen_regs(void *hal, HalTaskInfo *task)
+     HalVp9dCtx *p_hal = (HalVp9dCtx*)hal;
+     Vdpu34xVp9dCtx *hw_ctx = (Vdpu34xVp9dCtx*)p_hal->hw_ctx;
+     DXVA_PicParams_VP9 *pic_param = (DXVA_PicParams_VP9*)task->dec.syntax.data;
++    RK_S32 mv_size = pic_param->width * pic_param->height / 2;
+     RK_U32 frame_ctx_id = pic_param->frame_context_idx;
+ 
+     if (p_hal->fast_mode) {
+@@ -469,8 +438,23 @@ static MPP_RET hal_vp9d_vdpu34x_gen_regs(void *hal, HalTaskInfo *task)
+         }
+     }
+ 
+-    if (hal_vp9d_vdpu34x_setup_colmv_buf(hal, task))
+-        return MPP_ERR_NOMEM;
++    if (hw_ctx->cmv_bufs == NULL || hw_ctx->mv_size < mv_size) {
++        size_t size = mv_size;
++
++        if (hw_ctx->cmv_bufs) {
++            hal_bufs_deinit(hw_ctx->cmv_bufs);
++            hw_ctx->cmv_bufs = NULL;
++        }
++
++        hal_bufs_init(&hw_ctx->cmv_bufs);
++        if (hw_ctx->cmv_bufs == NULL) {
++            mpp_err_f("colmv bufs init fail");
++            return MPP_NOK;
++        }
++        hw_ctx->mv_size = mv_size;
++        hw_ctx->mv_count = mpp_buf_slot_get_count(p_hal ->slots);
++        hal_bufs_setup(hw_ctx->cmv_bufs, hw_ctx->mv_count, 1, &size);
++    }
+ 
+     Vdpu34xVp9dRegSet *vp9_hw_regs = (Vdpu34xVp9dRegSet*)hw_ctx->hw_regs;
+     intraFlag = (!pic_param->frame_type || pic_param->intra_only);
+diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu382.c b/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu382.c
+index c43e4100..b082a2f5 100644
+--- a/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu382.c
++++ b/mpp/hal/rkdec/vp9d/hal_vp9d_vdpu382.c
+@@ -406,39 +406,6 @@ static void hal_vp9d_rcb_info_update(void *hal,  Vdpu382Vp9dRegSet *hw_regs, voi
+     }
+ }
+ 
+-
+-static MPP_RET hal_vp9d_vdpu382_setup_colmv_buf(void *hal, HalTaskInfo *task)
+-{
+-    HalVp9dCtx *p_hal = (HalVp9dCtx*)hal;
+-    Vdpu382Vp9dCtx *hw_ctx = (Vdpu382Vp9dCtx*)p_hal->hw_ctx;
+-    DXVA_PicParams_VP9 *pic_param = (DXVA_PicParams_VP9*)task->dec.syntax.data;
+-    RK_U32 width = pic_param->width;
+-    RK_U32 height = pic_param->height;
+-    RK_S32 mv_size = 0, colmv_size = 16, colmv_byte = 16;
+-    RK_U32 compress = p_hal->hw_info ? p_hal->hw_info->cap_colmv_compress : 1;
+-
+-    mv_size = vdpu382_get_colmv_size(width, height, VP9_CTU_SIZE, colmv_byte, colmv_size, compress);
+-    if (hw_ctx->cmv_bufs == NULL || hw_ctx->mv_size < mv_size) {
+-        size_t size = mv_size;
+-
+-        if (hw_ctx->cmv_bufs) {
+-            hal_bufs_deinit(hw_ctx->cmv_bufs);
+-            hw_ctx->cmv_bufs = NULL;
+-        }
+-
+-        hal_bufs_init(&hw_ctx->cmv_bufs);
+-        if (hw_ctx->cmv_bufs == NULL) {
+-            mpp_err_f("colmv bufs init fail");
+-            return MPP_ERR_NOMEM;
+-        }
+-        hw_ctx->mv_size = mv_size;
+-        hw_ctx->mv_count = mpp_buf_slot_get_count(p_hal ->slots);
+-        hal_bufs_setup(hw_ctx->cmv_bufs, hw_ctx->mv_count, 1, &size);
+-    }
+-
+-    return MPP_OK;
+-}
+-
+ static MPP_RET hal_vp9d_vdpu382_gen_regs(void *hal, HalTaskInfo *task)
+ {
+     RK_S32   i;
+@@ -464,6 +431,7 @@ static MPP_RET hal_vp9d_vdpu382_gen_regs(void *hal, HalTaskInfo *task)
+     HalVp9dCtx *p_hal = (HalVp9dCtx*)hal;
+     Vdpu382Vp9dCtx *hw_ctx = (Vdpu382Vp9dCtx*)p_hal->hw_ctx;
+     DXVA_PicParams_VP9 *pic_param = (DXVA_PicParams_VP9*)task->dec.syntax.data;
++    RK_S32 mv_size = pic_param->width * pic_param->height / 2;
+     RK_U32 frame_ctx_id = pic_param->frame_context_idx;
+ 
+     if (p_hal->fast_mode) {
+@@ -483,8 +451,23 @@ static MPP_RET hal_vp9d_vdpu382_gen_regs(void *hal, HalTaskInfo *task)
+         }
+     }
+ 
+-    if (hal_vp9d_vdpu382_setup_colmv_buf(hal, task))
+-        return MPP_ERR_NOMEM;
++    if (hw_ctx->cmv_bufs == NULL || hw_ctx->mv_size < mv_size) {
++        size_t size = mv_size;
++
++        if (hw_ctx->cmv_bufs) {
++            hal_bufs_deinit(hw_ctx->cmv_bufs);
++            hw_ctx->cmv_bufs = NULL;
++        }
++
++        hal_bufs_init(&hw_ctx->cmv_bufs);
++        if (hw_ctx->cmv_bufs == NULL) {
++            mpp_err_f("colmv bufs init fail");
++            return MPP_NOK;
++        }
++        hw_ctx->mv_size = mv_size;
++        hw_ctx->mv_count = mpp_buf_slot_get_count(p_hal ->slots);
++        hal_bufs_setup(hw_ctx->cmv_bufs, hw_ctx->mv_count, 1, &size);
++    }
+ 
+     Vdpu382Vp9dRegSet *vp9_hw_regs = (Vdpu382Vp9dRegSet*)hw_ctx->hw_regs;
+     intraFlag = (!pic_param->frame_type || pic_param->intra_only);
+

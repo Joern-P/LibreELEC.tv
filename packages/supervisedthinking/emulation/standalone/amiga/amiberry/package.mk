@@ -2,71 +2,51 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="amiberry"
-PKG_VERSION="1e5f951bff84fdd8cbe851aaddfaeacbd0c487bd" # v5.5.1
-PKG_ARCH="arm aarch64"
-PKG_LICENSE="GPL-3.0-or-later"
+PKG_ARCH="aarch64"
+PKG_VERSION="5c54536997c0039aaa72bb0552cefdc3c967ad8d"
+PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/midwan/amiberry"
-PKG_URL="https://github.com/midwan/amiberry.git"
-PKG_DEPENDS_TARGET="toolchain linux glibc bzip2 zlib sdl2 sdl2_image sdl2_ttf capsimg freetype libxml2 flac-system libogg-system mpg123-system libpng libmpeg2 retroarch-joypad-autoconfig"
-PKG_LONGDESC="Optimized Amiga emulator for the Raspberry Pi and other ARM boards."
+PKG_URL="${PKG_SITE}.git"
+PKG_DEPENDS_TARGET="toolchain linux glibc bzip2 zlib SDL2 sdl2_image sdl2_ttf capsimg freetype libxml2 flac libogg mpg123 libpng libmpeg2 libserialport"
+PKG_LONGDESC="Amiberry is an optimized Amiga emulator for ARM-based boards."
 GET_HANDLER_SUPPORT="git"
 PKG_TOOLCHAIN="make"
+PKG_GIT_CLONE_BRANCH="master"
+PKG_PATCH_DIRS+=" ${DEVICE}"
 
-PKG_MAKE_OPTS_TARGET="all"
+if [ ! "${OPENGL}" = "no" ]; then
+  PKG_PATCH_DIRS+=" opengl"
+fi
 
 pre_configure_target() {
   cd ${PKG_BUILD}
-  export SDL_CONFIG=${SYSROOT_PREFIX}/usr/bin/sdl2-config
+  export SYSROOT_PREFIX=${SYSROOT_PREFIX}
+  AMIBERRY_PLATFORM="PLATFORM=${DEVICE}"
 
-  # fix build of neon_helper.s
-  AS="${CC}"
-
-  case ${PROJECT} in
-    Amlogic)
-      AMIBERRY_PLATFORM="${DEVICE}"
-      ;;
-    Rockchip)
-      AMIBERRY_PLATFORM="${DEVICE}"
-      ;;
-    RPi)
-      if [ "${DEVICE}" = "RPi4" ]; then
-        AMIBERRY_PLATFORM="rpi4-sdl2"
-      else
-        AMIBERRY_PLATFORM="rpi2-sdl2"
-      fi
-      ;;
-  esac
-
-  PKG_MAKE_OPTS_TARGET+=" PLATFORM=${AMIBERRY_PLATFORM}"
+  sed -i "s|AS     = as|AS     \?= as|" Makefile
+  PKG_MAKE_OPTS_TARGET+="${AMIBERRY_PLATFORM} all SDL_CONFIG=${SYSROOT_PREFIX}/usr/bin/sdl2-config"
 }
 
 makeinstall_target() {
   # Create directories
   mkdir -p ${INSTALL}/usr/bin
-  mkdir -p ${INSTALL}/usr/config/amiberry/whdboot/game-data
-  mkdir -p ${INSTALL}/usr/config/amiberry/controller
-  mkdir -p ${INSTALL}/usr/share/amiberry/whdboot/save-data/
+  mkdir -p ${INSTALL}/usr/lib
+  mkdir -p ${INSTALL}/usr/config/amiberry
+  # mkdir -p ${INSTALL}/usr/config/amiberry/controller
 
   # Copy ressources
-  cp -a ${PKG_DIR}/config/*            ${INSTALL}/usr/config/amiberry/
-  cp -a data                           ${INSTALL}/usr/config/amiberry/
-  cp -a savestates                     ${INSTALL}/usr/config/amiberry/
-  cp -a screenshots                    ${INSTALL}/usr/config/amiberry/
-  ln -s /tmp/emulation/bios/Kickstarts ${INSTALL}/usr/config/amiberry/kickstarts
-
-  # WHDLoad
-  cp -a whdboot/save-data             ${INSTALL}/usr/config/amiberry/whdboot/
-  cp -a whdboot/game-data             ${INSTALL}/usr/config/amiberry/whdboot/
-  cp -a whdboot/save-data/Kickstarts/ ${INSTALL}/usr/config/amiberry/whdboot/save-data/
-  cp -a whdboot/WHDLoad               ${INSTALL}/usr/config/amiberry/whdboot/
-  cp -a whdboot/boot-data.zip         ${INSTALL}/usr/config/amiberry/whdboot/
+  cp -ra ${PKG_DIR}/config/*           ${INSTALL}/usr/config/amiberry/
+  cp -a data                          ${INSTALL}/usr/config/amiberry/
+  cp -a savestates                    ${INSTALL}/usr/config/amiberry/
+  cp -a screenshots                   ${INSTALL}/usr/config/amiberry/
+  cp -a whdboot                       ${INSTALL}/usr/config/amiberry/
+  ln -s /storage/roms/bios            ${INSTALL}/usr/config/amiberry/kickstarts
 
   # Create links to Retroarch controller files
-  ln -s /usr/share/retroarch/autoconfig/udev/8Bitdo_Pro_SF30_BT_B.cfg "${INSTALL}/usr/config/amiberry/controller/8Bitdo SF30 Pro.cfg"
-  ln -s "/usr/share/retroarch/autoconfig/udev/Pro Controller.cfg"     "${INSTALL}/usr/config/amiberry/controller/Pro Controller.cfg"
+  ln -s "/usr/share/libretro/autoconfig" "${INSTALL}/usr/config/amiberry/controller"
 
   # Copy binary, scripts & link libcapsimg
-  cp -av amiberry                      ${INSTALL}/usr/bin
-  cp -a ${PKG_DIR}/scripts/*           ${INSTALL}/usr/bin
-  ln -sf /usr/lib/libcapsimage.so.5.1  ${INSTALL}/usr/config/amiberry/capsimg.so
+  cp -a amiberry* ${INSTALL}/usr/bin/amiberry
+  cp -a ${PKG_DIR}/scripts/*          ${INSTALL}/usr/bin
+  ln -sf /usr/lib/libcapsimage.so.5.1 ${INSTALL}/usr/config/amiberry/capsimg.so
 }

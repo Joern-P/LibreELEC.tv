@@ -30,6 +30,8 @@ case $GPU in
   Mali-G71*) LIB="libmali-bifrost-g71-*.so" ;;
   Mali-G72*) LIB="libmali-bifrost-g72-*.so" ;;
   Mali-G76*) LIB="libmali-bifrost-g76-*.so" ;;
+  Mali-G61*) LIB="libmali-valhall-g610-*.so" ;;
+  libmali-valhall-g610-g13p0-gbm
 esac
 
 echo "LIB: $LIB"

@@ -2,13 +2,12 @@
 # setup system defaults
 ################################################################################
 
-  # Bootloader to use (syslinux / u-boot / bcm2835-bootloader)
+  # Bootloader to use (syslinux / u-boot)
     BOOTLOADER="u-boot"
 
-  # U-Boot firmware package(s) to use
-    UBOOT_FIRMWARE="rkbin"
-    UBOOT_FIT_IMAGE="u-boot-rockchip.bin"
-
+  # Kernel extra targets to build
+    KERNEL_UBOOT_EXTRA_TARGET=""
+   
   # Additional kernel make parameters (for example to specify the u-boot loadaddress)
     KERNEL_MAKE_EXTRACMD="dtbs"
 
@@ -17,13 +16,13 @@
 
   # Kernel to use. values can be:
   # default:  default mainline kernel
-    LINUX="${LINUX:-default}"
+    LINUX="rockchip"
 
 ################################################################################
 # setup build defaults
 ################################################################################
 
-  # Project CFLAGS
+  # Project FLAGS
     PROJECT_CFLAGS=""
 
   # SquashFS compression method (gzip / lzo / xz / zstd)
@@ -38,28 +37,32 @@
 
   # OpenGL-ES implementation to use (no / libmali / mesa)
     OPENGLES="${OPENGLES:-mesa}"
+    #OPENGLES="libmali"
 
-  # Vulkan implementation to use (vulkan-loader / no)
-    VULKAN="no"
+  # include uvesafb support (yes / no)
+    UVESAFB_SUPPORT="no"
 
-  # Displayserver to use (wl / no)
+  # Displayserver to use (no / wl)
     DISPLAYSERVER="no"
 
   # Windowmanager to use (weston / no)
     WINDOWMANAGER="no"
 
-  # Xorg Graphic drivers to use (all / lima,panfrost)
+  # Xorg Graphic drivers to use (all / i915,i965,r200,r300,r600,nvidia)
   # Space separated list is supported,
-  # e.g. GRAPHIC_DRIVERS="lima panfrost"
+  # e.g. GRAPHIC_DRIVERS="i915 i965 r300 r600 radeonsi nvidia"
     GRAPHIC_DRIVERS=""
 
   # KODI Player implementation to use (default / bcm2835-driver / libfslvpuwrap)
-    KODIPLAYER_DRIVER="$OPENGLES"
+    KODIPLAYER_DRIVER="${OPENGLES}"  
 
-  # additional Firmware to use (dvb-firmware, misc-firmware, wlan-firmware)
+  # Modules to install in initramfs for early boot
+    INITRAMFS_MODULES=""
+
+  # additional Firmware to use ( )
   # Space separated list is supported,
-  # e.g. FIRMWARE="dvb-firmware misc-firmware wlan-firmware"
-    FIRMWARE="misc-firmware wlan-firmware dvb-firmware brcmfmac_sdio-firmware"
+  # e.g. FIRMWARE=""
+    FIRMWARE=" rockchip-firmware"
 
   # additional packages to install
     ADDITIONAL_PACKAGES+=" dtc"
@@ -74,7 +77,7 @@
     SYSTEM_PART_START=32768
 
   # build and install driver addons (yes / no)
-    DRIVER_ADDONS_SUPPORT="no"
+    DRIVER_ADDONS_SUPPORT="yes"
 
   # driver addons to install:
   # for a list of additinoal drivers see packages/linux-driver-addons
@@ -83,3 +86,7 @@
 
   # debug tty path
     DEBUG_TTY="/dev/ttyS2"
+
+  # build with entware installer
+    ENTWARE_SUPPORT="yes"
+    ENTWARE_ARCH="aarch64-k3.10"
