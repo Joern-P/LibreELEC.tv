@@ -1,0 +1,372 @@
+From d6a05bf90476549d626d13d58c66d87cd9f4301b Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 6 Mar 2024 14:22:07 +0800
+Subject: [PATCH 1/3] fixup! lavc/rkmppdec: refactor RKMPP decoders and extend
+ codecs
+
+send extradata to mpp decoder.
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ libavcodec/rkmppdec.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index dae44efc12..d4f881037a 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -136,6 +136,26 @@ static av_cold int rkmpp_decode_close(AVCodecContext *avctx)
+     return 0;
+ }
+ 
++static int rkmpp_send_extradata(AVCodecContext *avctx)
++{
++    RKMPPDecContext *r = avctx->priv_data;
++    MppPacket mpp_pkt = NULL;
++    int ret;
++
++    if (avctx->extradata_size && avctx->codec_id != AV_CODEC_ID_AV1) {
++        ret = mpp_packet_init(&mpp_pkt, avctx->extradata, avctx->extradata_size);
++        if (ret != MPP_OK)
++            return AVERROR_EXTERNAL;
++
++        ret = r->mapi->decode_put_packet(r->mctx, mpp_pkt);
++        mpp_packet_deinit(&mpp_pkt);
++        if (ret != MPP_OK)
++            return AVERROR_EXTERNAL;
++    }
++
++    return 0;
++}
++
+ static av_cold int rkmpp_decode_init(AVCodecContext *avctx)
+ {
+     RKMPPDecContext *r = avctx->priv_data;
+@@ -259,6 +279,11 @@ static av_cold int rkmpp_decode_init(AVCodecContext *avctx)
+         }
+     }
+ 
++    if ((ret = rkmpp_send_extradata(avctx)) < 0) {
++        av_log(avctx, AV_LOG_ERROR, "Failed to send extradata to MPP\n");
++        goto fail;
++    }
++
+     if (avctx->hw_device_ctx) {
+         r->hwdevice = av_buffer_ref(avctx->hw_device_ctx);
+         if (!r->hwdevice) {
+@@ -934,6 +959,9 @@ static void rkmpp_decode_flush(AVCodecContext *avctx)
+         av_packet_unref(&r->last_pkt);
+     } else
+         av_log(avctx, AV_LOG_ERROR, "Failed to reset MPP context: %d\n", ret);
++
++    if ((ret = rkmpp_send_extradata(avctx)) < 0)
++        av_log(avctx, AV_LOG_ERROR, "Failed to send extradata to MPP\n");
+ }
+ 
+ #if CONFIG_H263_RKMPP_DECODER
+
+From d2ab61e6a9b218003e78b072414aacad140c16c9 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 6 Mar 2024 15:10:16 +0800
+Subject: [PATCH 2/3] fixup! lavc/rkmppdec: refactor RKMPP decoders and extend
+ codecs
+
+refactor send-pkt/get-frame logic.
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ libavcodec/rkmppdec.c | 110 +++++++++++++++++++-----------------------
+ libavcodec/rkmppdec.h |   4 +-
+ 2 files changed, 50 insertions(+), 64 deletions(-)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index d4f881037a..3aa3a39591 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -112,10 +112,9 @@ static av_cold int rkmpp_decode_close(AVCodecContext *avctx)
+     RKMPPDecContext *r = avctx->priv_data;
+ 
+     r->eof = 0;
++    r->draining = 0;
+     r->info_change = 0;
+     r->errinfo_cnt = 0;
+-    r->queue_cnt = 0;
+-    r->queue_size = 0;
+ 
+     if (r->mapi) {
+         r->mapi->reset(r->mctx);
+@@ -674,6 +673,10 @@ static int rkmpp_get_frame(AVCodecContext *avctx, AVFrame *frame, int timeout)
+     MppFrame mpp_frame = NULL;
+     int ret;
+ 
++    /* should not provide ant frame after EOS */
++    if (r->eof)
++        return AVERROR_EOF;
++
+     if ((ret = r->mapi->control(r->mctx, MPP_SET_OUTPUT_TIMEOUT, (MppParam)&timeout)) != MPP_OK) {
+         av_log(avctx, AV_LOG_ERROR, "Failed to set output timeout: %d\n", ret);
+         return AVERROR_EXTERNAL;
+@@ -685,7 +688,8 @@ static int rkmpp_get_frame(AVCodecContext *avctx, AVFrame *frame, int timeout)
+         return AVERROR_EXTERNAL;
+     }
+     if (!mpp_frame) {
+-        av_log(avctx, AV_LOG_DEBUG, "Timeout getting decoded frame\n");
++        if (timeout != MPP_TIMEOUT_NON_BLOCK)
++            av_log(avctx, AV_LOG_DEBUG, "Timeout getting decoded frame\n");
+         return AVERROR(EAGAIN);
+     }
+     if (mpp_frame_get_eos(mpp_frame)) {
+@@ -844,6 +848,8 @@ static int rkmpp_send_eos(AVCodecContext *avctx)
+         ret = r->mapi->decode_put_packet(r->mctx, mpp_pkt);
+     } while (ret != MPP_OK);
+ 
++    r->draining = 1;
++
+     mpp_packet_deinit(&mpp_pkt);
+     return 0;
+ }
+@@ -855,6 +861,10 @@ static int rkmpp_send_packet(AVCodecContext *avctx, AVPacket *pkt)
+     int64_t pts = PTS_TO_MPP_PTS(pkt->pts, avctx->pkt_timebase);
+     int ret;
+ 
++    /* avoid sending new data after EOS */
++    if (r->draining)
++        return AVERROR(EOF);
++
+     if ((ret = mpp_packet_init(&mpp_pkt, pkt->data, pkt->size)) != MPP_OK) {
+         av_log(avctx, AV_LOG_ERROR, "Failed to init packet: %d\n", ret);
+         return AVERROR_EXTERNAL;
+@@ -874,72 +884,51 @@ static int rkmpp_send_packet(AVCodecContext *avctx, AVPacket *pkt)
+ 
+ static int rkmpp_decode_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+ {
+-    AVCodecInternal *avci = avctx->internal;
+     RKMPPDecContext *r = avctx->priv_data;
+     AVPacket *pkt = &r->last_pkt;
+-    int retry_cnt = 0;
+-    int ret_send, ret_get;
++    int ret;
+ 
+     if (r->info_change && !r->buf_group)
+         return AVERROR_EOF;
+ 
+-    if (!avci->draining) {
+-        if (!pkt->size) {
+-            switch (ff_decode_get_packet(avctx, pkt)) {
+-            case AVERROR_EOF:
+-                av_log(avctx, AV_LOG_DEBUG, "Decoder draining\n");
+-                ret_send = rkmpp_send_eos(avctx);
+-                if (ret_send < 0)
+-                    return ret_send;
+-                goto get_frame;
+-            case AVERROR(EAGAIN):
+-                av_log(avctx, AV_LOG_TRACE, "Decoder could not get packet, retrying\n");
+-                return AVERROR(EAGAIN);
+-            }
+-        }
+-send_pkt:
+-        /* there is definitely a packet to send to decoder */
+-        ret_send = rkmpp_send_packet(avctx, pkt);
+-        if (ret_send == 0) {
+-            /* send successful, continue until decoder input buffer is full */
+-            av_packet_unref(pkt);
+-            r->queue_cnt++;
+-            if (r->queue_size <= 0 ||
+-                r->queue_cnt < r->queue_size)
+-                return AVERROR(EAGAIN);
+-        } else if (ret_send < 0 && ret_send != AVERROR(EAGAIN)) {
+-            /* something went wrong, raise error */
+-            av_log(avctx, AV_LOG_ERROR, "Decoder failed to send data: %d", ret_send);
+-            return ret_send;
+-        } else
+-            /* input buffer is full, estimate queue size */
+-            r->queue_size = FFMAX(r->queue_cnt, r->queue_size);
+-    }
+-
++    /* no more frames after EOS */
+     if (r->eof)
+         return AVERROR_EOF;
+ 
+-get_frame:
+-    /* were here only when draining and buffer is full */
+-    ret_get = rkmpp_get_frame(avctx, frame, 100);
+-    if (ret_get == AVERROR_EOF)
+-        av_log(avctx, AV_LOG_DEBUG, "Decoder is at EOF\n");
+-    /* EAGAIN should never happen during draining */
+-    else if (avci->draining && ret_get == AVERROR(EAGAIN)) {
+-        if (retry_cnt++ < MAX_RETRY_COUNT)
+-            goto get_frame;
+-        else
+-            ret_get = AVERROR_BUG;
+-    }
+-    /* this is not likely but lets handle it in case synchronization issues of MPP */
+-    else if (ret_get == AVERROR(EAGAIN) && ret_send == AVERROR(EAGAIN))
+-        goto send_pkt;
+-    else if (ret_get < 0 && ret_get != AVERROR(EAGAIN))
+-        av_log(avctx, AV_LOG_ERROR, "Decoder failed to get frame: %d\n", ret_get);
+-    else
+-        r->queue_cnt--;
++    /* drain remain frames */
++    if (r->draining)
++        return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
+ 
+-    return ret_get;
++    while (1) {
++        if (!pkt->size) {
++            ret = ff_decode_get_packet(avctx, pkt);
++            if (ret == AVERROR_EOF) {
++                av_log(avctx, AV_LOG_DEBUG, "End of stream\n");
++                /* send EOS and start draining */
++                rkmpp_send_eos(avctx);
++                return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++            } else if (ret == AVERROR(EAGAIN)) {
++                /* not blocking so that we can feed data ASAP */
++                return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_NON_BLOCK);
++            } else if (ret < 0) {
++                av_log(avctx, AV_LOG_ERROR, "Failed to get packet: %d\n", ret);
++                return ret;
++            }
++        } else {
++            /* send pending data to decoder */
++            ret = rkmpp_send_packet(avctx, pkt);
++            if (ret == AVERROR(EAGAIN)) {
++                /* some clients don't like getting EAGAIN in both of in and out */
++                return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++            } else if (ret < 0) {
++                av_log(avctx, AV_LOG_ERROR, "Failed to send packet: %d\n", ret);
++                return ret;
++            } else {
++                av_packet_unref(pkt);
++                pkt->size = 0;
++            }
++        }
++    }
+ }
+ 
+ static void rkmpp_decode_flush(AVCodecContext *avctx)
+@@ -951,10 +940,9 @@ static void rkmpp_decode_flush(AVCodecContext *avctx)
+ 
+     if ((ret = r->mapi->reset(r->mctx)) == MPP_OK) {
+         r->eof = 0;
++        r->draining = 0;
+         r->info_change = 0;
+         r->errinfo_cnt = 0;
+-        r->queue_cnt = 0;
+-        r->queue_size = 0;
+ 
+         av_packet_unref(&r->last_pkt);
+     } else
+diff --git a/libavcodec/rkmppdec.h b/libavcodec/rkmppdec.h
+index 6a4cd6bf68..0eba15000e 100644
+--- a/libavcodec/rkmppdec.h
++++ b/libavcodec/rkmppdec.h
+@@ -41,7 +41,6 @@
+ #include "libavutil/pixdesc.h"
+ 
+ #define MAX_ERRINFO_COUNT 100
+-#define MAX_RETRY_COUNT   100
+ 
+ typedef struct RKMPPDecContext {
+     AVClass       *class;
+@@ -55,10 +54,9 @@ typedef struct RKMPPDecContext {
+ 
+     AVPacket       last_pkt;
+     int            eof;
++    int            draining;
+     int            info_change;
+     int            errinfo_cnt;
+-    int            queue_cnt;
+-    int            queue_size;
+ 
+     int            deint;
+     int            afbc;
+
+From 9d14c5f878621669e522326b46355481d0c1dbcb Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 6 Mar 2024 17:21:17 +0800
+Subject: [PATCH 3/3] fixup! lavc/rkmppdec: refactor RKMPP decoders and extend
+ codecs
+
+fix more.
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ libavcodec/rkmppdec.c | 35 +++++++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index 3aa3a39591..ee8b8eaa2e 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -673,7 +673,7 @@ static int rkmpp_get_frame(AVCodecContext *avctx, AVFrame *frame, int timeout)
+     MppFrame mpp_frame = NULL;
+     int ret;
+ 
+-    /* should not provide ant frame after EOS */
++    /* should not provide any frame after EOS */
+     if (r->eof)
+         return AVERROR_EOF;
+ 
+@@ -896,39 +896,50 @@ static int rkmpp_decode_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+         return AVERROR_EOF;
+ 
+     /* drain remain frames */
+-    if (r->draining)
+-        return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++    if (r->draining) {
++        ret = rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++        goto exit;
++    }
+ 
+     while (1) {
+         if (!pkt->size) {
+             ret = ff_decode_get_packet(avctx, pkt);
+             if (ret == AVERROR_EOF) {
+-                av_log(avctx, AV_LOG_DEBUG, "End of stream\n");
++                av_log(avctx, AV_LOG_DEBUG, "Decoder is at EOF\n");
+                 /* send EOS and start draining */
+                 rkmpp_send_eos(avctx);
+-                return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++                ret = rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++                goto exit;
+             } else if (ret == AVERROR(EAGAIN)) {
+                 /* not blocking so that we can feed data ASAP */
+-                return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_NON_BLOCK);
++                ret = rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_NON_BLOCK);
++                goto exit;
+             } else if (ret < 0) {
+-                av_log(avctx, AV_LOG_ERROR, "Failed to get packet: %d\n", ret);
+-                return ret;
++                av_log(avctx, AV_LOG_ERROR, "Decoder failed to get packet: %d\n", ret);
++                goto exit;
+             }
+         } else {
+             /* send pending data to decoder */
+             ret = rkmpp_send_packet(avctx, pkt);
+             if (ret == AVERROR(EAGAIN)) {
+-                /* some clients don't like getting EAGAIN in both of in and out */
+-                return rkmpp_get_frame(avctx, frame, MPP_TIMEOUT_BLOCK);
++                /* some streams might need more packets to start returning frames */
++                ret = rkmpp_get_frame(avctx, frame, 100);
++                if (ret != AVERROR(EAGAIN))
++                    goto exit;
+             } else if (ret < 0) {
+-                av_log(avctx, AV_LOG_ERROR, "Failed to send packet: %d\n", ret);
+-                return ret;
++                av_log(avctx, AV_LOG_ERROR, "Decoder failed to send packet: %d\n", ret);
++                goto exit;
+             } else {
+                 av_packet_unref(pkt);
+                 pkt->size = 0;
+             }
+         }
+     }
++
++exit:
++    if (r->draining && ret == AVERROR(EAGAIN))
++        ret = AVERROR_EOF;
++    return ret;
+ }
+ 
+ static void rkmpp_decode_flush(AVCodecContext *avctx)
+

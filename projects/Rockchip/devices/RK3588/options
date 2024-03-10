@@ -88,7 +88,7 @@
   # additional Firmware to use ( )
   # Space separated list is supported,
   # e.g. FIRMWARE=""
-    FIRMWARE="libmali_rk3588"
+    FIRMWARE="libmali_rk3588 dvb-firmware"
 
   # additional drivers to install:
   # for a list of additional drivers see packages/linux-drivers

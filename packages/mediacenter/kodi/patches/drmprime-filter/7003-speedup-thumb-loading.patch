@@ -1,0 +1,57 @@
+From 9ac1bf69ef19098e88c37db79e13f49a248e7d8e Mon Sep 17 00:00:00 2001
+From: "Chris \"Koying\" Browet" <cbro@semperpax.com>
+Date: Sun, 27 Mar 2016 16:36:42 +0200
+Subject: [PATCH] FIX: speedup thumb loading
+
+---
+ xbmc/video/VideoThumbLoader.cpp | 26 +++++++++++++++++++++++---
+ 1 file changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/video/VideoThumbLoader.cpp b/xbmc/video/VideoThumbLoader.cpp
+index 3caf118b0f..723bfed38f 100644
+--- a/xbmc/video/VideoThumbLoader.cpp
++++ b/xbmc/video/VideoThumbLoader.cpp
+@@ -18,6 +18,8 @@
+ #include "filesystem/Directory.h"
+ #include "filesystem/DirectoryCache.h"
+ #include "filesystem/StackDirectory.h"
++#include "filesystem/File.h"
++#include "filesystem/CurlFile.h"
+ #include "guilib/GUIComponent.h"
+ #include "guilib/GUIWindowManager.h"
+ #include "guilib/StereoscopicsManager.h"
+@@ -442,11 +444,28 @@
+   // We can only extract flags/thumbs for file-like items
+   if (!pItem->m_bIsFolder && pItem->IsVideo())
+   {
+-    // An auto-generated thumb may have been cached on a different device - check we have it here
+-    std::string url = pItem->GetArt("thumb");
+-    if (StringUtils::StartsWith(url, "image://video@") &&
+-        !CServiceBroker::GetTextureCache()->HasCachedImage(url))
+-      pItem->SetArt("thumb", "");
++    std::string url = pItem->GetArt("thumb");
++    if (!CServiceBroker::GetTextureCache()->HasCachedImage(url))
++    {
++      // An auto-generated thumb may have been cached on a different device - check we have it here
++      if (StringUtils::StartsWith(url, "image://video@"))
++        pItem->SetArt("thumb", "");
++
++      // Check invalid redirections
++      else if (URIUtils::IsInternetStream(url))
++      {
++        std::string mimetype;
++        bool valid = XFILE::CCurlFile::GetMimeType(CURL(url), mimetype);
++        if (valid && !StringUtils::StartsWith(mimetype, "image/"))
++          valid = false;
++        if (!valid)
++          pItem->SetArt("thumb", "");
++      }
++
++      // Check if thumb source still exists
++      else if (!XFILE::CFile::Exists(url))
++        pItem->SetArt("thumb", "");
++    }
+ 
+     const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+     if (!pItem->HasArt("thumb"))
+
