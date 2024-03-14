@@ -1,0 +1,268 @@
+From 5674b97327d088786c83a5a9deafe79a317d1ed5 Mon Sep 17 00:00:00 2001
+From: Frederik <5511687+fightforlife@users.noreply.github.com>
+Date: Sat, 6 Jan 2024 13:28:51 +0100
+Subject: [PATCH 1/2] add int index to RenderCapture() (like for
+ RenderUpdate()), fixes sporadic black captures on Linux
+
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h          | 2 +-
+ .../VideoRenderers/HwDecRender/RendererDRMPRIME.cpp           | 2 +-
+ .../VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h | 2 +-
+ .../VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp       | 2 +-
+ .../VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.h         | 2 +-
+ .../VideoRenderers/HwDecRender/RendererMediaCodecSurface.cpp  | 2 +-
+ .../VideoRenderers/HwDecRender/RendererMediaCodecSurface.h    | 2 +-
+ .../VideoPlayer/VideoRenderers/HwDecRender/RendererStarfish.h | 2 +-
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp     | 4 +++-
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h       | 2 +-
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp   | 4 +++-
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h     | 2 +-
+ xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp       | 2 +-
+ xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.cpp         | 2 +-
+ xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.h           | 2 +-
+ 16 files changed, 20 insertions(+), 16 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+index 3fdac4149a96d..9482272957283 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+@@ -66,7 +66,7 @@ class CBaseRenderer
+   virtual CRenderInfo GetRenderInfo() { return CRenderInfo(); }
+   virtual void Update() = 0;
+   virtual void RenderUpdate(int index, int index2, bool clear, unsigned int flags, unsigned int alpha) = 0;
+-  virtual bool RenderCapture(CRenderCapture* capture) = 0;
++  virtual bool RenderCapture(int index, CRenderCapture* capture) = 0;
+   virtual bool ConfigChanged(const VideoPicture &picture) = 0;
+ 
+   // Feature support
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
+index a07b4f744048e..66df0e49c7355 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.cpp
+@@ -229,7 +229,7 @@ void CRendererDRMPRIME::RenderUpdate(
+   m_iLastRenderBuffer = index;
+ }
+ 
+-bool CRendererDRMPRIME::RenderCapture(CRenderCapture* capture)
++bool CRendererDRMPRIME::RenderCapture(int index, CRenderCapture* capture)
+ {
+   capture->BeginRender();
+   capture->EndRender();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h
+index c3953cc3e500b..30b69f80316d7 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h
+@@ -36,7 +36,7 @@ class CRendererDRMPRIME : public CBaseRenderer
+   void Update() override;
+   void RenderUpdate(
+       int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
+-  bool RenderCapture(CRenderCapture* capture) override;
++  bool RenderCapture(int index, CRenderCapture* capture) override;
+   bool ConfigChanged(const VideoPicture& picture) override;
+ 
+   // Feature support
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
+index 42b82873151f8..ed6052864bbf2 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
+@@ -280,7 +280,7 @@ void CRendererDRMPRIMEGLES::RenderUpdate(
+   glEnable(GL_BLEND);
+ }
+ 
+-bool CRendererDRMPRIMEGLES::RenderCapture(CRenderCapture* capture)
++bool CRendererDRMPRIMEGLES::RenderCapture(int index, CRenderCapture* capture)
+ {
+   capture->BeginRender();
+   capture->EndRender();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.h
+index 7b2cb079a9087..20be4e3f75bf1 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.h
+@@ -46,7 +46,7 @@ class CRendererDRMPRIMEGLES : public CBaseRenderer
+   void Update() override;
+   void RenderUpdate(
+       int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
+-  bool RenderCapture(CRenderCapture* capture) override;
++  bool RenderCapture(int index, CRenderCapture* capture) override;
+   bool ConfigChanged(const VideoPicture& picture) override;
+ 
+   // Feature support
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.cpp
+index a9e6f67c64a8e..7e6e4e1a70b92 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.cpp
+@@ -73,7 +73,7 @@ CRenderInfo CRendererMediaCodecSurface::GetRenderInfo()
+   return info;
+ }
+ 
+-bool CRendererMediaCodecSurface::RenderCapture(CRenderCapture* capture)
++bool CRendererMediaCodecSurface::RenderCapture(int index, CRenderCapture* capture)
+ {
+   capture->BeginRender();
+   capture->EndRender();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.h
+index d27601ea46b9a..1a9996b041cbc 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodecSurface.h
+@@ -21,7 +21,7 @@ class CRendererMediaCodecSurface : public CBaseRenderer
+   static CBaseRenderer* Create(CVideoBuffer *buffer);
+   static bool Register();
+ 
+-  bool RenderCapture(CRenderCapture* capture) override;
++  bool RenderCapture(int index, CRenderCapture* capture) override;
+   void AddVideoPicture(const VideoPicture& picture, int index) override;
+   void ReleaseBuffer(int idx) override;
+   bool Configure(const VideoPicture& picture, float fps, unsigned int orientation) override;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+index 1dd642c5d8334..7ccc58623a353 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+@@ -1662,8 +1662,10 @@ void CLinuxRendererGL::RenderRGB(int index, int field)
+   glBindTexture(m_textureTarget, 0);
+ }
+ 
+-bool CLinuxRendererGL::RenderCapture(CRenderCapture* capture)
++bool CLinuxRendererGL::RenderCapture(int index, CRenderCapture* capture)
+ {
++  m_iYV12RenderBuffer = index;
++  
+   if (!m_bValidated)
+     return false;
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h
+index 026d9512fd8b5..31a3c273bfc7c 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h
+@@ -72,7 +72,7 @@ class CLinuxRendererGL : public CBaseRenderer
+   void ReleaseBuffer(int idx) override;
+   void RenderUpdate(int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
+   void Update() override;
+-  bool RenderCapture(CRenderCapture* capture) override;
++  bool RenderCapture(int index, CRenderCapture* capture) override;
+   CRenderInfo GetRenderInfo() override;
+   bool ConfigChanged(const VideoPicture &picture) override;
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index 85ab951b111e8..acfa7868c77be 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -1243,8 +1243,10 @@ void CLinuxRendererGLES::RenderFromFBO()
+   VerifyGLState();
+ }
+ 
+-bool CLinuxRendererGLES::RenderCapture(CRenderCapture* capture)
++bool CLinuxRendererGLES::RenderCapture(int index, CRenderCapture* capture)
+ {
++  m_iYV12RenderBuffer = index;
++  
+   if (!m_bValidated)
+   {
+     return false;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+index 8db3ed3b39829..31157fe6a5b06 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+@@ -75,7 +75,7 @@ class CLinuxRendererGLES : public CBaseRenderer
+   void ReleaseBuffer(int idx) override;
+   void RenderUpdate(int index, int index2, bool clear, unsigned int flags, unsigned int alpha) override;
+   void Update() override;
+-  bool RenderCapture(CRenderCapture* capture) override;
++  bool RenderCapture(int index, CRenderCapture* capture) override;
+   CRenderInfo GetRenderInfo() override;
+   bool ConfigChanged(const VideoPicture& picture) override;
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+index 4d363848cbba8..67b55982ecacd 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+@@ -651,7 +651,7 @@ void CRenderManager::ManageCaptures()
+ 
+ void CRenderManager::RenderCapture(CRenderCapture* capture)
+ {
+-  if (!m_pRenderer || !m_pRenderer->RenderCapture(capture))
++  if (!m_pRenderer || !m_pRenderer->RenderCapture(m_presentsource, capture))
+     capture->SetState(CAPTURESTATE_FAILED);
+ }
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.cpp
+index 777600c139f8c..6e94fcc1bc9a2 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.cpp
+@@ -218,7 +218,7 @@ void CWinRenderer::RenderUpdate(int index, int index2, bool clear, unsigned int
+   DX::Windowing()->SetAlphaBlendEnable(true);
+ }
+ 
+-bool CWinRenderer::RenderCapture(CRenderCapture* capture)
++bool CWinRenderer::RenderCapture(int index, CRenderCapture* capture)
+ {
+   if (!m_bConfigured)
+     return false;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.h b/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.h
+index 731f3ffb9b40e..9d8f996a8a287 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/WinRenderer.h
+@@ -24,7 +24,7 @@ class CWinRenderer : public CBaseRenderer
+   static bool Register();
+ 
+   void Update() override;
+-  bool RenderCapture(CRenderCapture* capture) override;
++  bool RenderCapture(int index, CRenderCapture* capture) override;
+ 
+   // Player functions
+   bool Configure(const VideoPicture &picture, float fps, unsigned int orientation) override;
+
+From 2b91bb81479d634680cf7a20b77ccc2ff363a994 Mon Sep 17 00:00:00 2001
+From: Frederik <5511687+fightforlife@users.noreply.github.com>
+Date: Wed, 10 Jan 2024 10:13:05 +0100
+Subject: [PATCH 2/2] pass index directly to render, not modify RenderBuffer
+
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp   | 4 +---
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp | 4 +---
+ 2 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+index 7ccc58623a353..d96c29a6b71c8 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+@@ -1664,8 +1664,6 @@ void CLinuxRendererGL::RenderRGB(int index, int field)
+ 
+ bool CLinuxRendererGL::RenderCapture(int index, CRenderCapture* capture)
+ {
+-  m_iYV12RenderBuffer = index;
+-  
+   if (!m_bValidated)
+     return false;
+ 
+@@ -1690,7 +1688,7 @@ bool CLinuxRendererGL::RenderCapture(int index, CRenderCapture* capture)
+ 
+   capture->BeginRender();
+ 
+-  Render(RENDER_FLAG_NOOSD, m_iYV12RenderBuffer);
++  Render(RENDER_FLAG_NOOSD, index);
+   // read pixels
+   glReadPixels(0, CServiceBroker::GetWinSystem()->GetGfxContext().GetHeight() - capture->GetHeight(), capture->GetWidth(), capture->GetHeight(),
+                GL_BGRA, GL_UNSIGNED_BYTE, capture->GetRenderBuffer());
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index acfa7868c77be..45e3435b74898 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -1245,8 +1245,6 @@ void CLinuxRendererGLES::RenderFromFBO()
+ 
+ bool CLinuxRendererGLES::RenderCapture(int index, CRenderCapture* capture)
+ {
+-  m_iYV12RenderBuffer = index;
+-  
+   if (!m_bValidated)
+   {
+     return false;
+@@ -1271,7 +1269,7 @@ bool CLinuxRendererGLES::RenderCapture(int index, CRenderCapture* capture)
+ 
+   capture->BeginRender();
+ 
+-  Render(RENDER_FLAG_NOOSD, m_iYV12RenderBuffer);
++  Render(RENDER_FLAG_NOOSD, index);
+   // read pixels
+   glReadPixels(0, CServiceBroker::GetWinSystem()->GetGfxContext().GetHeight() - capture->GetHeight(), capture->GetWidth(), capture->GetHeight(),
+                GL_RGBA, GL_UNSIGNED_BYTE, capture->GetRenderBuffer());
+

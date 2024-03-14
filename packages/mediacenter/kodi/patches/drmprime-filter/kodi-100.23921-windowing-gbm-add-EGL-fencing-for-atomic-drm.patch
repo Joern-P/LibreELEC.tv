@@ -1,0 +1,134 @@
+From ba17e5b45c5bd36ef65089f35049da82a290bb01 Mon Sep 17 00:00:00 2001
+From: Lukas Rusak <lorusak@gmail.com>
+Date: Wed, 25 Oct 2023 16:39:03 -0700
+Subject: [PATCH 1/2] CEGLFence: add support for using EGL_KHR_fence_sync and
+ EGL_ANDROID_native_fence_sync
+
+Signed-off-by: Lukas Rusak <lorusak@gmail.com>
+---
+ xbmc/utils/EGLFence.cpp | 70 +++++++++++++++++++++++++++++++++++++++++
+ xbmc/utils/EGLFence.h   | 19 +++++++++++
+ 2 files changed, 89 insertions(+)
+
+diff --git a/xbmc/utils/EGLFence.cpp b/xbmc/utils/EGLFence.cpp
+index 535e3bce31973..9d0065bdaf07a 100644
+--- a/xbmc/utils/EGLFence.cpp
++++ b/xbmc/utils/EGLFence.cpp
+@@ -22,6 +22,14 @@ CEGLFence::CEGLFence(EGLDisplay display)
+   m_eglCreateSyncKHR = CEGLUtils::GetRequiredProcAddress<PFNEGLCREATESYNCKHRPROC>("eglCreateSyncKHR");
+   m_eglDestroySyncKHR = CEGLUtils::GetRequiredProcAddress<PFNEGLDESTROYSYNCKHRPROC>("eglDestroySyncKHR");
+   m_eglGetSyncAttribKHR = CEGLUtils::GetRequiredProcAddress<PFNEGLGETSYNCATTRIBKHRPROC>("eglGetSyncAttribKHR");
++#if defined(EGL_ANDROID_native_fence_sync) && defined(EGL_KHR_fence_sync)
++  m_eglDupNativeFenceFDANDROID =
++      CEGLUtils::GetRequiredProcAddress<PFNEGLDUPNATIVEFENCEFDANDROIDPROC>(
++          "eglDupNativeFenceFDANDROID");
++  m_eglClientWaitSyncKHR =
++      CEGLUtils::GetRequiredProcAddress<PFNEGLCLIENTWAITSYNCKHRPROC>("eglClientWaitSyncKHR");
++  m_eglWaitSyncKHR = CEGLUtils::GetRequiredProcAddress<PFNEGLWAITSYNCKHRPROC>("eglWaitSyncKHR");
++#endif
+ }
+ 
+ void CEGLFence::CreateFence()
+@@ -71,3 +79,65 @@ bool CEGLFence::IsSignaled()
+ 
+   return false;
+ }
++
++#if defined(EGL_ANDROID_native_fence_sync) && defined(EGL_KHR_fence_sync)
++EGLSyncKHR CEGLFence::CreateFence(int fd)
++{
++  CEGLAttributes<1> attributeList;
++  attributeList.Add({{EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fd}});
++
++  EGLSyncKHR fence =
++      m_eglCreateSyncKHR(m_display, EGL_SYNC_NATIVE_FENCE_ANDROID, attributeList.Get());
++
++  if (fence == EGL_NO_SYNC_KHR)
++  {
++    CEGLUtils::Log(LOGERROR, "failed to create EGL sync object");
++    return nullptr;
++  }
++
++  return fence;
++}
++
++void CEGLFence::CreateGPUFence()
++{
++  m_gpuFence = CreateFence(EGL_NO_NATIVE_FENCE_FD_ANDROID);
++}
++
++void CEGLFence::CreateKMSFence(int fd)
++{
++  m_kmsFence = CreateFence(fd);
++}
++
++EGLint CEGLFence::FlushFence()
++{
++  EGLint fd = m_eglDupNativeFenceFDANDROID(m_display, m_gpuFence);
++  if (fd == EGL_NO_NATIVE_FENCE_FD_ANDROID)
++    CEGLUtils::Log(LOGERROR, "failed to duplicate EGL fence fd");
++
++  m_eglDestroySyncKHR(m_display, m_gpuFence);
++
++  return fd;
++}
++
++void CEGLFence::WaitSyncGPU()
++{
++  if (!m_kmsFence)
++    return;
++
++  if (m_eglWaitSyncKHR(m_display, m_kmsFence, 0) != EGL_TRUE)
++    CEGLUtils::Log(LOGERROR, "failed to create EGL sync point");
++}
++
++void CEGLFence::WaitSyncCPU()
++{
++  if (!m_kmsFence)
++    return;
++
++  EGLint status{EGL_FALSE};
++
++  while (status != EGL_CONDITION_SATISFIED_KHR)
++    status = m_eglClientWaitSyncKHR(m_display, m_kmsFence, 0, EGL_FOREVER_KHR);
++
++  m_eglDestroySyncKHR(m_display, m_kmsFence);
++}
++#endif
+diff --git a/xbmc/utils/EGLFence.h b/xbmc/utils/EGLFence.h
+index bd96444e47e50..03c246b60b67b 100644
+--- a/xbmc/utils/EGLFence.h
++++ b/xbmc/utils/EGLFence.h
+@@ -30,6 +30,14 @@ class CEGLFence
+   void DestroyFence();
+   bool IsSignaled();
+ 
++#if defined(EGL_ANDROID_native_fence_sync) && defined(EGL_KHR_fence_sync)
++  void CreateKMSFence(int fd);
++  void CreateGPUFence();
++  EGLint FlushFence();
++  void WaitSyncGPU();
++  void WaitSyncCPU();
++#endif
++
+ private:
+   EGLDisplay m_display{nullptr};
+   EGLSyncKHR m_fence{nullptr};
+@@ -37,6 +45,17 @@ class CEGLFence
+   PFNEGLCREATESYNCKHRPROC m_eglCreateSyncKHR{nullptr};
+   PFNEGLDESTROYSYNCKHRPROC m_eglDestroySyncKHR{nullptr};
+   PFNEGLGETSYNCATTRIBKHRPROC m_eglGetSyncAttribKHR{nullptr};
++
++#if defined(EGL_ANDROID_native_fence_sync) && defined(EGL_KHR_fence_sync)
++  EGLSyncKHR CreateFence(int fd);
++
++  EGLSyncKHR m_gpuFence{EGL_NO_SYNC_KHR};
++  EGLSyncKHR m_kmsFence{EGL_NO_SYNC_KHR};
++
++  PFNEGLDUPNATIVEFENCEFDANDROIDPROC m_eglDupNativeFenceFDANDROID{nullptr};
++  PFNEGLCLIENTWAITSYNCKHRPROC m_eglClientWaitSyncKHR{nullptr};
++  PFNEGLWAITSYNCKHRPROC m_eglWaitSyncKHR{nullptr};
++#endif
+ };
+ 
+ }

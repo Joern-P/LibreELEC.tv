@@ -11,14 +11,16 @@ PKG_LONGDESC="Mali blob needed for RK3588 gpu"
 PKG_ACE_FIRMWARE="https://github.com/JeffyCN/mirrors/raw/ca33693a03b2782edc237d1d3b786f94849bed7d/firmware/g610/mali_csffw.bin"
 
 makeinstall_target() {
-  mkdir -p ${INSTALL}/$(get_full_firmware_dir)
+  mkdir -p ${INSTALL}/$(get_full_firmware_dir)/arm/mali/arch10.8/
   case ${DEVICE} in
-    RK3588)
+    RK3388)
       # RK Linux 6.1 reequires libmali v18 for the moment
-      curl -Lo ${INSTALL}/$(get_full_firmware_dir)/mali_csffw.bin ${PKG_ACE_FIRMWARE}
+      curl -Lo ${INSTALL}/$(get_full_firmware_dir)/arm/mali/arch10.8/mali_csffw.bin ${PKG_ACE_FIRMWARE}
     ;;
-    *)
-      cp -rf ${PKG_DIR}/firmware/* ${INSTALL}/$(get_full_firmware_dir)/
+    RK3588)
+      cp -rf ${PKG_DIR}/firmware/* ${INSTALL}/$(get_full_firmware_dir)/arm/mali/arch10.8/
     ;;
   esac
 }
+
+#/lib/firmware/arm/mali/arch10.8/mali_csffw.bin.
