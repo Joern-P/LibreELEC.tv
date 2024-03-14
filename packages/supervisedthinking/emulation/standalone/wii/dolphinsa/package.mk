@@ -16,13 +16,15 @@ PKG_BUILD_FLAGS="+gold"
 
 pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="-D CMAKE_BUILD_TYPE=Release
+                         -D CMAKE_CXX_FLAGS=-march=armv8.2-a \
+                         -D CMAKE_C_FLAGS=-march=armv8.2-a \
                          -D BUILD_SHARED_LIBS=OFF \
                          -D USE_MGBA=OFF \
                          -D USE_UPNP=OFF \
                          -D ENABLE_TESTS=OFF \
                          -D ENABLE_AUTOUPDATE=OFF \
                          -D ENABLE_X11=OFF \
-                         -D ENABLE_VULKAN=OFF \
+                         -D ENABLE_VULKAN=ON \
                          -D ENABLE_LLVM=OFF
                          -D ENABLE_TESTS=off \
                          -D ENABLE_QT=OFF \

@@ -32,7 +32,7 @@ case "${LINUX}" in
 #    PKG_VERSION="99e54e1a546eca7fa8d5b86be1b825914e097d06"
 #    PKG_URL="https://github.com/brooksytech/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
 #    PKG_GIT_CLONE_BRANCH="panfork-6.1"
-    PKG_VERSION="06aab5cd23655dcf2ad1d7e941814e90c0d93046"
+    PKG_VERSION="8607de2f226a64c57f987a490d5aa390a7a63c1f"
     PKG_URL="https://github.com/hbiyik/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
     PKG_GIT_CLONE_BRANCH="rk-6.1-rkr1-panthor-v6"
     ;;
