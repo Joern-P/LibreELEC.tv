@@ -1,0 +1,61 @@
+diff -uNr a/.git/config b/.git/config
+--- a/.git/config	2024-03-25 12:48:15.737388000 +0100
++++ b/.git/config	2024-03-25 14:49:29.378105863 +0100
+@@ -29,7 +29,7 @@
+ 	url = https://github.com/discord/discord-rpc.git
+ [submodule "dynarmic"]
+ 	active = true
+-	url = https://github.com/citra-emu/dynarmic.git
++	url = https://git.zaroz.cloud/nintendo-back-up/citra/citra-dynarmic.git
+ [submodule "enet"]
+ 	active = true
+ 	url = https://github.com/lsalzman/enet.git
+@@ -44,7 +44,7 @@
+ 	url = https://github.com/benhoyt/inih.git
+ [submodule "libressl"]
+ 	active = true
+-	url = https://github.com/citra-emu/ext-libressl-portable.git
++	url = https://git.zaroz.cloud/nintendo-back-up/citra/citra-ext-libressl-portable.git
+ [submodule "libusb"]
+ 	active = true
+ 	url = https://github.com/libusb/libusb.git
+@@ -59,7 +59,7 @@
+ 	url = https://github.com/libretro-fork/nihstro.git
+ [submodule "soundtouch"]
+ 	active = true
+-	url = https://github.com/citra-emu/ext-soundtouch.git
++	url = https://codeberg.org/soundtouch/soundtouch.git
+ [submodule "teakra"]
+ 	active = true
+ 	url = https://github.com/wwylele/teakra.git
+diff -uNr a/.gitmodules b/.gitmodules
+--- a/.gitmodules	2024-03-25 12:48:15.401390000 +0100
++++ b/.gitmodules	2024-03-25 14:45:33.229394176 +0100
+@@ -6,13 +6,13 @@
+ 	url = https://github.com/libretro-fork/nihstro.git
+ [submodule "soundtouch"]
+     path = externals/soundtouch
+-    url = https://github.com/citra-emu/ext-soundtouch.git
+-[submodule "catch"]
+-    path = externals/catch
+-    url = https://github.com/philsquared/Catch.git
++    url = https://codeberg.org/soundtouch/soundtouch.git
++[submodule "catch2"]
++    path = externals/catch2
++    url = https://github.com/catchorg/Catch2
+ [submodule "dynarmic"]
+     path = externals/dynarmic
+-    url = https://github.com/citra-emu/dynarmic.git
++    url = https://git.zaroz.cloud/nintendo-back-up/citra/citra-dynarmic.git
+ [submodule "xbyak"]
+     path = externals/xbyak
+     url = https://github.com/herumi/xbyak.git
+@@ -30,7 +30,7 @@
+     url = https://github.com/benhoyt/inih.git
+ [submodule "libressl"]
+     path = externals/libressl
+-    url = https://github.com/citra-emu/ext-libressl-portable.git
++    url = https://git.zaroz.cloud/nintendo-back-up/citra/citra-ext-libressl-portable.git
+ [submodule "libusb"]
+     path = externals/libusb/libusb
+     url = https://github.com/libusb/libusb.git

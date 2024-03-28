@@ -2,8 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="retroarch"
-PKG_VERSION="6616b807edea5b56683e9fbca8b003b436c22b13" #v1.15.0
-PKG_LICENSE="GPL-3.0-or-later"
+PKG_VERSION="06fa5325f8b3cd42e6fba3d57835d5924c9ea2e7" # v1.18.0
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="https://github.com/libretro/RetroArch.git"
 PKG_DEPENDS_TARGET="toolchain linux glibc systemd dbus openssl expat alsa-lib libpng libusb libass speex flac-system tinyalsa fluidsynth-system freetype zlib bzip2 ffmpeg common-overlays-lr core-info-lr database-lr glsl-shaders-lr overlay-borders-lr samples-lr retroarch-assets retroarch-joypad-autoconfig libxkbcommon openal-soft-system"
@@ -92,7 +91,7 @@ pre_configure_target() {
       fi
 
       # Panfrost: Mali T860 & G52 support OpenGLES 3.0
-      if [ "${GRAPHIC_DRIVERS}" = "panfrost" ] && listcontains "${MALI_FAMILY}" "t860" || listcontains "${MALI_FAMILY}" "g52"; then
+      if [ "${GRAPHIC_DRIVERS}" = "panfrost" ] ; then
         PKG_CONFIGURE_OPTS_TARGET+=" --enable-opengles3 \
                                      --enable-opengles3_1"
       fi
@@ -131,11 +130,14 @@ pre_configure_target() {
   fi
 
   # ARM NEON Support
-  if target_has_feature neon; then
-      if [ "${ARCH}" = "arm" ]; then
-    	PKG_CONFIGURE_OPTS+=" --enable-neon"
-      fi
-  fi
+case ${ARCH} in
+  arm)
+    PKG_CONFIGURE_OPTS_TARGET+=" --enable-neon"
+  ;;
+    aarch64)
+    PKG_CONFIGURE_OPTS_TARGET+=" --disable-neon"
+  ;;
+esac
 
   # SSE Support
   if target_has_feature sse2; then
@@ -159,7 +161,7 @@ make_target() {
   # Build Video & DSP filter
   # ARM NEON Support
   if target_has_feature neon; then
-    PKG_NEON_SUPPORT=" use_neon=1"
+    PKG_NEON_SUPPORT=" use_neon=0"
   fi
   echo -e "\n### Build Video filter ###\n"
   make -C gfx/video_filters compiler=${CC} extra_flags="${CFLAGS}" $PKG_NEON_SUPPORT

@@ -7,7 +7,7 @@ PKG_SHA256="5a91f33475c5c2feec1f0f521f148e5c6f186988587520a8d7978660f38a5968"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/libretro/dolphin"
 PKG_URL="https://github.com/libretro/dolphin/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain systemd mesa enet-system bluez lzo alsa-lib ffmpeg curl libpng zlib zstd"
+PKG_DEPENDS_TARGET="toolchain systemd enet-system bluez lzo alsa-lib ffmpeg curl libpng zlib zstd"
 PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
 PKG_BUILD_FLAGS="+lto -sysroot"
 
@@ -51,13 +51,19 @@ pre_configure_target() {
 
 pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="-D USE_SHARED_ENET=on \
-                         -D ENABLE_NOGUI=OFF \
+  			 -D USE_UPNP=ON \
+                         -D ENABLE_NOGUI=ON \
                          -D ENABLE_QT=OFF \
                          -D ENABLE_LTO=OFF \
+                         -D ENABLE_GENERIC=OFF \
+                         -D ENABLE_HEADLESS=ON \
+                         -D ENABLE_ALSA=ALSA \
+                         -D ENABLE_PULSEAUDIO=ON \                         
                          -D USE_DISCORD_PRESENCE=OFF \
                          -D ENABLE_TESTS=OFF \
                          -D LIBRETRO=ON"
-
+                         
+                         
   if [ "${DISPLAYSERVER}" != "x11" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_X11=OFF"
   fi

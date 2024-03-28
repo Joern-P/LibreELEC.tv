@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="mupen64plus-nx"
-PKG_VERSION="3f794eec4dc4af2f22ecce507f2da324381d3d92"
+PKG_VERSION="26fd1edd640ff3db49dd5ebb7e54f0de6600fc45"
 PKG_SHA256=""
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
@@ -82,7 +82,7 @@ pre_configure_target() {
   esac
   # Fix Mesa 3D based OpenGL ES builds
   if [ ! "${DISPLAYSERVER}" = "x11" ] && [ "${OPENGLES}" = "mesa" ]; then
-    PKG_MAKE_OPTS_TARGET+=" HAVE_EGL_NO_X11=1"
+    PKG_MAKE_OPTS_TARGET+=" HAVE_EGL_NO_X11=1 HAVE_OPENGLES=1"
   fi
 }
 

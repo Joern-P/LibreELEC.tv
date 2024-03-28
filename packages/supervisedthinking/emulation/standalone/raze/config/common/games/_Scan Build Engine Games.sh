@@ -5,7 +5,7 @@
 
 . /etc/profile
 
-BUILDENGINEPATH="/var/media/SSD/roms/build"
+BUILDENGINEPATH="/storage/roms/build"
 
 # From https://zdoom.org/wiki/Raze#Supported_games
 SUPPORTED_GRP=(

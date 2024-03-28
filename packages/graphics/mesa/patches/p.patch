@@ -1,0 +1,716 @@
+From ada94e515ca19c0b192dd4fa32b1b214edb1e891 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Sat, 17 Feb 2024 11:31:42 +0100
+Subject: [PATCH] [PoC]pancsf: Multi-queue
+
+Quick&dirty multi-queue implementation to see if it helps
+glmark2 -b function:fragment-complexity=medium:fragment-steps=5,
+and it looks like it does.
+---
+ src/gallium/drivers/panfrost/pan_csf.c | 412 +++++++++++++++++--------
+ src/gallium/drivers/panfrost/pan_csf.h |  18 +-
+ 2 files changed, 305 insertions(+), 125 deletions(-)
+
+diff --git a/src/gallium/drivers/panfrost/pan_csf.c b/src/gallium/drivers/panfrost/pan_csf.c
+index a37c785542b14..32f3ef9b14a02 100644
+--- a/src/gallium/drivers/panfrost/pan_csf.c
++++ b/src/gallium/drivers/panfrost/pan_csf.c
+@@ -37,6 +37,11 @@
+ #error "CSF helpers are only used for gen >= 10"
+ #endif
+ 
++struct csf_sync32_obj {
++   uint32_t seqno;
++   uint32_t status;
++};
++
+ static struct cs_buffer
+ csf_alloc_cs_buffer(void *cookie)
+ {
+@@ -58,7 +63,8 @@ csf_alloc_cs_buffer(void *cookie)
+ void
+ GENX(csf_cleanup_batch)(struct panfrost_batch *batch)
+ {
+-   free(batch->csf.cs.builder);
++   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++)
++      free(batch->csf.cs[i].builder);
+ 
+    panfrost_pool_cleanup(&batch->csf.cs_chunk_pool);
+ }
+@@ -72,24 +78,37 @@ GENX(csf_init_batch)(struct panfrost_batch *batch)
+    panfrost_pool_init(&batch->csf.cs_chunk_pool, NULL, dev, 0, 32768,
+                       "CS chunk pool", false, true);
+ 
+-   /* Allocate and bind the command queue */
+-   struct cs_buffer queue = csf_alloc_cs_buffer(batch);
+-   const struct cs_builder_conf conf = {
+-      .nr_registers = 96,
+-      .nr_kernel_registers = 4,
+-      .alloc_buffer = csf_alloc_cs_buffer,
+-      .cookie = batch,
+-   };
+-
+    /* Setup the queue builder */
+-   batch->csf.cs.builder = malloc(sizeof(struct cs_builder));
+-   cs_builder_init(batch->csf.cs.builder, &conf, queue);
+-   cs_req_res(batch->csf.cs.builder,
+-              CS_COMPUTE_RES | CS_TILER_RES | CS_IDVS_RES | CS_FRAG_RES);
++   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++) {
++      /* Allocate and bind the command queue */
++      struct cs_buffer queue = csf_alloc_cs_buffer(batch);
++      const struct cs_builder_conf conf = {
++         .nr_registers = 96,
++         .nr_kernel_registers = 4,
++         .alloc_buffer = csf_alloc_cs_buffer,
++         .cookie = batch,
++      };
++
++      struct cs_builder *b = malloc(sizeof(struct cs_builder));
++
++      batch->csf.cs[i].builder = b;
++
++      cs_builder_init(b, &conf, queue);
+ 
+-   /* Set up entries */
+-   struct cs_builder *b = batch->csf.cs.builder;
+-   cs_set_scoreboard_entry(b, 2, 0);
++      if (i == PANFROST_CSF_VTC_QUEUE) {
++         cs_req_res(b, CS_COMPUTE_RES | CS_TILER_RES | CS_IDVS_RES);
++      } else {
++         cs_req_res(b, CS_FRAG_RES);
++      }
++
++      /* Set up entries */
++      cs_set_scoreboard_entry(b, 2, 0);
++   }
++
++   struct csf_sync32_obj syncobj = {0};
++
++   batch->csf.tiler_frag_sync =
++      pan_pool_upload_aligned(&batch->pool.base, &syncobj, sizeof(syncobj), 8);
+ 
+    batch->framebuffer = pan_pool_alloc_desc_aggregate(
+       &batch->pool.base, PAN_DESC(FRAMEBUFFER), PAN_DESC(ZS_CRC_EXTENSION),
+@@ -100,16 +119,14 @@ GENX(csf_init_batch)(struct panfrost_batch *batch)
+ static void
+ csf_prepare_qsubmit(struct panfrost_context *ctx,
+                     struct drm_panthor_queue_submit *submit, uint8_t queue,
+-                    uint64_t cs_start, uint32_t cs_size,
++                    uint64_t cs_start, uint32_t cs_size, uint32_t flush_id,
+                     struct drm_panthor_sync_op *syncs, uint32_t sync_count)
+ {
+-   struct panfrost_device *dev = pan_device(ctx->base.screen);
+-
+    *submit = (struct drm_panthor_queue_submit){
+       .queue_index = queue,
+       .stream_addr = cs_start,
+       .stream_size = cs_size,
+-      .latest_flush = panthor_kmod_get_flush_id(dev->kmod.dev),
++      .latest_flush = flush_id,
+       .syncs = DRM_PANTHOR_OBJ_ARRAY(sync_count, syncs),
+    };
+ }
+@@ -148,41 +165,58 @@ static void
+ csf_emit_batch_end(struct panfrost_batch *batch)
+ {
+    struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+-   struct cs_builder *b = batch->csf.cs.builder;
+-
+-   /* Barrier to let everything finish */
+-   cs_wait_slots(b, BITFIELD_MASK(8), false);
+-
+-   if (dev->debug & PAN_DBG_SYNC) {
+-      /* Get the CS state */
+-      batch->csf.cs.state = pan_pool_alloc_aligned(&batch->pool.base, 8, 8);
+-      memset(batch->csf.cs.state.cpu, ~0, 8);
+-      cs_move64_to(b, cs_reg64(b, 90), batch->csf.cs.state.gpu);
+-      cs_store_state(b, cs_reg64(b, 90), 0, MALI_CS_STATE_ERROR_STATUS,
+-                     cs_now());
+-   }
+ 
+-   /* Flush caches now that we're done (synchronous) */
+-   struct cs_index flush_id = cs_reg32(b, 74);
+-   cs_move32_to(b, flush_id, 0);
+-   cs_flush_caches(b, MALI_CS_FLUSH_MODE_CLEAN, MALI_CS_FLUSH_MODE_CLEAN, true,
+-                   flush_id, cs_now());
+-   cs_wait_slot(b, 0, false);
++   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++) {
++      struct cs_builder *b = batch->csf.cs[i].builder;
++      bool needs_flush = false;
+ 
+-   /* Finish the command stream */
+-   assert(cs_is_valid(batch->csf.cs.builder));
+-   cs_finish(batch->csf.cs.builder);
++      if (i == PANFROST_CSF_FRAG_QUEUE && panfrost_has_fragment_job(batch))
++         needs_flush = true;
++
++      if (i == PANFROST_CSF_VTC_QUEUE && !panfrost_has_fragment_job(batch))
++         needs_flush = true;
++
++      if (i == PANFROST_CSF_VTC_QUEUE && batch->draw_count == 0 &&
++          batch->compute_count > 0)
++         needs_flush = true;
++
++      if ((dev->debug & PAN_DBG_SYNC) && needs_flush) {
++         /* Get the CS state */
++         batch->csf.cs[i].state =
++            pan_pool_alloc_aligned(&batch->pool.base, 8, 8);
++         memset(batch->csf.cs[i].state.cpu, ~0, 8);
++         cs_move64_to(b, cs_reg64(b, 90), batch->csf.cs[i].state.gpu);
++         cs_store_state(b, cs_reg64(b, 90), 0, MALI_CS_STATE_ERROR_STATUS,
++                        cs_now());
++      }
++
++      /* Clean caches so writes are made CPU-visible. */
++      if (needs_flush) {
++         cs_move32_to(b, cs_reg32(b, 74), 0);
++         cs_flush_caches(b, MALI_CS_FLUSH_MODE_CLEAN, MALI_CS_FLUSH_MODE_CLEAN,
++                         true, cs_reg32(b, 74), cs_defer(BITFIELD_BIT(2), 1));
++      }
++
++      /* Finish the command stream */
++      cs_finish(batch->csf.cs[i].builder);
++   }
++
++   uint32_t flush_id = panthor_kmod_get_flush_id(dev->kmod.dev);
++   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++)
++      batch->csf.cs[i].flush_id = flush_id;
+ }
+ 
+ static int
+ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+-                            struct util_dynarray *syncops,
++                            struct util_dynarray *vtc_syncops,
++                            struct util_dynarray *frag_syncops,
+                             uint32_t vm_sync_handle)
+ {
+    struct panfrost_context *ctx = batch->ctx;
+    struct panfrost_device *dev = pan_device(ctx->base.screen);
+-   uint64_t vm_sync_wait_point = 0, bo_sync_point;
++   uint64_t vm_sync_frag_wait_point = 0, vm_sync_vtc_wait_point = 0;
+    uint32_t bo_sync_handle;
++   uint64_t bo_sync_point;
+    int ret;
+ 
+    /* We don't wait on BOs attached to the various batch pools, because those
+@@ -213,7 +247,13 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+          return ret;
+ 
+       if (bo_sync_handle == vm_sync_handle) {
+-         vm_sync_wait_point = MAX2(vm_sync_wait_point, bo_sync_point);
++         if (flags & PAN_BO_ACCESS_FRAGMENT)
++            vm_sync_frag_wait_point =
++               MAX2(vm_sync_frag_wait_point, bo_sync_point);
++         if (flags & PAN_BO_ACCESS_VERTEX_TILER)
++            vm_sync_vtc_wait_point =
++               MAX2(vm_sync_vtc_wait_point, bo_sync_point);
++
+          continue;
+       }
+ 
+@@ -228,18 +268,46 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+          .timeline_value = bo_sync_point,
+       };
+ 
+-      util_dynarray_append(syncops, struct drm_panthor_sync_op, waitop);
++      util_dynarray_append(
++         flags & PAN_BO_ACCESS_VERTEX_TILER ? vtc_syncops : frag_syncops,
++         struct drm_panthor_sync_op, waitop);
+    }
+ 
+-   if (vm_sync_wait_point > 0) {
++   if (frag_syncops == vtc_syncops) {
++      /* If frag_syncops and vtc_syncops point to the same array, that means
++       * we just have one pipeline stage, and we can merge the VM wait points
++       * into a signal wait point.
++       */
++      struct drm_panthor_sync_op waitop = {
++         .flags = DRM_PANTHOR_SYNC_OP_WAIT |
++                  DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
++         .handle = vm_sync_handle,
++         .timeline_value =
++            MAX2(vm_sync_frag_wait_point, vm_sync_vtc_wait_point),
++      };
++
++      if (waitop.timeline_value > 0)
++         util_dynarray_append(vtc_syncops, struct drm_panthor_sync_op, waitop);
++   } else {
+       struct drm_panthor_sync_op waitop = {
+          .flags = DRM_PANTHOR_SYNC_OP_WAIT |
+                   DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
+          .handle = vm_sync_handle,
+-         .timeline_value = vm_sync_wait_point,
++         .timeline_value = vm_sync_vtc_wait_point,
+       };
+ 
+-      util_dynarray_append(syncops, struct drm_panthor_sync_op, waitop);
++      /* If the VTC wait point is zero, skip the wait on the VTC queue. */
++      if (vm_sync_vtc_wait_point > 0)
++         util_dynarray_append(vtc_syncops, struct drm_panthor_sync_op, waitop);
++
++      /* If the fragment wait point is less or equal to the VTC wait point
++       * we can skip it thanks to the explicit wait between the VTC and
++       * fragment queue emitted in csf_emit_batch_end().
++       */
++      if (vm_sync_frag_wait_point > vm_sync_vtc_wait_point) {
++         waitop.timeline_value = vm_sync_frag_wait_point;
++         util_dynarray_append(frag_syncops, struct drm_panthor_sync_op, waitop);
++      }
+    }
+ 
+    if (ctx->in_sync_fd >= 0) {
+@@ -254,7 +322,8 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+          .handle = ctx->in_sync_obj,
+       };
+ 
+-      util_dynarray_append(syncops, struct drm_panthor_sync_op, waitop);
++      /* Always wait on the first pipeline stage. */
++      util_dynarray_append(vtc_syncops, struct drm_panthor_sync_op, waitop);
+ 
+       close(ctx->in_sync_fd);
+       ctx->in_sync_fd = -1;
+@@ -265,7 +334,8 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+ 
+ static int
+ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+-                       uint64_t vm_sync_signal_point)
++                       uint64_t vm_sync_vtc_signal_point,
++                       uint64_t vm_sync_frag_signal_point)
+ {
+    struct panfrost_context *ctx = batch->ctx;
+    struct panfrost_device *dev = pan_device(ctx->base.screen);
+@@ -275,12 +345,13 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+    assert(batch->invisible_pool.bos.size == 0);
+ 
+    /* Attach sync points to batch-private BOs first. We assume BOs can
+-    * be written by the GPU to keep things simple.
++    * be written by the GPU to keep things simple. We also assume BOs
++    * are accessed by the last pipeline stage (AKA fragment stage).
+     */
+    util_dynarray_foreach(&batch->pool.bos, struct panfrost_bo *, bo) {
+       (*bo)->gpu_access |= PAN_BO_ACCESS_RW;
+       ret = panthor_kmod_bo_attach_sync_point((*bo)->kmod_bo, vm_sync_handle,
+-                                              vm_sync_signal_point, true);
++                                              vm_sync_frag_signal_point, true);
+       if (ret)
+          return ret;
+    }
+@@ -289,7 +360,7 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+                          bo) {
+       (*bo)->gpu_access |= PAN_BO_ACCESS_RW;
+       ret = panthor_kmod_bo_attach_sync_point((*bo)->kmod_bo, vm_sync_handle,
+-                                              vm_sync_signal_point, true);
++                                              vm_sync_frag_signal_point, true);
+       if (ret)
+          return ret;
+    }
+@@ -306,7 +377,9 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+ 
+       bo->gpu_access |= flags & (PAN_BO_ACCESS_RW);
+       ret = panthor_kmod_bo_attach_sync_point(bo->kmod_bo, vm_sync_handle,
+-                                              vm_sync_signal_point,
++                                              flags & PAN_BO_ACCESS_FRAGMENT
++                                                 ? vm_sync_frag_signal_point
++                                                 : vm_sync_vtc_signal_point,
+                                               flags & PAN_BO_ACCESS_WRITE);
+       if (ret)
+          return ret;
+@@ -314,7 +387,7 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+ 
+    /* And finally transfer the VM sync point to the context syncobj. */
+    return drmSyncobjTransfer(panfrost_device_fd(dev), ctx->syncobj, 0,
+-                             vm_sync_handle, vm_sync_signal_point, 0);
++                             vm_sync_handle, vm_sync_frag_signal_point, 0);
+ }
+ 
+ static void
+@@ -371,10 +444,23 @@ csf_submit_wait_and_dump(struct panfrost_batch *batch,
+    }
+ 
+    /* Jobs won't be complete if blackhole rendering, that's ok */
+-   if (!ctx->is_noop && (dev->debug & PAN_DBG_SYNC) &&
+-       *((uint64_t *)batch->csf.cs.state.cpu) != 0) {
+-      crash = true;
+-      dump = true;
++   if (!ctx->is_noop && (dev->debug & PAN_DBG_SYNC)) {
++      for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++) {
++         static const char *qnames[PANFROST_CSF_QUEUE_COUNT] = {
++            [PANFROST_CSF_VTC_QUEUE] = "vertex/tiler/compute",
++            [PANFROST_CSF_FRAG_QUEUE] = "fragment",
++         };
++         uint64_t *status = batch->csf.cs[i].state.cpu;
++
++         if (status && *status != 0) {
++            fprintf(
++               stderr,
++               "Incomplete job or timeout on the %s queue (status=0x%lx)\n",
++               qnames[i], *status);
++            crash = true;
++            dump = true;
++         }
++      }
+    }
+ 
+    if (dump) {
+@@ -393,7 +479,6 @@ csf_submit_wait_and_dump(struct panfrost_batch *batch,
+    }
+ 
+    if (crash) {
+-      fprintf(stderr, "Incomplete job or timeout\n");
+       fflush(NULL);
+       abort();
+    }
+@@ -405,54 +490,111 @@ GENX(csf_submit_batch)(struct panfrost_batch *batch)
+    /* Close the batch before submitting. */
+    csf_emit_batch_end(batch);
+ 
+-   uint32_t cs_instr_count = batch->csf.cs.builder->root_chunk.size;
+-   uint64_t cs_start = batch->csf.cs.builder->root_chunk.buffer.gpu;
+-   uint32_t cs_size = cs_instr_count * 8;
+    struct panfrost_context *ctx = batch->ctx;
+    struct panfrost_device *dev = pan_device(ctx->base.screen);
+    uint32_t vm_sync_handle = panthor_kmod_vm_sync_handle(dev->kmod.vm);
+-   struct util_dynarray syncops;
++   struct util_dynarray *qsyncs[PANFROST_CSF_QUEUE_COUNT] = {0};
++   struct util_dynarray syncops_storage[PANFROST_CSF_QUEUE_COUNT];
+    int ret;
+ 
+-   util_dynarray_init(&syncops, NULL);
++   for (unsigned i = 0; i < ARRAY_SIZE(syncops_storage); i++)
++      util_dynarray_init(&syncops_storage[i], NULL);
+ 
+-   ret = csf_submit_collect_wait_ops(batch, &syncops, vm_sync_handle);
++   /* If there's no fragment job, we push the fragment syncops to the
++    * vertex/tiler/compute syncops array.
++    */
++   if (panfrost_has_fragment_job(batch))
++      qsyncs[PANFROST_CSF_FRAG_QUEUE] =
++         &syncops_storage[PANFROST_CSF_FRAG_QUEUE];
++   else
++      qsyncs[PANFROST_CSF_FRAG_QUEUE] =
++         &syncops_storage[PANFROST_CSF_VTC_QUEUE];
++
++   /* If there's no vertex/compute job, we push the vertex/compute syncops
++    * to the fragment syncops array.
++    */
++   if (batch->draw_count > 0 || batch->compute_count > 0)
++      qsyncs[PANFROST_CSF_VTC_QUEUE] = &syncops_storage[PANFROST_CSF_VTC_QUEUE];
++   else
++      qsyncs[PANFROST_CSF_VTC_QUEUE] =
++         &syncops_storage[PANFROST_CSF_FRAG_QUEUE];
++
++   ret = csf_submit_collect_wait_ops(batch, qsyncs[PANFROST_CSF_VTC_QUEUE],
++                                     qsyncs[PANFROST_CSF_FRAG_QUEUE],
++                                     vm_sync_handle);
+    if (ret)
+       goto out_free_syncops;
+ 
+    uint64_t vm_sync_cur_point = panthor_kmod_vm_sync_lock(dev->kmod.vm);
+-   uint64_t vm_sync_signal_point = vm_sync_cur_point + 1;
++   uint64_t vm_sync_signal_point = vm_sync_cur_point;
++   uint64_t qsignal_point[PANFROST_CSF_QUEUE_COUNT] = {0};
++   struct drm_panthor_queue_submit qsubmit[PANFROST_CSF_QUEUE_COUNT];
++   struct drm_panthor_group_submit gsubmit;
++   uint32_t qsubmit_count = 0;
+ 
+-   struct drm_panthor_sync_op signalop = {
+-      .flags = DRM_PANTHOR_SYNC_OP_SIGNAL |
+-               DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
+-      .handle = vm_sync_handle,
+-      .timeline_value = vm_sync_signal_point,
+-   };
++   for (unsigned i = 0; i < PANFROST_CSF_QUEUE_COUNT; i++) {
++      struct cs_builder *b = batch->csf.cs[i].builder;
++      uint32_t cs_instr_count = b->root_chunk.size;
++      uint64_t cs_start = b->root_chunk.buffer.gpu;
++      uint32_t cs_size = cs_instr_count * 8;
+ 
+-   util_dynarray_append(&syncops, struct drm_panthor_sync_op, signalop);
++      if (i == PANFROST_CSF_VTC_QUEUE && batch->compute_count == 0 &&
++          batch->draw_count == 0)
++         continue;
+ 
+-   struct drm_panthor_queue_submit qsubmit;
+-   struct drm_panthor_group_submit gsubmit;
++      if (i == PANFROST_CSF_FRAG_QUEUE && !panfrost_has_fragment_job(batch))
++         continue;
++
++      if (i == PANFROST_CSF_FRAG_QUEUE ||
++          (i == PANFROST_CSF_VTC_QUEUE &&
++           (!panfrost_has_fragment_job(batch) || batch->compute_count > 0))) {
++         struct drm_panthor_sync_op signalop = {
++            .flags = DRM_PANTHOR_SYNC_OP_SIGNAL |
++                     DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
++            .handle = vm_sync_handle,
++            .timeline_value = ++vm_sync_signal_point,
++         };
++
++         qsignal_point[i] = vm_sync_signal_point;
++         util_dynarray_append(qsyncs[i], struct drm_panthor_sync_op, signalop);
++      }
++
++      csf_prepare_qsubmit(
++         ctx, &qsubmit[qsubmit_count++], i, cs_start, cs_size,
++         batch->csf.cs[i].flush_id, util_dynarray_begin(qsyncs[i]),
++         util_dynarray_num_elements(qsyncs[i], struct drm_panthor_sync_op));
++   }
++
++   csf_prepare_gsubmit(ctx, &gsubmit, qsubmit, qsubmit_count);
+ 
+-   csf_prepare_qsubmit(
+-      ctx, &qsubmit, 0, cs_start, cs_size, util_dynarray_begin(&syncops),
+-      util_dynarray_num_elements(&syncops, struct drm_panthor_sync_op));
+-   csf_prepare_gsubmit(ctx, &gsubmit, &qsubmit, 1);
+    ret = csf_submit_gsubmit(ctx, &gsubmit);
+    panthor_kmod_vm_sync_unlock(dev->kmod.vm,
+                                ret ? vm_sync_cur_point : vm_sync_signal_point);
+ 
+    if (!ret) {
++      if (!qsignal_point[PANFROST_CSF_VTC_QUEUE])
++         qsignal_point[PANFROST_CSF_VTC_QUEUE] =
++            qsignal_point[PANFROST_CSF_FRAG_QUEUE];
++      if (!qsignal_point[PANFROST_CSF_FRAG_QUEUE])
++         qsignal_point[PANFROST_CSF_FRAG_QUEUE] =
++            qsignal_point[PANFROST_CSF_VTC_QUEUE];
++
++      assert(qsignal_point[PANFROST_CSF_VTC_QUEUE] &&
++             qsignal_point[PANFROST_CSF_FRAG_QUEUE]);
++
+       csf_submit_wait_and_dump(batch, &gsubmit, vm_sync_handle,
+-                               vm_sync_signal_point);
+-      ret = csf_attach_sync_points(batch, vm_sync_handle, vm_sync_signal_point);
++                               qsignal_point[PANFROST_CSF_FRAG_QUEUE]);
++      ret = csf_attach_sync_points(batch, vm_sync_handle,
++                                   qsignal_point[PANFROST_CSF_VTC_QUEUE],
++                                   qsignal_point[PANFROST_CSF_FRAG_QUEUE]);
+    } else {
+       csf_check_ctx_state_and_reinit(batch->ctx);
+    }
+ 
+ out_free_syncops:
+-   util_dynarray_fini(&syncops);
++   for (unsigned i = 0; i < ARRAY_SIZE(syncops_storage); i++)
++      util_dynarray_fini(&syncops_storage[i]);
++
+    return ret;
+ }
+ 
+@@ -470,24 +612,36 @@ void
+ GENX(csf_emit_fragment_job)(struct panfrost_batch *batch,
+                             const struct pan_fb_info *pfb)
+ {
+-   struct cs_builder *b = batch->csf.cs.builder;
++   struct cs_builder *vtc_b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
++   struct cs_builder *frag_b = batch->csf.cs[PANFROST_CSF_FRAG_QUEUE].builder;
+ 
+    if (batch->draw_count > 0) {
++      mali_ptr syncobj_addr = batch->csf.tiler_frag_sync;
++
+       /* Finish tiling and wait for IDVS and tiling */
+-      cs_finish_tiling(b, false);
+-      cs_wait_slot(b, 2, false);
+-      cs_vt_end(b, cs_now());
++      cs_finish_tiling(vtc_b, false);
++      cs_vt_end(vtc_b, cs_defer(BITFIELD_BIT(2), 1));
++
++      cs_move48_to(vtc_b, cs_reg64(vtc_b, 90), syncobj_addr);
++      cs_move32_to(vtc_b, cs_reg32(vtc_b, 89), 1);
++      cs_sync32_set(vtc_b, true, MALI_CS_SYNC_SCOPE_CSG, cs_reg32(vtc_b, 89),
++                    cs_reg64(vtc_b, 90), cs_defer(BITFIELD_BIT(1), 3));
++
++      cs_move48_to(frag_b, cs_reg64(frag_b, 90), syncobj_addr);
++      cs_move32_to(frag_b, cs_reg32(frag_b, 89), 0);
++      cs_sync32_wait(frag_b, false, MALI_CS_CONDITION_GREATER,
++                     cs_reg32(frag_b, 89), cs_reg64(frag_b, 90));
+    }
+ 
+    /* Set up the fragment job */
+-   cs_move64_to(b, cs_reg64(b, 40), batch->framebuffer.gpu);
+-   cs_move32_to(b, cs_reg32(b, 42), (batch->miny << 16) | batch->minx);
+-   cs_move32_to(b, cs_reg32(b, 43),
++   cs_move64_to(frag_b, cs_reg64(frag_b, 40), batch->framebuffer.gpu);
++   cs_move32_to(frag_b, cs_reg32(frag_b, 42),
++                (batch->miny << 16) | batch->minx);
++   cs_move32_to(frag_b, cs_reg32(frag_b, 43),
+                 ((batch->maxy - 1) << 16) | (batch->maxx - 1));
+ 
+    /* Run the fragment job and wait */
+-   cs_run_fragment(b, false, MALI_TILE_RENDER_ORDER_Z_ORDER, false);
+-   cs_wait_slot(b, 2, false);
++   cs_run_fragment(frag_b, false, MALI_TILE_RENDER_ORDER_Z_ORDER, false);
+ 
+    /* Gather freed heap chunks and add them to the heap context free list
+     * so they can be re-used next time the tiler heap runs out of chunks.
+@@ -496,11 +650,12 @@ GENX(csf_emit_fragment_job)(struct panfrost_batch *batch,
+     * (completed_{top,bottom fields}). */
+    if (batch->draw_count > 0) {
+       assert(batch->tiler_ctx.bifrost);
+-      cs_move64_to(b, cs_reg64(b, 90), batch->tiler_ctx.bifrost);
+-      cs_load_to(b, cs_reg_tuple(b, 86, 4), cs_reg64(b, 90), BITFIELD_MASK(4),
+-                 40);
+-      cs_wait_slot(b, 0, false);
+-      cs_finish_fragment(b, true, cs_reg64(b, 86), cs_reg64(b, 88), cs_now());
++      cs_move64_to(frag_b, cs_reg64(frag_b, 90), batch->tiler_ctx.bifrost);
++      cs_load_to(frag_b, cs_reg_tuple(frag_b, 86, 4), cs_reg64(frag_b, 90),
++                 BITFIELD_MASK(4), 40);
++      cs_wait_slot(frag_b, 0, false);
++      cs_finish_fragment(frag_b, true, cs_reg64(frag_b, 86),
++                         cs_reg64(frag_b, 88), cs_defer(BITFIELD_BIT(2), 1));
+    }
+ }
+ 
+@@ -516,7 +671,7 @@ csf_emit_shader_regs(struct panfrost_batch *batch, enum pipe_shader_type stage,
+    unsigned offset = (stage == PIPE_SHADER_FRAGMENT) ? 4 : 0;
+    unsigned fau_count = DIV_ROUND_UP(batch->nr_push_uniforms[stage], 2);
+ 
+-   struct cs_builder *b = batch->csf.cs.builder;
++   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+    cs_move64_to(b, cs_reg64(b, 0 + offset), resources);
+    cs_move64_to(b, cs_reg64(b, 8 + offset),
+                 batch->push_uniforms[stage] | ((uint64_t)fau_count << 56));
+@@ -534,7 +689,7 @@ GENX(csf_launch_grid)(struct panfrost_batch *batch,
+    struct panfrost_context *ctx = batch->ctx;
+    struct panfrost_device *dev = pan_device(ctx->base.screen);
+    struct panfrost_compiled_shader *cs = ctx->prog[PIPE_SHADER_COMPUTE];
+-   struct cs_builder *b = batch->csf.cs.builder;
++   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+ 
+    csf_emit_shader_regs(batch, PIPE_SHADER_COMPUTE,
+                         batch->rsd[PIPE_SHADER_COMPUTE]);
+@@ -640,7 +795,7 @@ void
+ GENX(csf_launch_xfb)(struct panfrost_batch *batch,
+                      const struct pipe_draw_info *info, unsigned count)
+ {
+-   struct cs_builder *b = batch->csf.cs.builder;
++   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+ 
+    cs_move64_to(b, cs_reg64(b, 24), batch->tls.gpu);
+ 
+@@ -732,10 +887,10 @@ GENX(csf_launch_draw)(struct panfrost_batch *batch,
+ 
+    assert(idvs && "IDVS required for CSF");
+ 
+-   struct cs_builder *b = batch->csf.cs.builder;
++   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+ 
+    if (batch->draw_count == 0)
+-      cs_vt_start(batch->csf.cs.builder, cs_now());
++      cs_vt_start(b, cs_now());
+ 
+    csf_emit_shader_regs(batch, PIPE_SHADER_VERTEX,
+                         panfrost_get_position_shader(batch, info));
+@@ -947,10 +1102,16 @@ void
+ GENX(csf_init_context)(struct panfrost_context *ctx)
+ {
+    struct panfrost_device *dev = pan_device(ctx->base.screen);
+-   struct drm_panthor_queue_create qc[] = {{
+-      .priority = 1,
+-      .ringbuf_size = 64 * 1024,
+-   }};
++   struct drm_panthor_queue_create qc[] = {
++      {
++         .priority = 1,
++         .ringbuf_size = 64 * 1024,
++      },
++      {
++         .priority = 1,
++         .ringbuf_size = 64 * 1024,
++      },
++   };
+ 
+    struct drm_panthor_group_create gc = {
+       .compute_core_mask = dev->kmod.props.shader_present,
+@@ -1024,29 +1185,34 @@ GENX(csf_init_context)(struct panfrost_context *ctx)
+    cs_move64_to(&b, heap, thc.tiler_heap_ctx_gpu_va);
+    cs_heap_set(&b, heap);
+ 
+-   struct drm_panthor_queue_submit qsubmit;
+-   struct drm_panthor_group_submit gsubmit;
+-   struct drm_panthor_sync_op sync = {
+-      .flags =
+-         DRM_PANTHOR_SYNC_OP_SIGNAL | DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_SYNCOBJ,
+-      .handle = ctx->syncobj,
+-   };
+-
+    assert(cs_is_valid(&b));
++
+    cs_finish(&b);
+ 
+    uint32_t cs_instr_count = b.root_chunk.size;
+    uint64_t cs_start = b.root_chunk.buffer.gpu;
+    uint32_t cs_size = cs_instr_count * 8;
+ 
+-   csf_prepare_qsubmit(ctx, &qsubmit, 0, cs_start, cs_size, &sync, 1);
+-   csf_prepare_gsubmit(ctx, &gsubmit, &qsubmit, 1);
+-   ret = csf_submit_gsubmit(ctx, &gsubmit);
+-   assert(!ret);
++   for (unsigned i = 0; i < 2; i++) {
++      struct drm_panthor_group_submit gsubmit;
++      struct drm_panthor_queue_submit qsubmit;
++      struct drm_panthor_sync_op sync = {
++         .flags = DRM_PANTHOR_SYNC_OP_SIGNAL |
++                  DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_SYNCOBJ,
++         .handle = ctx->syncobj,
++      };
++
++      csf_prepare_qsubmit(ctx, &qsubmit, i, cs_start, cs_size,
++                          panthor_kmod_get_flush_id(dev->kmod.dev), &sync, 1);
++      csf_prepare_gsubmit(ctx, &gsubmit, &qsubmit, 1);
++      ret = csf_submit_gsubmit(ctx, &gsubmit);
++      assert(!ret);
++
++      /* Wait before freeing the buffer. */
++      drmSyncobjWait(panfrost_device_fd(dev), &ctx->syncobj, 1, INT64_MAX, 0,
++                     NULL);
++   }
+ 
+-   /* Wait before freeing the buffer. */
+-   drmSyncobjWait(panfrost_device_fd(dev), &ctx->syncobj, 1, INT64_MAX, 0,
+-                  NULL);
+    panfrost_bo_unreference(cs_bo);
+ }
+ 
+diff --git a/src/gallium/drivers/panfrost/pan_csf.h b/src/gallium/drivers/panfrost/pan_csf.h
+index ee03219ddc7f6..cb922c8693a12 100644
+--- a/src/gallium/drivers/panfrost/pan_csf.h
++++ b/src/gallium/drivers/panfrost/pan_csf.h
+@@ -32,19 +32,33 @@
+ 
+ struct cs_builder;
+ 
++enum panfrost_csf_queue_id {
++   /* Vertex/tiler/compute queue. */
++   PANFROST_CSF_VTC_QUEUE,
++   PANFROST_CSF_FRAG_QUEUE,
++   PANFROST_CSF_QUEUE_COUNT,
++};
++
+ struct panfrost_csf_batch {
+    /* CS related fields. */
+    struct {
+       /* CS builder. */
+       struct cs_builder *builder;
+ 
+-      /* CS state, written through the CS, and checked when PAN_MESA_DEBUG=sync.
++      /* CS state, written through the CS, and checked when
++       * PAN_MESA_DEBUG=sync.
+        */
+       struct panfrost_ptr state;
+-   } cs;
++
++      /* Flush ID saved at cs_finish() time. */
++      uint32_t flush_id;
++   } cs[PANFROST_CSF_QUEUE_COUNT];
+ 
+    /* Pool used to allocate CS chunks. */
+    struct panfrost_pool cs_chunk_pool;
++
++   /* Tiler -> fragment sync object. */
++   mali_ptr tiler_frag_sync;
+ };
+ 
+ struct panfrost_csf_context {
+-- 
+GitLab
+
+

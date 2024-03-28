@@ -7,7 +7,7 @@
 . /etc/os-release
 
 CONFIG="/storage/.config/game/raze/raze.ini"
-SAVE_DIR="/var/media/SSD/roms/gamedata/raze"
+SAVE_DIR="/storage/roms/gamedata/raze"
 
 if [ ! -L "/storage/.config/raze" ]; then
   ln -sf "/storage/.config/game/raze" "/storage/.config/raze"

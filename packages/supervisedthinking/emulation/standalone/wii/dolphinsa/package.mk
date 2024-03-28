@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="dolphinsa"
-PKG_VERSION="80123b19f2b7bc5705bef9e26b7302e2adf7bbb9" #r5.0-18407
+PKG_VERSION="3948ac9513b31122e031269c912b206c8389eda4" #r5.0-18407
 PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/dolphin-emu/dolphin"
@@ -24,12 +24,12 @@ pre_configure_target() {
                          -D ENABLE_TESTS=OFF \
                          -D ENABLE_AUTOUPDATE=OFF \
                          -D ENABLE_X11=OFF \
-                         -D ENABLE_VULKAN=ON \
+                         -D ENABLE_VULKAN=OFF \
                          -D ENABLE_LLVM=OFF
                          -D ENABLE_TESTS=off \
                          -D ENABLE_QT=OFF \
                          -D USE_DISCORD_PRESENCE=off \
-                         -D ENABLE_ANALYTICS=off"
+                         -D ENABLE_ANALYTICS=OFF"
 }
 
 pre_make_target() {

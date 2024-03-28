@@ -1,17 +1,17 @@
-# SPDX-License-Identifier: GPL-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="tvheadend43"
-PKG_VERSION="18effa8ad93e901f3cdaa534123d910f14453d1f"
-PKG_SHA256=""
-PKG_VERSION_NUMBER="4.3-2092"
-PKG_REV="1"
+PKG_VERSION="3dcb7ecf36666dcb43211a84141b1b645c9ca757"
+PKG_SHA256="c7c8414bca5304276cc8f07aa291e36b50e1190d441f2af2ce256631b7c033c2"
+PKG_VERSION_NUMBER="4.3-2180"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
 PKG_URL="https://github.com/tvheadend/tvheadend/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain avahi curl dvb-apps ffmpegx libdvbcsa \
-                    libiconv openssl pcre2 pngquant:host Python3:host tvh-dtv-scan-tables"
+PKG_DEPENDS_TARGET="toolchain avahi comskip curl dvb-apps ffmpegx libdvbcsa libhdhomerun \
+                    libiconv openssl pcre2 pngquant:host Python3:host dtv-scan-tables"
 PKG_DEPENDS_CONFIG="ffmpegx"
 PKG_SECTION="service"
 PKG_SHORTDESC="Tvheadend: a TV streaming server for Linux"
@@ -51,7 +51,7 @@ else
   # for != "x86_64" targets
   # specific transcoding options
   PKG_TVH_TRANSCODING="${PKG_TVH_TRANSCODING} \
-    --enable-libvpx \
+    --disable-libvpx \
     --disable-libx265"
 fi
 
@@ -128,7 +128,7 @@ addon() {
   fi
 
   # dvb-scan files
-  mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/dvb-scan
-  cp -r $(get_install_dir tvh-dtv-scan-tables)/usr/share/dvbv5/* \
-        ${ADDON_BUILD}/${PKG_ADDON_ID}/dvb-scan
+  #mkdir -p ${ADDON_BUILD}/${PKG_ADDON_ID}/dvb-scan
+  #cp -r $(get_install_dir tvh-dtv-scan-tables)/usr/share/dvbv5/* \
+  #      ${ADDON_BUILD}/${PKG_ADDON_ID}/dvb-scan
 }

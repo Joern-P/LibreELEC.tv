@@ -26,6 +26,8 @@ else
 
   # Set audio & midi driver
   set_RA_audiodriver
+  
+  /storage/.config/performance.sh
 
   # Run RetroArch
   retroarch -v "$@" > /var/log/retroarch.log 2>&1

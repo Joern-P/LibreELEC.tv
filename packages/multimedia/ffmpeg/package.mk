@@ -33,8 +33,8 @@ case "${PROJECT}" in
     PKG_PATCH_DIRS+=" rpi"
     ;;
   Rockchip)
-    PKG_VERSION="3aad30a781dd4fc7ab76776ca588126d69e74edd"
-    PKG_SHA256="38702798f93bf67267fe1b259ff0cc44bf7dd1e5aefff091015dea7dc6dfcad2"
+    PKG_VERSION="1fa586ac7fa224bde0100def5e5f3406f6c2e663"
+    PKG_SHA256=""
     PKG_URL="https://github.com/nyanmisaka/ffmpeg-rockchip/archive/${PKG_VERSION}.tar.gz"
     ;;
 esac
@@ -163,10 +163,6 @@ configure_target() {
               --disable-gray \
               --enable-swscale-alpha \
               --disable-small \
-              --enable-dct \
-              --enable-fft \
-              --enable-mdct \
-              --enable-rdft \
               --disable-crystalhd \
               ${PKG_FFMPEG_V4L2} \
               ${PKG_FFMPEG_VAAPI} \

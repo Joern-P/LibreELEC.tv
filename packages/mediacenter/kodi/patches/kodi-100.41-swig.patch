@@ -1,0 +1,290 @@
+From f1cda569649ebddf2a6818fa8de2bebc0abdca09 Mon Sep 17 00:00:00 2001
+From: fuzzard <fuzzard@kodi.tv>
+Date: Sun, 21 Jan 2024 17:25:30 +1000
+Subject: [PATCH 2/5] [tools/depends][native] Add pcre2
+
+pcre2 is a dependency of swig 4.2.0+
+---
+ tools/depends/native/Makefile            |  2 ++
+ tools/depends/native/pcre2/Makefile      | 38 ++++++++++++++++++++++++
+ tools/depends/native/pcre2/PCRE2-VERSION |  4 +++
+ 3 files changed, 44 insertions(+)
+ create mode 100644 tools/depends/native/pcre2/Makefile
+ create mode 100644 tools/depends/native/pcre2/PCRE2-VERSION
+
+diff --git a/tools/depends/native/Makefile b/tools/depends/native/Makefile
+index 9b9b0158f7bd6..d23c2cb5bcf22 100644
+--- a/tools/depends/native/Makefile
++++ b/tools/depends/native/Makefile
+@@ -25,6 +25,7 @@ NATIVE= \
+   ninja \
+   openssl \
+   pcre \
++  pcre2 \
+   perlmodule-parseyapp \
+   pkg-config \
+   python3 \
+@@ -82,6 +83,7 @@ Mako: MarkupSafe
+ meson: python3
+ ninja: meson
+ openssl: zlib
++pcre2: cmake
+ pugixml: cmake
+ python3: $(EXPAT) $(LIBFFI) pkg-config zlib openssl autoconf-archive
+ swig: pcre
+diff --git a/tools/depends/native/pcre2/Makefile b/tools/depends/native/pcre2/Makefile
+new file mode 100644
+index 0000000000000..5668e60691b3d
+--- /dev/null
++++ b/tools/depends/native/pcre2/Makefile
+@@ -0,0 +1,38 @@
++include ../../Makefile.include PCRE2-VERSION ../../download-files.include
++PREFIX=$(NATIVEPREFIX)
++PLATFORM=$(NATIVEPLATFORM)
++DEPS = ../../Makefile.include Makefile PCRE2-VERSION ../../download-files.include
++
++CMAKE_OPTIONS := -DPCRE2_BUILD_PCRE2GREP=OFF \
++                 -DPCRE2_BUILD_TESTS=OFF \
++                 -DPCRE2_SUPPORT_LIBBZ2=OFF \
++                 -DPCRE2_SUPPORT_LIBZ=OFF \
++                 -DPCRE2_SUPPORT_LIBEDIT=OFF \
++                 -DPCRE2_SUPPORT_LIBREADLINE=OFF \
++                 -DPCRE2GREP_SUPPORT_JIT=OFF \
++                 -DPCRE2GREP_SUPPORT_CALLOUT=OFF \
++                 -DPCRE2GREP_SUPPORT_CALLOUT_FORK=OFF
++
++LIBDYLIB=$(PLATFORM)/build/lib$(LIBNAME)-8.a
++
++all: .installed-$(PLATFORM)
++
++
++$(PLATFORM): $(DEPS) | $(TARBALLS_LOCATION)/$(ARCHIVE).$(HASH_TYPE)
++	rm -rf $(PLATFORM)/*; mkdir -p $(PLATFORM)/build
++	cd $(PLATFORM); $(ARCHIVE_TOOL) $(ARCHIVE_TOOL_FLAGS) $(TARBALLS_LOCATION)/$(ARCHIVE)
++	cd $(PLATFORM)/build; $(CMAKE_FOR_BUILD) $(CMAKE_OPTIONS) ..
++
++$(LIBDYLIB): $(PLATFORM)
++	$(MAKE) -C $(PLATFORM)/build
++
++.installed-$(PLATFORM): $(LIBDYLIB)
++	$(MAKE) -C $(PLATFORM)/build install
++	touch $@
++
++clean:
++	$(MAKE) -C $(PLATFORM)/build clean
++	rm -f .installed-$(PLATFORM)
++
++distclean::
++	rm -rf $(PLATFORM) .installed-$(PLATFORM)
+diff --git a/tools/depends/native/pcre2/PCRE2-VERSION b/tools/depends/native/pcre2/PCRE2-VERSION
+new file mode 100644
+index 0000000000000..07165ae0d1867
+--- /dev/null
++++ b/tools/depends/native/pcre2/PCRE2-VERSION
+@@ -0,0 +1,4 @@
++LIBNAME=pcre2
++VERSION=10.42
++ARCHIVE=$(LIBNAME)-$(VERSION).tar.bz2
++SHA512=72fbde87fecec3aa4b47225dd919ea1d55e97f2cbcf02aba26e5a0d3b1ffb58c25a80a9ef069eb99f9cf4e41ba9604ad06a7ec159870e1e875d86820e12256d3
+
+From f6b1efbd6b3876537a25e7008bbf35254a1c55c7 Mon Sep 17 00:00:00 2001
+From: fuzzard <fuzzard@kodi.tv>
+Date: Mon, 1 Jan 2024 19:57:30 +1000
+Subject: [PATCH 3/5] [swig] Fix building with Swig 4.2.0
+
+swig 4.2.0 introduced a change that adds a constructor to the generated AddonModuleXbmcaddon.i.cpp
+file. This causes failures such as
+
+build/swig/AddonModuleXbmcaddon.i.cpp: In function 'PyObject* PythonBindings::xbmcaddon_XBMCAddon_xbmcaddon_Settings_New(PyTypeObject*, PyObject*, PyObject*)':
+build/swig/AddonModuleXbmcaddon.i.cpp:1751:52: error: no matching function for call to 'XBMCAddon::xbmcaddon::Settings::Settings()'
+ 1751 |     apiResult = new XBMCAddon::xbmcaddon::Settings();
+      |                                                    ^
+In file included from ../xbmc/interfaces/legacy/Addon.h:14,
+                 from build/swig/AddonModuleXbmcaddon.i.cpp:30:
+../xbmc/interfaces/legacy/Settings.h:58:3: note: candidate: 'XBMCAddon::xbmcaddon::Settings::Settings(std::shared_ptr<CSettingsBase>)'
+   58 |   Settings(std::shared_ptr<CSettingsBase> settings);
+      |   ^~~~~~~~
+../xbmc/interfaces/legacy/Settings.h:58:3: note:   candidate expects 1 argument, 0 provided
+
+If we disable the contructor for Settings, we get the same generated output as swig <=4.1.1
+---
+ xbmc/interfaces/swig/AddonModuleXbmcaddon.i | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xbmc/interfaces/swig/AddonModuleXbmcaddon.i b/xbmc/interfaces/swig/AddonModuleXbmcaddon.i
+index 6c00a1caa2f5a..d38794c043377 100644
+--- a/xbmc/interfaces/swig/AddonModuleXbmcaddon.i
++++ b/xbmc/interfaces/swig/AddonModuleXbmcaddon.i
+@@ -33,5 +33,6 @@ using namespace xbmcaddon;
+ %include "interfaces/legacy/AddonString.h"
+ 
+ %include "interfaces/legacy/Addon.h"
++%nodefaultctor Settings;
+ %include "interfaces/legacy/Settings.h"
+ 
+
+From 1f7b45fd26e2775c374ae084ba80ebb932ce8a7c Mon Sep 17 00:00:00 2001
+From: fuzzard <fuzzard@kodi.tv>
+Date: Tue, 2 Jan 2024 10:45:38 +1000
+Subject: [PATCH 4/5] [tools/depends][native] Bump Swig 4.2.0
+
+---
+ tools/depends/native/Makefile          |  2 +-
+ tools/depends/native/swig/Makefile     | 28 +++++++++-----------------
+ tools/depends/native/swig/SWIG-VERSION |  4 ++++
+ 3 files changed, 14 insertions(+), 20 deletions(-)
+ create mode 100644 tools/depends/native/swig/SWIG-VERSION
+
+diff --git a/tools/depends/native/Makefile b/tools/depends/native/Makefile
+index d23c2cb5bcf22..f3543d24987d0 100644
+--- a/tools/depends/native/Makefile
++++ b/tools/depends/native/Makefile
+@@ -86,7 +86,7 @@ openssl: zlib
+ pcre2: cmake
+ pugixml: cmake
+ python3: $(EXPAT) $(LIBFFI) pkg-config zlib openssl autoconf-archive
+-swig: pcre
++swig: bison cmake pcre2
+ tar: xz automake
+ TexturePacker: cmake libpng liblzo2 giflib libjpeg-turbo
+ wayland-scanner: expat ninja pkg-config
+diff --git a/tools/depends/native/swig/Makefile b/tools/depends/native/swig/Makefile
+index 045cbcc62671f..2e876dd00148a 100644
+--- a/tools/depends/native/swig/Makefile
++++ b/tools/depends/native/swig/Makefile
+@@ -1,41 +1,31 @@
+-include ../../Makefile.include
++include ../../Makefile.include SWIG-VERSION ../../download-files.include
+ PREFIX=$(NATIVEPREFIX)
+ PLATFORM=$(NATIVEPLATFORM)
+ 
+-DEPS = ../../Makefile.include Makefile ../../download-files.include
++DEPS = ../../Makefile.include Makefile SWIG-VERSION ../../download-files.include
+ 
+-# lib name, version
+-LIBNAME=swig
+-VERSION=4.0.2
+-SOURCE=$(LIBNAME)-$(VERSION)
+-ARCHIVE=$(SOURCE).tar.gz
+-SHA512=05e7da70ce6d9a733b96c0bcfa3c1b82765bd859f48c74759bbf4bb1467acb1809caa310cba5e2b3280cd704fca249eaa0624821dffae1d2a75097c7f55d14ed
+-include ../../download-files.include
+-
+-# configuration settings
+-CONFIGURE=./configure --prefix=$(PREFIX) --without-alllang --without-x --disable-ccache
+-
+-LIBDYLIB=$(PLATFORM)/swig
++LIBDYLIB=$(PLATFORM)/build/swig
+ 
+ all: .installed-$(PLATFORM)
+ 
+ 
+ $(PLATFORM): $(DEPS) | $(TARBALLS_LOCATION)/$(ARCHIVE).$(HASH_TYPE)
+-	rm -rf $(PLATFORM)/*; mkdir -p $(PLATFORM)
++	rm -rf $(PLATFORM)/*; mkdir -p $(PLATFORM)/build
+ 	cd $(PLATFORM); $(ARCHIVE_TOOL) $(ARCHIVE_TOOL_FLAGS) $(TARBALLS_LOCATION)/$(ARCHIVE)
+-	cd $(PLATFORM); $(CONFIGURE)
++	cd $(PLATFORM)/build; $(CMAKE_FOR_BUILD) $(CMAKE_OPTIONS) ..
+ 
+ $(LIBDYLIB): $(PLATFORM)
+-	$(MAKE) -C $(PLATFORM)
++	$(MAKE) -C $(PLATFORM)/build
+ 
+ .installed-$(PLATFORM): $(LIBDYLIB)
+-	$(MAKE) -C $(PLATFORM) install
++	$(MAKE) -C $(PLATFORM)/build install
+ 	touch $@
+ 
+ clean:
+-	$(MAKE) -C $(PLATFORM) clean
++	$(MAKE) -C $(PLATFORM)/build clean
+ 	rm -f .installed-$(PLATFORM)
+ 
++
+ distclean::
+ 	rm -rf $(PLATFORM) .installed-$(PLATFORM)
+ 
+diff --git a/tools/depends/native/swig/SWIG-VERSION b/tools/depends/native/swig/SWIG-VERSION
+new file mode 100644
+index 0000000000000..8258fe08c4cb9
+--- /dev/null
++++ b/tools/depends/native/swig/SWIG-VERSION
+@@ -0,0 +1,4 @@
++LIBNAME=swig
++VERSION=4.2.0
++ARCHIVE=$(LIBNAME)-$(VERSION).tar.gz
++SHA512=b7f508b25bc6e882ed6123f6c7ad12b02a7b74de09ac6e5789968e9c2f51407d1e3dafd5ea495087b4fb0f447ecce17e6070471479c67c4265166d8342a10862
+
+From 489124323c96257e63c410f321d4c63a1c3e1a4a Mon Sep 17 00:00:00 2001
+From: fuzzard <fuzzard@kodi.tv>
+Date: Sun, 21 Jan 2024 17:23:22 +1000
+Subject: [PATCH 5/5] [tools/depends][native] Remove PCRE
+
+---
+ tools/depends/native/Makefile      |  1 -
+ tools/depends/native/pcre/Makefile | 44 ------------------------------
+ 2 files changed, 45 deletions(-)
+ delete mode 100644 tools/depends/native/pcre/Makefile
+
+diff --git a/tools/depends/native/Makefile b/tools/depends/native/Makefile
+index f3543d24987d0..bd20cce746d5d 100644
+--- a/tools/depends/native/Makefile
++++ b/tools/depends/native/Makefile
+@@ -24,7 +24,6 @@ NATIVE= \
+   nasm \
+   ninja \
+   openssl \
+-  pcre \
+   pcre2 \
+   perlmodule-parseyapp \
+   pkg-config \
+diff --git a/tools/depends/native/pcre/Makefile b/tools/depends/native/pcre/Makefile
+deleted file mode 100644
+index d50252f3282a2..0000000000000
+--- a/tools/depends/native/pcre/Makefile
++++ /dev/null
+@@ -1,44 +0,0 @@
+-include ../../Makefile.include
+-PREFIX=$(NATIVEPREFIX)
+-PLATFORM=$(NATIVEPLATFORM)
+-DEPS = ../../Makefile.include Makefile ../../download-files.include
+-
+-# lib name, version
+-LIBNAME=pcre
+-VERSION=8.45
+-SOURCE=$(LIBNAME)-$(VERSION)
+-ARCHIVE=$(SOURCE).tar.bz2
+-SHA512=91bff52eed4a2dfc3f3bfdc9c672b88e7e2ffcf3c4b121540af8a4ae8c1ce05178430aa6b8000658b9bb7b4252239357250890e20ceb84b79cdfcde05154061a
+-include ../../download-files.include
+-
+-# configuration settings
+-CONFIGURE=./configure --prefix=$(PREFIX) --disable-cpp \
+-	--disable-shared --disable-stack-for-recursion \
+-	--enable-pcre8 --disable-pcre16 --disable-pcre32 \
+-	--enable-jit --enable-utf --enable-unicode-properties
+-
+-
+-LIBDYLIB=$(PLATFORM)/.libs/lib$(LIBNAME).so
+-
+-all: .installed-$(PLATFORM)
+-
+-
+-$(PLATFORM): $(DEPS) | $(TARBALLS_LOCATION)/$(ARCHIVE).$(HASH_TYPE)
+-	rm -rf $(PLATFORM)/*; mkdir -p $(PLATFORM)
+-	cd $(PLATFORM); $(ARCHIVE_TOOL) $(ARCHIVE_TOOL_FLAGS) $(TARBALLS_LOCATION)/$(ARCHIVE)
+-	cd $(PLATFORM); $(CONFIGURE)
+-
+-$(LIBDYLIB): $(PLATFORM)
+-	$(MAKE) -C $(PLATFORM)
+-
+-.installed-$(PLATFORM): $(LIBDYLIB)
+-	$(MAKE) -C $(PLATFORM) install
+-	touch $(LIBDYLIB)
+-	touch $@
+-
+-clean:
+-	$(MAKE) -C $(PLATFORM) clean
+-	rm -f .installed-$(PLATFORM)
+-
+-distclean::
+-	rm -rf $(PLATFORM) .installed-$(PLATFORM)
+

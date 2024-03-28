@@ -12,9 +12,7 @@ PKG_SHORTDESC="Citra - Nintendo 3DS emulator for libretro"
 PKG_TOOLCHAIN="make"
 GET_HANDLER_SUPPORT="git"
 
-if [ ! "${OPENGL}" = "no" ]; then
-  PKG_DEPENDS_TARGET+=" ${OPENGL} glu libglvnd"
-fi
+PKG_DEPENDS_TARGET+=" mesa gl4es glu libglvnd"
 
 if [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"

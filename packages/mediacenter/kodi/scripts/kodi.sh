@@ -147,6 +147,8 @@ for file in $KODI_ROOT/userdata/Database/*.db; do
   fi
 done
 
+$HOME/.config/ondemand.sh
+
 /usr/lib/kodi/kodi.bin $SAVED_ARGS
 RET=$?
 

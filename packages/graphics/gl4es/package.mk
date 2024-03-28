@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2021-present Shanti Gilbert (https://github.com/shantigilbert)
+# Copyright (C) 2021-present 351ELEC (https://github.com/351ELEC)
+# Copyright (C) 2023 JELOS (https://github.com/JustEnoughLinuxOS)
+
+PKG_NAME="gl4es"
+PKG_LICENSE="GPL"
+PKG_URL="${PKG_SITE}.git"
+PKG_DEPENDS_TARGET="toolchain ${OPENGLES}"
+PKG_LONGDESC="OpenGL 2.x functionality for GLES2.0 accelerated Hardware"
+PKG_TOOLCHAIN="cmake-make"
+GET_HANDLER_SUPPORT="git"
+
+case ${DEVICE} in
+  S922X)
+    PKG_SITE="https://github.com/JohnnyonFlame/gl4es"
+    PKG_URL="${PKG_SITE}.git"
+    PKG_VERSION="17a7876ae76eb7b50ff375d80abd35018e58a50d"
+    PKG_GIT_CLONE_BRANCH="ge2d"
+  ;;
+  *)
+    PKG_SITE="https://github.com/ptitSeb/gl4es"
+    PKG_URL="${PKG_SITE}.git"
+    PKG_VERSION="e39434a2b17d12be569a1406f3bd23ac6a231347"
+  ;;
+esac
+
+
+pre_configure_target() {
+  PKG_CMAKE_OPTS_TARGET=" -DGBM=ON -DCMAKE_BUILD_TYPE=Release "
+  if [ ! "${DISPLAYSERVER}" = "x11" ]
+  then
+    PKG_CMAKE_OPTS_TARGET+=" -DNOX11=ON"
+  else
+    PKG_DEPENDS_TARGET+=" libX11"
+  fi
+    PKG_CMAKE_OPTS_TARGET+=" -DGLX_STUBS=ON -DEGL_WRAPPER=ON -DGBM=ON"
+}
+
+post_makeinstall_target() {
+    cp -v ${INSTALL}/usr/lib/gl4es/libGL.so.1  ${INSTALL}/usr/lib/
+    cp -v ${SYSROOT_PREFIX}/usr/lib/gl4es/libGL.so.1 ${SYSROOT_PREFIX}/usr/lib/
+}
+
+
+

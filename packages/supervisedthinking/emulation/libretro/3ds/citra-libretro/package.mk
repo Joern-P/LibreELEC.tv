@@ -2,12 +2,12 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="citra-libretro"
-PKG_VERSION="aa165606f1e2d74e0edb9b25b20f1f566aa91e35"
-PKG_ARCH="x86_64"
+PKG_VERSION="2d67658e85de4767c0eefeb2829d710401c5c802"
+PKG_ARCH="x86_64 aarch64"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://github.com/libretro/citra"
 PKG_URL="https://github.com/libretro/citra.git"
-PKG_DEPENDS_TARGET="toolchain boost-system"
+PKG_DEPENDS_TARGET="toolchain boost"
 PKG_LONGDESC="A Nintendo 3DS Emulator, running on libretro"
 GET_HANDLER_SUPPORT="git"
 PKG_BUILD_FLAGS="+lto -sysroot"

@@ -46,6 +46,8 @@ else
 
   # Fix NVIDIA OpenGL lib
   set_nvidia_opengl_lib
+  
+  /storage/.config/performance.sh
 
   # Run Emulationstation
   emulationstation "$@"

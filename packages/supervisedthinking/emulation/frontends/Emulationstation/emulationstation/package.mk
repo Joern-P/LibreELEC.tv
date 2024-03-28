@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="emulationstation"
-PKG_VERSION="a0c0b90a72a02f6edf79ec32634ffc1e2ebfe2bc" #v2.11.0
+PKG_VERSION="cda7de687924c4c1ab83d6b0ceb88aa734fe6cfe" #v2.11.0
 PKG_LICENSE="ES"
 PKG_SITE="https://github.com/RetroPie/EmulationStation"
 PKG_URL="https://github.com/RetroPie/EmulationStation.git"
