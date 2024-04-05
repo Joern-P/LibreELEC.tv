@@ -25,7 +25,7 @@ configure_package() {
 }
 
 pre_configure_target() {
-  PKG_MESON_OPTS_TARGET="-D unit_tests=disabled"
+  PKG_MESON_OPTS_TARGET="-D unit_tests=disabled -Duse_sdl2_net=false"
 
   # Disable OpenGL if not supported
   if [ ! "${OPENGL_SUPPORT}" = "yes" ]; then

@@ -1,3 +1,94 @@
+From 6e76ecb50ab85b7c3de9368903e687b6aa21aad2 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 13 Mar 2024 14:08:20 +0800
+Subject: [PATCH 1/8] fix[h264d]: Update hor align to 64 for high10 and rga3
+ use case
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c | 2 +-
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c | 2 +-
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c | 2 +-
+ mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+index 2e1adfcd..4c83033a 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+@@ -230,7 +230,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+index e5325ef9..55f96cd5 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+@@ -328,7 +328,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+index b9a3a3ee..b2e6f8fb 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+@@ -334,7 +334,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c
+index 99b86bd0..7f7a8a72 100644
+--- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c
++++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c
+@@ -116,7 +116,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+ }
+ 
+ static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+
+From 72c01b4c5b8d139a82b09caa865f57b9dcac43e2 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Tue, 26 Sep 2023 23:21:26 +0800
+Subject: [PATCH 2/8] Revert "fix[hal_vp9d]: not support fast mode for rk3588"
+
+This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
+---
+ mpp/hal/rkdec/vp9d/hal_vp9d_api.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+index 1dafaec6..181eb601 100644
+--- a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
++++ b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+@@ -57,7 +57,7 @@ MPP_RET hal_vp9d_init(void *ctx, MppHalCfg *cfg)
+         p->api = &hal_vp9d_vdpu34x;
+         cfg->support_fast_mode = 1;
+         if (mpp_get_soc_type() == ROCKCHIP_SOC_RK3588)
+-            cfg->support_fast_mode = 0;
++            cfg->cfg->status.hal_task_count = 2;
+     } else {
+         p->api = &hal_vp9d_rkv;
+         cfg->support_fast_mode = 0;
+
 From bc26805adfd69dbfb8cd36205dd5c3077bcddc82 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Sun, 10 Dec 2023 17:01:42 +0800
@@ -23,3 +114,189 @@ index c2379963..123b2569 100644
  
      if (!allocator_valid[MPP_BUFFER_TYPE_ION] &&
          !allocator_valid[MPP_BUFFER_TYPE_DRM] &&
+
+From 04719587d4fd60ea1d5f13087b2e830f1f3e9dce Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Sun, 17 Dec 2023 01:44:02 +0800
+Subject: [PATCH 4/8] fix[mpp]: Fix NULL pointer warning
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/mpp.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/mpp/mpp.cpp b/mpp/mpp.cpp
+index 7b217a3f..04c3ea9d 100644
+--- a/mpp/mpp.cpp
++++ b/mpp/mpp.cpp
+@@ -785,7 +785,8 @@ MPP_RET Mpp::get_packet(MppPacket *packet)
+         MppBuffer buf = impl->buffer;
+         RK_U32 offset = (RK_U32)((char *)impl->pos - (char *)impl->data);
+ 
+-        mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
++        if (buf)
++            mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
+ 
+         mpp_dbg_pts("pts %lld\n", impl->pts);
+     }
+
+From 6c0ac707e5a667c67ace7783844c9cc879138662 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Fri, 5 Jan 2024 10:27:39 +0800
+Subject: [PATCH 5/8] fix[mpp_buf_slot]: Support FBC buffer size calc for NV20
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/base/mpp_buf_slot.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/mpp/base/mpp_buf_slot.cpp b/mpp/base/mpp_buf_slot.cpp
+index becf30d3..ad54858d 100644
+--- a/mpp/base/mpp_buf_slot.cpp
++++ b/mpp/base/mpp_buf_slot.cpp
+@@ -304,7 +304,8 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+     }
+ 
+     switch (fmt & MPP_FRAME_FMT_MASK) {
+-    case MPP_FMT_YUV420SP_10BIT: {
++    case MPP_FMT_YUV420SP_10BIT:
++    case MPP_FMT_YUV422SP_10BIT: {
+         hor_stride_pixel = hal_hor_stride * 8 / 10;
+     } break;
+     case MPP_FMT_YUV422_YVYU:
+@@ -330,6 +331,9 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+         case MPP_FMT_YUV420SP_10BIT : {
+             size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 15);
+         } break;
++        case MPP_FMT_YUV422SP_10BIT : {
++            size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 20);
++        } break;
+         case MPP_FMT_YUV420SP : {
+             size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 12);
+         } break;
+
+From 6221ca89d9837935edbc56af46cf651bd3c5b6cf Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 13 Mar 2024 14:13:29 +0800
+Subject: [PATCH 6/8] fix[av1d]: Update hor align to 64 for main 10bit and rga3
+ use case
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/hal/vpu/av1d/hal_av1d_vdpu.c    | 2 +-
+ mpp/hal/vpu/av1d/hal_av1d_vdpu383.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+index 1208f74d..3f25480f 100644
+--- a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
++++ b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+@@ -116,7 +116,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 16);
++    return MPP_ALIGN(val, 64); // align to 64 for av1 main 10bit
+ }
+ 
+ static RK_U32 rkv_len_align(RK_U32 val)
+diff --git a/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c b/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c
+index 1347da70..8586a890 100644
+--- a/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c
++++ b/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c
+@@ -1264,7 +1264,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+ 
+ static RK_U32 rkv_hor_align(RK_U32 val)
+ {
+-    return MPP_ALIGN(val, 8);
++    return MPP_ALIGN(val, 64); // align to 64 for av1 main 10bit
+ }
+ 
+ static RK_U32 rkv_len_align(RK_U32 val)
+
+From eb464941ba519895974f9c8362be9af914480fd8 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Tue, 9 Jan 2024 20:08:00 +0800
+Subject: [PATCH 7/8] fix[av1d]: fix a conflict in hdr mask and afbc fmt
+
+fixes e2eeeb5
+
+```
+mpp[4101]: av1d_parser: 422p 10bit no support
+kernel: rk_vcodec: mpp_task_timeout_work:565: task 4101:7:152 processing time out!
+kernel: rk_vcodec: task 152 dump timing at 1999809835 us:
+kernel: rk_vcodec: timing: create         : 0 us
+kernel: rk_vcodec: timing: create end     : invalid
+kernel: rk_vcodec: timing: pending        : invalid
+kernel: rk_vcodec: timing: run            : invalid
+kernel: rk_vcodec: timing: timeout start  : invalid
+kernel: rk_vcodec: timing: run end        : invalid
+kernel: rk_vcodec: timing: irq            : invalid
+kernel: rk_vcodec: timing: timeout cancel : invalid
+kernel: rk_vcodec: timing: isr            : invalid
+kernel: rk_vcodec: timing: finish         : invalid
+kernel: mpp_av1dec av1d-master: resetting...
+kernel: mpp_av1dec av1d-master: reset done
+```
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/codec/dec/av1/av1d_parser.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/mpp/codec/dec/av1/av1d_parser.c b/mpp/codec/dec/av1/av1d_parser.c
+index 59143320..da3617ea 100644
+--- a/mpp/codec/dec/av1/av1d_parser.c
++++ b/mpp/codec/dec/av1/av1d_parser.c
+@@ -773,9 +773,6 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+     mpp_frame_set_discard(frame->f, 0);
+     mpp_frame_set_pts(frame->f, s->pts);
+ 
+-    if (s->is_hdr)
+-        ctx->pix_fmt |= MPP_FRAME_HDR;
+-
+     mpp_frame_set_color_trc(frame->f, ctx->color_trc);
+     mpp_frame_set_color_primaries(frame->f, ctx->color_primaries);
+     mpp_frame_set_colorspace(frame->f, ctx->colorspace);
+@@ -802,6 +799,9 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+     } else
+         mpp_frame_set_fmt(frame->f, ctx->pix_fmt);
+ 
++    if (s->is_hdr)
++        mpp_frame_set_fmt(frame->f, mpp_frame_get_fmt(frame->f) | MPP_FRAME_HDR);
++
+     value = 4;
+     mpp_slots_set_prop(s->slots, SLOTS_NUMERATOR, &value);
+     value = 1;
+
+From 36456769f9831a05c67df4a5a56bb4ef61413791 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 13 Mar 2024 14:17:45 +0800
+Subject: [PATCH 8/8] fix[av1d]: fix the missing fbc_hdr_stride
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/codec/dec/av1/av1d_parser.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/mpp/codec/dec/av1/av1d_parser.c b/mpp/codec/dec/av1/av1d_parser.c
+index da3617ea..0d1bdacc 100644
+--- a/mpp/codec/dec/av1/av1d_parser.c
++++ b/mpp/codec/dec/av1/av1d_parser.c
+@@ -782,6 +782,7 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+     mpp_frame_set_content_light(frame->f, s->content_light);
+ 
+     if (MPP_FRAME_FMT_IS_FBC(s->cfg->base.out_fmt)) {
++        RK_U32 fbc_hdr_stride = MPP_ALIGN(s->frame_width, 16);
+         mpp_slots_set_prop(s->slots, SLOTS_HOR_ALIGN, hor_align_16);
+         if (s->bit_depth == 10) {
+             if (ctx->pix_fmt == MPP_FMT_YUV420SP || ctx->pix_fmt == MPP_FMT_YUV420SP_10BIT)
+@@ -794,6 +795,7 @@ static MPP_RET get_current_frame(Av1CodecContext *ctx)
+         mpp_frame_set_offset_x(frame->f, 0);
+         mpp_frame_set_offset_y(frame->f, 0);
+         mpp_frame_set_ver_stride(frame->f, MPP_ALIGN(ctx->height, 8) + 28);
++        mpp_frame_set_fbc_hdr_stride(frame->f, fbc_hdr_stride);
+     } else if (MPP_FRAME_FMT_IS_TILE(s->cfg->base.out_fmt)) {
+         mpp_frame_set_fmt(frame->f, ctx->pix_fmt | ((s->cfg->base.out_fmt & (MPP_FRAME_TILE_FLAG))));
+     } else
+

@@ -15,8 +15,8 @@ diff -rupN amiberry.orig/Makefile amiberry/Makefile
 -else ifneq (,$(findstring RK,$(PLATFORM)))
 -	CPPFLAGS += $(CPPFLAGS32) $(NEON_FLAGS)
 +# Anbernic DEVICE@
-+else ifeq ($(PLATFORM),@DEVICE@)
-+	CPPFLAGS += $(CPPFLAGS64) -mtune=@TARGET_CPU@ -O3 -ffast-math -DUSE_RENDER_THREAD
++else ifeq ($(PLATFORM),RK3588)
++	CPPFLAGS += $(CPPFLAGS64) -mtune=cortex-a76.cortex-a55 -O3 -ffast-math -DUSE_RENDER_THREAD
 +	AARCH64 = 1
  	HAVE_NEON = 1
  

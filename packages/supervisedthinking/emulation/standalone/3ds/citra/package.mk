@@ -25,13 +25,14 @@ pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="-D ENABLE_LTO=ON \
                          -D ENABLE_SDL2=ON \
                          -D USE_SYSTEM_SDL2=ON \
-                         -D ENABLE_QT=ON \
+                         -D ENABLE_QT=OFF \
                          -D ENABLE_WEB_SERVICE=OFF \
-                         -D ENABLE_CUBEB=ON \
+                         -D ENABLE_CUBEB=OFF \
                          -D ENABLE_FFMPEG_AUDIO_DECODER=ON \
                          -D ENABLE_FFMPEG_VIDEO_DUMPER=ON \
                          -D USE_DISCORD_PRESENCE=OFF \
                          -D USE_SYSTEM_BOOST=ON \
+                         -D ENABLE_VULKAN=OFF \
                          -Wno-dev"
 
   # Conditionally enable HLE AAC decoding support

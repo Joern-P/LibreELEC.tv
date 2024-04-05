@@ -7,7 +7,7 @@ PKG_VERSION="5c54536997c0039aaa72bb0552cefdc3c967ad8d"
 PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/midwan/amiberry"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain linux glibc bzip2 zlib SDL2 sdl2_image sdl2_ttf capsimg freetype libxml2 flac libogg mpg123 libpng libmpeg2 libserialport"
+PKG_DEPENDS_TARGET="toolchain linux glibc bzip2 zlib sdl2 sdl2_image sdl2_ttf capsimg freetype libxml2 flac libogg mpg123 libpng libmpeg2 libserialport"
 PKG_LONGDESC="Amiberry is an optimized Amiga emulator for ARM-based boards."
 GET_HANDLER_SUPPORT="git"
 PKG_TOOLCHAIN="make"
@@ -43,10 +43,14 @@ makeinstall_target() {
   ln -s /storage/roms/bios            ${INSTALL}/usr/config/amiberry/kickstarts
 
   # Create links to Retroarch controller files
-  ln -s "/usr/share/libretro/autoconfig" "${INSTALL}/usr/config/amiberry/controller"
+  #ln -s "/usr/share/retroarch/autoconfig" "${INSTALL}/usr/config/amiberry/controller"
 
   # Copy binary, scripts & link libcapsimg
   cp -a amiberry* ${INSTALL}/usr/bin/amiberry
   cp -a ${PKG_DIR}/scripts/*          ${INSTALL}/usr/bin
   ln -sf /usr/lib/libcapsimage.so.5.1 ${INSTALL}/usr/config/amiberry/capsimg.so
+  
+  #UAE="${INSTALL}/usr/config/amiberry/conf/*.uae"
+  #for i in ${UAE}; do echo -e "gfx_center_vertical=smart\ngfx_center_horizontal=smart" >> ${i}; done
+  
 }

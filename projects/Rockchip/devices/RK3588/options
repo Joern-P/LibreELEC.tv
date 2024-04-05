@@ -83,7 +83,7 @@
     WINDOWMANAGER="no"
   
   # kernel serial console
-    EXTRA_CMDLINE="rootwait systemd.debug_shell=ttyFIQ0 earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 console=tty0 coherent_pool=2M"
+    EXTRA_CMDLINE=" quiet rootwait systemd.debug_shell=ttyFIQ0 earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 console=tty0 coherent_pool=2M"
 
   # set the addon project
     ADDON_PROJECT="ARMv8"

@@ -1,0 +1,25 @@
+From aec5e1e75474cadc9e271129c9fbcc8ef8d41138 Mon Sep 17 00:00:00 2001
+From: CastagnaIT <gottardo.stefano.83@gmail.com>
+Date: Fri, 29 Mar 2024 07:49:26 +0100
+Subject: [PATCH] [VideoPlayerVideo] Dont require extradata for avc3, avc4
+
+for avc3, avc4 variants extradata is stored on the sample packets and not in the
+initialization packet
+---
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index 092470370244a..c42f8f3dd7b34 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -112,7 +112,7 @@ bool CVideoPlayerVideo::OpenStream(CDVDStreamInfo hint)
+     if (hint.codec == AV_CODEC_ID_NONE ||
+         hint.codec == AV_CODEC_ID_MPEG1VIDEO ||
+         hint.codec == AV_CODEC_ID_MPEG2VIDEO ||
+-        hint.codec == AV_CODEC_ID_H264 ||
++        (hint.codec == AV_CODEC_ID_H264 && (hint.codec_tag == 0 || hint.codec_tag == MKTAG('a','v','c','1') || hint.codec_tag == MKTAG('a','v','c','2'))) ||
+         hint.codec == AV_CODEC_ID_HEVC ||
+         hint.codec == AV_CODEC_ID_MPEG4 ||
+         hint.codec == AV_CODEC_ID_WMV3 ||
+

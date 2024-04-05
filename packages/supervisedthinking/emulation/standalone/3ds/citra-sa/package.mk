@@ -4,7 +4,7 @@
 PKG_NAME="citra-sa"
 PKG_LICENSE="MPLv2"
 PKG_SITE="https://git.zaroz.cloud/nintendo-back-up/citra/citra"
-PKG_DEPENDS_TARGET="toolchain ffmpeg mesa SDL2 boost zlib libusb boost zstd control-gen"
+PKG_DEPENDS_TARGET="toolchain ffmpeg mesa sdl2 boost zlib libusb boost zstd control-gen"
 PKG_LONGDESC="Citra 3DS emulator"
 PKG_TOOLCHAIN="cmake"
 GET_HANDLER_SUPPORT="git"
@@ -40,6 +40,9 @@ PKG_CMAKE_OPTS_TARGET+="        -DENABLE_QT=OFF \
                                 -DENABLE_VULKAN=OFF \
                                 -DENABLE_SDL2=ON \
                                 -DCITRA_WARNINGS_AS_ERRORS=OFF \
+                                -DENABLE_CUBEB=OFF \
+                         	-DENABLE_FFMPEG_AUDIO_DECODER=ON \
+                         	-DENABLE_FFMPEG_VIDEO_DUMPER=ON \
                                 -DUSE_DISCORD_PRESENCE=OFF"
 
 }

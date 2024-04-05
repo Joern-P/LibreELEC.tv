@@ -1,34 +1,37 @@
-# SPDX-License-Identifier: Apache-2.0
-# Copyright (C) 2023-present Fewtarius
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2021-present Shanti Gilbert (https://github.com/shantigilbert)
 
 PKG_NAME="box64"
-PKG_VERSION="a651cf33f4345dfda3a4e6071f5fcab978d5b6fb"
+PKG_VERSION="912622bf1f3db7f3cba32b44f4f1c106e3fb7dbf"
+
+PKG_REV="1"
 PKG_ARCH="aarch64"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/ptitSeb/box64"
 PKG_URL="${PKG_SITE}.git"
-PKG_DEPENDS_TARGET="toolchain gl4es ncurses"
-PKG_LONGDESC="Box64 lets you run x86_64 Linux programs (such as games) on non-x86_64 Linux systems, like ARM."
-GET_HANDLER_SUPPORT="git"
-PKG_BUILD_FLAGS="-mold"
+PKG_DEPENDS_TARGET="toolchain gl4es"
+PKG_LONGDESC="Box64 - Linux Userspace x86_64 Emulator with a twist, targeted at ARM64 Linux devices"
 PKG_TOOLCHAIN="cmake"
 
-PKG_CMAKE_OPTS_TARGET+=" -DCMAKE_BUILD_TYPE=Release"
+if [[ "${DEVICE}" == "Amlogic"* ]]; then
+	PKG_CMAKE_OPTS_TARGET=" -DODROIDN2=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo"
+else
+	PKG_CMAKE_OPTS_TARGET=" -DRK3588=1 -DCMAKE_BUILD_TYPE=RelWithDebInfo"
+fi
+
+pre_configure_target() {
+# https://github.com/ptitSeb/box64/issues/256
+if ! grep -q "as-needed" ${PKG_BUILD}/CMakeLists.txt; then
+	sed -i "s|as-need|as-needed|g" ${PKG_BUILD}/CMakeLists.txt
+fi
+}
 
 makeinstall_target() {
-  mkdir -p ${INSTALL}/usr/share/box64/lib
-  cp ${PKG_BUILD}/x64lib/* ${INSTALL}/usr/share/box64/lib
-
-  mkdir -p ${INSTALL}/usr/bin
-  cp ${PKG_BUILD}/.${TARGET_NAME}/box64 ${INSTALL}/usr/bin
-  cp ${PKG_BUILD}/tests/bash ${INSTALL}/usr/bin/bash-x64
-
-  mkdir -p ${INSTALL}/usr/config
-  cp ${PKG_DIR}/config/box64.box64rc ${INSTALL}/usr/config/box64.box64rc
-
-  mkdir -p ${INSTALL}/etc
-  ln -sf /storage/.config/box64.box64rc ${INSTALL}/etc/box64.box64rc
-
+  mkdir -p ${INSTALL}/usr/config/emuelec/bin/box64/lib
+  cp ${PKG_BUILD}/x64lib/* ${INSTALL}/usr/config/emuelec/bin/box64/lib
+  cp ${PKG_BUILD}/.${TARGET_NAME}/box64 ${INSTALL}/usr/config/emuelec/bin/box64/
+  
   mkdir -p ${INSTALL}/etc/binfmt.d
-  cp -f ${PKG_DIR}/config/box64.conf ${INSTALL}/etc/binfmt.d/box64.conf
+  ln -sf /emuelec/configs/box64.conf ${INSTALL}/etc/binfmt.d/box64.conf
+ 
 }

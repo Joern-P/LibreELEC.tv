@@ -13,7 +13,7 @@ PKG_TOOLCHAIN="make"
 pre_make_target() {
   cp -f ${PKG_DIR}/Makefile ${PKG_BUILD}
   cp -f ${PKG_DIR}/control-gen.cpp ${PKG_BUILD}
-  CFLAGS+=" -I$(get_build_dir SDL2)/include -D_REENTRANT"
+  CFLAGS+=" -I$(get_build_dir sdl2)/include -D_REENTRANT"
 }
 
 makeinstall_target() {

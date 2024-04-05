@@ -3,11 +3,11 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="6.0.1"
-PKG_SHA256="9b16b8731d78e596b4be0d720428ca42df642bb2d78342881ff7f5bc29fc9623"
+PKG_VERSION="ba84e56c51d9cde1f3b1fead2a21e4d271028709"
+PKG_SHA256=""
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="http://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
+PKG_URL="https://github.com/nyanmisaka/ffmpeg-rockchip/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain zlib bzip2 openssl speex"
 PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert and stream audio and video."
 PKG_PATCH_DIRS="libreelec"
@@ -21,23 +21,6 @@ PKG_PATCH_DIRS="libreelec"
 #PKG_SHA256="f6a04a30b15303936cee1bfdbfd844b453f6bf458047f948847ccd36ae6c34ed"
 #PKG_URL="https://github.com/hbiyik/FFmpeg/archive/${PKG_VERSION}.tar.gz"
 
-case "${PROJECT}" in
-  Amlogic)
-    PKG_VERSION="6859fc2a8791c0fcc25851b77fed15a691ceb332"
-    PKG_FFMPEG_BRANCH="dev/6.0/rpi_import_1"
-    PKG_SHA256="d9ba353b5ab95489bb999cec958bed154534ccb46c154fb8b9d6848188f7ef8c"
-    PKG_URL="https://github.com/jc-kynesim/rpi-ffmpeg/archive/${PKG_VERSION}.tar.gz"
-    ;;
-  RPi)
-    PKG_FFMPEG_RPI="--disable-mmal --enable-sand"
-    PKG_PATCH_DIRS+=" rpi"
-    ;;
-  Rockchip)
-    PKG_VERSION="1fa586ac7fa224bde0100def5e5f3406f6c2e663"
-    PKG_SHA256=""
-    PKG_URL="https://github.com/nyanmisaka/ffmpeg-rockchip/archive/${PKG_VERSION}.tar.gz"
-    ;;
-esac
 
 post_unpack() {
   # Fix FFmpeg version
