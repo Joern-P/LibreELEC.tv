@@ -1,0 +1,23 @@
+From 832c3c7117e4366e415ded92a6f07ec203fd9233 Mon Sep 17 00:00:00 2001
+From: boogie <boogiepop@gmx.com>
+Date: Mon, 20 Nov 2023 22:48:56 +0100
+Subject: [PATCH] panfrost: disable native fences, it is not implemented in
+ panfork
+
+---
+ src/gallium/drivers/panfrost/pan_screen.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/gallium/drivers/panfrost/pan_screen.c b/src/gallium/drivers/panfrost/pan_screen.c
+index ea315f8be64..39e578601ba 100644
+--- a/src/gallium/drivers/panfrost/pan_screen.c
++++ b/src/gallium/drivers/panfrost/pan_screen.c
+@@ -362,7 +362,7 @@
+       return 1;
+ 
+    case PIPE_CAP_NATIVE_FENCE_FD:
+-      return 1;
++      return 0;
+ 
+    default:
+       return u_pipe_screen_get_param_defaults(screen, param);

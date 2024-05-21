@@ -1,0 +1,191 @@
+From 2a8d4ef105d5cc113803396b1f03dc21cbc55511 Mon Sep 17 00:00:00 2001
+From: jensen <jensenhuang@friendlyarm.com>
+Date: Thu, 1 Feb 2024 16:05:24 +0800
+Subject: [PATCH] drm/rockchip: dw_hdmi: add support for fixed output timing
+
+Signed-off-by: jensen <jensenhuang@friendlyarm.com>
+---
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c | 36 ++++++++++++++-
+ drivers/gpu/drm/bridge/synopsys/dw-hdmi.c    | 47 ++++++++++++++++++++
+ 2 files changed, 82 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
+index 26a989124cac4..d5088de4cde21 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi-qp.c
+@@ -36,6 +36,10 @@
+ #include <uapi/linux/media-bus-format.h>
+ #include <uapi/linux/videodev2.h>
+ 
++#include <video/display_timing.h>
++#include <video/of_display_timing.h>
++#include <video/videomode.h>
++
+ #include "dw-hdmi-qp-audio.h"
+ #include "dw-hdmi-qp.h"
+ #include "dw-hdmi-qp-cec.h"
+@@ -237,6 +241,7 @@ struct dw_hdmi_qp {
+ 	int avp_irq;
+ 	int earc_irq;
+ 
++	const struct drm_display_mode *fixed_mode;
+ 	u8 edid[HDMI_EDID_LEN];
+ 
+ 	struct {
+@@ -2055,7 +2060,7 @@ dw_hdmi_connector_detect(struct drm_connector *connector, bool force)
+ 	hdmi->force = DRM_FORCE_UNSPECIFIED;
+ 	mutex_unlock(&hdmi->mutex);
+ 
+-	if (hdmi->panel)
++	if (hdmi->panel || hdmi->fixed_mode)
+ 		return connector_status_connected;
+ 
+ 	if (hdmi->plat_data->left)
+@@ -2140,6 +2145,16 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
+ 	if (hdmi->panel)
+ 		return drm_panel_get_modes(hdmi->panel, connector);
+ 
++	if (hdmi->fixed_mode) {
++		mode = drm_mode_duplicate(connector->dev, hdmi->fixed_mode);
++		if (mode) {
++			drm_mode_probed_add(connector, mode);
++			hdmi->support_hdmi = true;
++			hdmi->sink_has_audio = true;
++			return 1;
++		}
++	}
++
+ 	if (!hdmi->ddc)
+ 		return 0;
+ 
+@@ -3348,6 +3363,7 @@ __dw_hdmi_probe(struct platform_device *pdev,
+ 	struct device *dev = &pdev->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct device_node *ddc_node;
++	struct device_node *route_node;
+ 	struct dw_hdmi_qp *hdmi;
+ 	struct dw_hdmi_qp_i2s_audio_data audio;
+ 	struct platform_device_info pdevinfo;
+@@ -3448,6 +3464,24 @@ __dw_hdmi_probe(struct platform_device *pdev,
+ 	if (hdmi->i2c)
+ 		dw_hdmi_i2c_init(hdmi);
+ 
++	route_node = of_parse_phandle(np, "route", 0);
++	of_node_put(route_node);
++	if (route_node &&
++	    of_property_read_bool(route_node, "force-output")) {
++		struct drm_display_mode *dmode;
++		struct display_timing dt;
++		struct videomode vm;
++
++		dmode = devm_kzalloc(dev, sizeof(*dmode), GFP_KERNEL);
++		if (dmode &&
++		    !of_get_display_timing(route_node, "force_timing", &dt)) {
++			videomode_from_timing(&dt, &vm);
++			drm_display_mode_from_videomode(&vm, dmode);
++			hdmi->fixed_mode = dmode;
++			dev_warn(dev, "fixed modeline " DRM_MODE_FMT "\n", DRM_MODE_ARG(dmode));
++		}
++	}
++
+ 	init_completion(&hdmi->flt_cmp);
+ 	init_completion(&hdmi->earc_cmp);
+ 
+diff --git a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+index 49100e6b401dd..9f77ab5321ca0 100644
+--- a/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
++++ b/drivers/gpu/drm/bridge/synopsys/dw-hdmi.c
+@@ -38,6 +38,10 @@
+ #include <drm/drm_print.h>
+ #include <drm/drm_probe_helper.h>
+ 
++#include <video/display_timing.h>
++#include <video/of_display_timing.h>
++#include <video/videomode.h>
++
+ #include "dw-hdmi-audio.h"
+ #include "dw-hdmi-cec.h"
+ #include "dw-hdmi-hdcp.h"
+@@ -273,6 +277,7 @@ struct dw_hdmi {
+ 	int vic;
+ 	int irq;
+ 
++	const struct drm_display_mode *fixed_mode;
+ 	u8 edid[HDMI_EDID_LEN];
+ 
+ 	struct {
+@@ -3136,6 +3141,9 @@ static enum drm_connector_status dw_hdmi_detect(struct dw_hdmi *hdmi)
+ 	}
+ 	mutex_unlock(&hdmi->mutex);
+ 
++	if (hdmi->fixed_mode)
++		result = connector_status_connected;
++
+ 	if (result == connector_status_connected)
+ 		extcon_set_state_sync(hdmi->extcon, EXTCON_DISP_HDMI, true);
+ 	else
+@@ -3221,6 +3229,18 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
+ 	int i,  ret = 0;
+ 
+ 	memset(metedata, 0, sizeof(*metedata));
++
++	if (hdmi->fixed_mode) {
++		mode = drm_mode_duplicate(connector->dev, hdmi->fixed_mode);
++		if (mode) {
++			drm_mode_probed_add(connector, mode);
++			hdmi->support_hdmi = true;
++			hdmi->sink_has_audio = true;
++			ret = 1;
++			goto done;
++		}
++	}
++
+	edid = dw_hdmi_get_edid(hdmi, connector);
+	if (edid) {
+		int vic = 0;
+@@ -3270,6 +3290,8 @@ static int dw_hdmi_connector_get_modes(struct drm_connector *connector)
+ 
+ 		dev_info(hdmi->dev, "failed to get edid\n");
+ 	}
++
++done:
+ 	dw_hdmi_update_hdr_property(connector);
+ 	dw_hdmi_check_output_type_changed(hdmi);
+ 
+@@ -4791,10 +4813,35 @@ static void dw_hdmi_register_hdcp(struct device *dev, struct dw_hdmi *hdmi,
+ 
+ static int get_force_logo_property(struct dw_hdmi *hdmi)
+ {
++	struct device *dev = hdmi->dev;
+ 	struct device_node *dss;
+ 	struct device_node *route;
+ 	struct device_node *route_hdmi;
+ 
++	route_hdmi = of_parse_phandle(dev->of_node, "route", 0);
++	if (route_hdmi) {
++		hdmi->force_logo =
++			of_property_read_bool(route_hdmi, "force-output");
++
++		if (hdmi->force_logo) {
++			struct drm_display_mode *dmode;
++			struct display_timing dt;
++			struct videomode vm;
++
++			dmode = devm_kzalloc(dev, sizeof(*dmode), GFP_KERNEL);
++			if (dmode &&
++				!of_get_display_timing(route_hdmi, "force_timing", &dt)) {
++				videomode_from_timing(&dt, &vm);
++				drm_display_mode_from_videomode(&vm, dmode);
++				hdmi->fixed_mode = dmode;
++				dev_warn(dev, "fixed modeline " DRM_MODE_FMT "\n", DRM_MODE_ARG(dmode));
++			}
++		}
++
++		of_node_put(route_hdmi);
++		return 0;
++	}
++
+ 	dss = of_find_node_by_name(NULL, "display-subsystem");
+ 	if (!dss) {
+ 		dev_err(hdmi->dev, "can't find display-subsystem\n");
+

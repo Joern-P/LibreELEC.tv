@@ -1,0 +1,48 @@
+From bb9758ae7ae45cfaff059866e6e1e6d72815636c Mon Sep 17 00:00:00 2001
+From: boogie <boogiepop@gmx.com>
+Date: Mon, 12 Feb 2024 23:19:41 +0100
+Subject: [PATCH] rkmppdec: allow user to force drm:prime format when decoding
+ to prevent troublesome players to pick up wrong format
+
+---
+ libavcodec/rkmppdec.c | 5 +++++
+ libavcodec/rkmppdec.h | 2 ++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/libavcodec/rkmppdec.c b/libavcodec/rkmppdec.c
+index dae44efc12..0bd5e66d1f 100644
+--- a/libavcodec/rkmppdec.c
++++ b/libavcodec/rkmppdec.c
+@@ -176,6 +176,11 @@ static av_cold int rkmpp_decode_init(AVCodecContext *avctx)
+         break;
+     }
+ 
++    if (r->forcedrm){
++        is_fmt_supported = 1;
++        avctx->pix_fmt = AV_PIX_FMT_DRM_PRIME;
++    }
++
+     if (avctx->pix_fmt != AV_PIX_FMT_DRM_PRIME) {
+         if (!is_fmt_supported) {
+             av_log(avctx, AV_LOG_ERROR, "MPP doesn't support codec '%s' with pix_fmt '%s'\n",
+diff --git a/libavcodec/rkmppdec.h b/libavcodec/rkmppdec.h
+index 6a4cd6bf68..e016804acc 100644
+--- a/libavcodec/rkmppdec.h
++++ b/libavcodec/rkmppdec.h
+@@ -64,6 +64,7 @@ typedef struct RKMPPDecContext {
+     int            afbc;
+     int            fast_parse;
+     int            buf_mode;
++    int            forcedrm;
+ } RKMPPDecContext;
+ 
+ enum {
+@@ -98,6 +99,7 @@ static const AVOption options[] = {
+     { "buf_mode",   "Set the buffer mode for MPP decoder", OFFSET(buf_mode), AV_OPT_TYPE_INT, { .i64 = RKMPP_DEC_PURE_EXTERNAL }, 0, 1, VD, "buf_mode" },
+         { "half",   "Half internal mode",                      0, AV_OPT_TYPE_CONST, { .i64 = RKMPP_DEC_HALF_INTERNAL }, 0, 0, VD, "buf_mode" },
+         { "ext",    "Pure external mode",                      0, AV_OPT_TYPE_CONST, { .i64 = RKMPP_DEC_PURE_EXTERNAL }, 0, 0, VD, "buf_mode" },
++    { "forcedrm",   "Force drm_prime output", OFFSET(forcedrm), AV_OPT_TYPE_BOOL, { .i64 = 1 }, 0, 1, VD },
+     { NULL }
+ };
+ 
+

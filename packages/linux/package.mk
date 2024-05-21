@@ -29,9 +29,9 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   rockchip)
-#    PKG_VERSION="99e54e1a546eca7fa8d5b86be1b825914e097d06"
-#    PKG_URL="https://github.com/brooksytech/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
-#    PKG_GIT_CLONE_BRANCH="panfork-6.1"
+#    PKG_VERSION="8968e142821fbca242f81b20aadac5fbde3c4d47"
+#    PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
+#    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr1"
     PKG_VERSION="6bd0bc64903bf5eb91b99ff82a75ce5e29f9f370"
     PKG_URL="https://github.com/hbiyik/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
     PKG_GIT_CLONE_BRANCH="rk-6.1-rkr1-panthor-v6"

@@ -43,14 +43,6 @@ diff -uNr a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/x
  
    m_pCodecContext = avcodec_alloc_context3(pCodec);
    if (!m_pCodecContext)
-@@ -340,7 +354,6 @@
- 
-   UpdateProcessInfo(m_pCodecContext, m_pCodecContext->pix_fmt);
-   m_processInfo.SetVideoDeintMethod("none");
--  m_processInfo.SetVideoDAR(hints.aspect);
- 
-   return true;
- }
 @@ -367,6 +380,8 @@
  
    if (!packet.pData)
@@ -121,24 +113,27 @@ diff -uNr a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.h b/xbm
  class CDVDVideoCodecDRMPRIME : public CDVDVideoCodec
  {
  public:
-@@ -33,10 +35,17 @@
+@@ -40,8 +40,10 @@
  
  protected:
    void Drain();
 +  void Dispose(void);
-   void SetPictureParams(VideoPicture* pVideoPicture);
+   bool SetPictureParams(VideoPicture* pVideoPicture);
    void UpdateProcessInfo(struct AVCodecContext* avctx, const enum AVPixelFormat fmt);
 +  void FrameRateTracking(uint8_t *pData, int iSize, double dts, double pts);
+   CDVDVideoCodec::VCReturn ProcessFilterIn();
+   CDVDVideoCodec::VCReturn ProcessFilterOut();
    static enum AVPixelFormat GetFormat(struct AVCodecContext* avctx, const enum AVPixelFormat* fmt);
-   static int GetBuffer(struct AVCodecContext* avctx, AVFrame* frame, int flags);
-+  
-+  
+@@ -50,6 +52,9 @@
+   void FilterClose();
+   void FilterTest();
+   std::string GetFilterChain(bool interlaced);
 +  
 +  h264_sequence *m_h264_sequence;
-+  double          m_h264_sequence_pts;
++  double m_h264_sequence_pts;
  
    std::string m_name;
-   int m_codecControlFlags = 0;
+   std::string m_deintFilterName;
 diff -uNr a/xbmc/utils/BitstreamConverter.cpp b/xbmc/utils/BitstreamConverter.cpp
 --- a/xbmc/utils/BitstreamConverter.cpp	2024-03-02 22:30:13.000000000 +0100
 +++ b/xbmc/utils/BitstreamConverter.cpp	2024-03-06 10:04:17.955750099 +0100
@@ -535,14 +530,6 @@ diff -uNr a/xbmc/utils/BitstreamConverter.h b/xbmc/utils/BitstreamConverter.h
    if (pConfig && (pConfig->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) &&   
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp	2024-03-02 22:30:13.000000000 +0100
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp	2024-03-06 09:48:38.091206909 +0100
-@@ -355,6 +355,7 @@
- 
-   UpdateProcessInfo(m_pCodecContext, m_pCodecContext->pix_fmt);
-   m_processInfo.SetVideoDeintMethod("none");
-+  m_processInfo.SetVideoDAR(hints.aspect);
- 
-   return true;
- }
 @@ -493,13 +494,15 @@
      aspect_ratio =
          static_cast<double>(pVideoPicture->iWidth) / static_cast<double>(pVideoPicture->iHeight);

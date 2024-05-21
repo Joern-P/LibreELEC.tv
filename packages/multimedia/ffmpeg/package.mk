@@ -3,7 +3,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="ba84e56c51d9cde1f3b1fead2a21e4d271028709"
+PKG_VERSION="09cd2a2d18f0b2b557976b8e66ec2fd71e21db1a"
 PKG_SHA256=""
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
@@ -13,14 +13,8 @@ PKG_LONGDESC="FFmpeg is a complete, cross-platform solution to record, convert a
 PKG_PATCH_DIRS="libreelec"
 
 
-#PKG_VERSION="3aad30a781dd4fc7ab76776ca588126d69e74edd"
-#PKG_SHA256="38702798f93bf67267fe1b259ff0cc44bf7dd1e5aefff091015dea7dc6dfcad2"
+#PKG_VERSION="ba84e56c51d9cde1f3b1fead2a21e4d271028709"
 #PKG_URL="https://github.com/nyanmisaka/ffmpeg-rockchip/archive/${PKG_VERSION}.tar.gz"
-
-#PKG_VERSION="d041c3000f83be1e37a847df82995d21f5d70575"
-#PKG_SHA256="f6a04a30b15303936cee1bfdbfd844b453f6bf458047f948847ccd36ae6c34ed"
-#PKG_URL="https://github.com/hbiyik/FFmpeg/archive/${PKG_VERSION}.tar.gz"
-
 
 post_unpack() {
   # Fix FFmpeg version
@@ -38,6 +32,7 @@ PKG_FFMPEG_HWACCEL=" --enable-hwaccels"
 PKG_DEPENDS_TARGET+=" rkmpp libdrm rga"
 PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
 PKG_FFMPEG_V4L2=" --enable-libdrm --enable-rkmpp --enable-rkrga --disable-v4l2_m2m"
+
 
 
 if [ "${VAAPI_SUPPORT}" = "yes" ]; then
