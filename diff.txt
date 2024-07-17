@@ -1,0 +1,1320 @@
+diff --git a/packages/graphics/mesa/package.mk b/packages/graphics/mesa/package.mk
+index 7177848723..8ca8dae5e0 100644
+--- a/packages/graphics/mesa/package.mk
++++ b/packages/graphics/mesa/package.mk
+@@ -3,7 +3,7 @@
+ # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
+ 
+ PKG_NAME="mesa"
+-PKG_VERSION="8732a619f13b05e6469f4841d6780fcdac3586ce"
++PKG_VERSION="7900ecdfc78eb624e5a9da6e95df4ddb5a9caafb"
+ PKG_SHA256=""
+ PKG_LICENSE="OSS"
+ PKG_SITE="http://www.mesa3d.org/"
+diff --git a/packages/graphics/mesa/patches/fix.patch b/packages/graphics/mesa/patches/fix.patch
+deleted file mode 100644
+index 5fbeec66d5..0000000000
+--- a/packages/graphics/mesa/patches/fix.patch
++++ /dev/null
+@@ -1,186 +0,0 @@
+-From 9ca1552737fb758daeff055e563a027040c3dd74 Mon Sep 17 00:00:00 2001
+-From: Boris Brezillon <boris.brezillon@collabora.com>
+-Date: Fri, 5 Apr 2024 22:03:38 +0200
+-Subject: [PATCH] panfrost: Add the BO containing fragment program descriptor
+- to the batch
+-
+-On pre-Valhall HW, the fragment shader metadata was part of the RSD
+-(renderer state descriptor), which was emitted at draw time, but
+-Valhall introduces a shader program descriptor containing only the
+-shader information, and this one is emitted at shader preparation
+-time.
+-
+-If we don't add the FS state BO to batch, we might end up with a batch
+-being executed after the shader object has been destroyed, leading to
+-page faults when the GPU tries to access the shader program descriptor.
+-
+-We make the panfrost_batch_add_bo() unconditional since it gracefully
+-handles the NULL case (which will happen on v7-).
+-
+-Fixes: 087b63cb0771 ("panfrost: Allow uploading fragment SPDs")
+-Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+-Reviewed-by: Erik Faye-Lund <erik.faye-lund@collabora.com>
+-Reviewed-by: Antonino Maniscalco <antonino.maniscalco@collabora.com>
+----
+- src/gallium/drivers/panfrost/pan_cmdstream.c | 1 +
+- 1 file changed, 1 insertion(+)
+-
+-diff --git a/src/gallium/drivers/panfrost/pan_cmdstream.c b/src/gallium/drivers/panfrost/pan_cmdstream.c
+-index 034d77d2bb74f..82383949e94d4 100644
+---- a/src/gallium/drivers/panfrost/pan_cmdstream.c
+-+++ b/src/gallium/drivers/panfrost/pan_cmdstream.c
+-@@ -646,6 +646,7 @@ panfrost_emit_frag_shader_meta(struct panfrost_batch *batch)
+-    struct panfrost_compiled_shader *ss = ctx->prog[PIPE_SHADER_FRAGMENT];
+- 
+-    panfrost_batch_add_bo(batch, ss->bin.bo, PIPE_SHADER_FRAGMENT);
+-+   panfrost_batch_add_bo(batch, ss->state.bo, PIPE_SHADER_FRAGMENT);
+- 
+-    struct panfrost_ptr xfer;
+- 
+--- 
+-GitLab
+-
+-From ce7b37ca613dbb141484fa40702a607a6a82c823 Mon Sep 17 00:00:00 2001
+-From: Boris Brezillon <boris.brezillon@collabora.com>
+-Date: Wed, 24 Apr 2024 15:28:43 +0200
+-Subject: [PATCH] pan/kmod: Fix a syncobj leak in the panthor backend
+-
+-Make sure we release the syncobj attached to the BO if the object is
+-sharable.
+-
+-Fixes: 97f6a62f7ef8 ("pan/kmod: Add a backend for panthor")
+-Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+-Reviewed-by: Erik Faye-Lund <erik.faye-lund@collabora.com>
+-Acked-by: Constantine Shablia <constantine.shablya@collabora.com>
+-Reviewed-by: Antonino Maniscalco <antonino.maniscalco@collabora.com>
+----
+- src/panfrost/lib/kmod/panthor_kmod.c | 6 ++++++
+- 1 file changed, 6 insertions(+)
+-
+-diff --git a/src/panfrost/lib/kmod/panthor_kmod.c b/src/panfrost/lib/kmod/panthor_kmod.c
+-index 0c7fbc61f2465..4404b6b1cad86 100644
+---- a/src/panfrost/lib/kmod/panthor_kmod.c
+-+++ b/src/panfrost/lib/kmod/panthor_kmod.c
+-@@ -309,6 +309,12 @@ err_free_bo:
+- static void
+- panthor_kmod_bo_free(struct pan_kmod_bo *bo)
+- {
+-+   struct panthor_kmod_bo *panthor_bo =
+-+      container_of(bo, struct panthor_kmod_bo, base);
+-+
+-+   if (!bo->exclusive_vm)
+-+      drmSyncobjDestroy(bo->dev->fd, panthor_bo->sync.handle);
+-+
+-    drmCloseBufferHandle(bo->dev->fd, bo->handle);
+-    pan_kmod_dev_free(bo->dev, bo);
+- }
+--- 
+-GitLab
+-
+-From 2097c30705568f3ea2500a629a0be4e7f1a5c727 Mon Sep 17 00:00:00 2001
+-From: Boris Brezillon <boris.brezillon@collabora.com>
+-Date: Tue, 30 Apr 2024 13:56:41 +0200
+-Subject: [PATCH] pan/kmod: Make default allocator thread-safe
+-
+-Allocations targeting a pan_kmod_dev can happen concurrently, so we
+-need the pan_kmod_dev allocator to be thread-safe.
+-
+-ralloc() is not thread-safe, and we don't really need a hierarchical
+-allocator in this context anyway, so let's just switch to calloc/free
+-instead.
+-
+-Fixes: d95ec56f8c68 ("panfrost: Abstract kernel driver operations")
+-Reported-by: Eric Smith <eric.smith@collabora.com>
+-Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+----
+- src/panfrost/lib/kmod/pan_kmod.c | 37 ++++++++------------------------
+- 1 file changed, 9 insertions(+), 28 deletions(-)
+-
+-diff --git a/src/panfrost/lib/kmod/pan_kmod.c b/src/panfrost/lib/kmod/pan_kmod.c
+-index df376a136c432..e8a656e7436a4 100644
+---- a/src/panfrost/lib/kmod/pan_kmod.c
+-+++ b/src/panfrost/lib/kmod/pan_kmod.c
+-@@ -7,6 +7,7 @@
+- #include <string.h>
+- #include <xf86drm.h>
+- 
+-+#include "util/u_memory.h"
+- #include "util/macros.h"
+- #include "pan_kmod.h"
+- 
+-@@ -31,28 +32,19 @@ static void *
+- default_zalloc(const struct pan_kmod_allocator *allocator, size_t size,
+-                UNUSED bool transient)
+- {
+--   return rzalloc_size(allocator, size);
+-+   return os_calloc(1, size);
+- }
+- 
+- static void
+- default_free(const struct pan_kmod_allocator *allocator, void *data)
+- {
+--   return ralloc_free(data);
+-+   os_free(data);
+- }
+- 
+--static const struct pan_kmod_allocator *
+--create_default_allocator(void)
+--{
+--   struct pan_kmod_allocator *allocator =
+--      rzalloc(NULL, struct pan_kmod_allocator);
+--
+--   if (allocator) {
+--      allocator->zalloc = default_zalloc;
+--      allocator->free = default_free;
+--   }
+--
+--   return allocator;
+--}
+-+static const struct pan_kmod_allocator default_allocator = {
+-+   .zalloc = default_zalloc,
+-+   .free = default_free,
+-+};
+- 
+- struct pan_kmod_dev *
+- pan_kmod_dev_create(int fd, uint32_t flags,
+-@@ -64,11 +56,8 @@ pan_kmod_dev_create(int fd, uint32_t flags,
+-    if (!version)
+-       return NULL;
+- 
+--   if (!allocator) {
+--      allocator = create_default_allocator();
+--      if (!allocator)
+--         goto out_free_version;
+--   }
+-+   if (!allocator)
+-+      allocator = &default_allocator;
+- 
+-    for (unsigned i = 0; i < ARRAY_SIZE(drivers); i++) {
+-       if (!strcmp(drivers[i].name, version->name)) {
+-@@ -82,9 +71,6 @@ pan_kmod_dev_create(int fd, uint32_t flags,
+-       }
+-    }
+- 
+--   if (allocator->zalloc == default_zalloc)
+--      ralloc_free((void *)allocator);
+--
+- out_free_version:
+-    drmFreeVersion(version);
+-    return dev;
+-@@ -93,12 +79,7 @@ out_free_version:
+- void
+- pan_kmod_dev_destroy(struct pan_kmod_dev *dev)
+- {
+--   const struct pan_kmod_allocator *allocator = dev->allocator;
+--
+-    dev->ops->dev_destroy(dev);
+--
+--   if (allocator->zalloc == default_zalloc)
+--      ralloc_free((void *)allocator);
+- }
+- 
+- struct pan_kmod_bo *
+--- 
+-GitLab
+-
+-
+diff --git a/packages/graphics/mesa/patches/p.patch.dis b/packages/graphics/mesa/patches/p.patch.dis
+deleted file mode 100644
+index 852ffd5c4b..0000000000
+--- a/packages/graphics/mesa/patches/p.patch.dis
++++ /dev/null
+@@ -1,716 +0,0 @@
+-From ada94e515ca19c0b192dd4fa32b1b214edb1e891 Mon Sep 17 00:00:00 2001
+-From: Boris Brezillon <boris.brezillon@collabora.com>
+-Date: Sat, 17 Feb 2024 11:31:42 +0100
+-Subject: [PATCH] [PoC]pancsf: Multi-queue
+-
+-Quick&dirty multi-queue implementation to see if it helps
+-glmark2 -b function:fragment-complexity=medium:fragment-steps=5,
+-and it looks like it does.
+----
+- src/gallium/drivers/panfrost/pan_csf.c | 412 +++++++++++++++++--------
+- src/gallium/drivers/panfrost/pan_csf.h |  18 +-
+- 2 files changed, 305 insertions(+), 125 deletions(-)
+-
+-diff --git a/src/gallium/drivers/panfrost/pan_csf.c b/src/gallium/drivers/panfrost/pan_csf.c
+-index a37c785542b14..32f3ef9b14a02 100644
+---- a/src/gallium/drivers/panfrost/pan_csf.c
+-+++ b/src/gallium/drivers/panfrost/pan_csf.c
+-@@ -37,6 +37,11 @@
+- #error "CSF helpers are only used for gen >= 10"
+- #endif
+- 
+-+struct csf_sync32_obj {
+-+   uint32_t seqno;
+-+   uint32_t status;
+-+};
+-+
+- static struct cs_buffer
+- csf_alloc_cs_buffer(void *cookie)
+- {
+-@@ -58,7 +63,8 @@ csf_alloc_cs_buffer(void *cookie)
+- void
+- GENX(csf_cleanup_batch)(struct panfrost_batch *batch)
+- {
+--   free(batch->csf.cs.builder);
+-+   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++)
+-+      free(batch->csf.cs[i].builder);
+- 
+-    panfrost_pool_cleanup(&batch->csf.cs_chunk_pool);
+- }
+-@@ -72,24 +78,37 @@ GENX(csf_init_batch)(struct panfrost_batch *batch)
+-    panfrost_pool_init(&batch->csf.cs_chunk_pool, NULL, dev, 0, 32768,
+-                       "CS chunk pool", false, true);
+- 
+--   /* Allocate and bind the command queue */
+--   struct cs_buffer queue = csf_alloc_cs_buffer(batch);
+--   const struct cs_builder_conf conf = {
+--      .nr_registers = 96,
+--      .nr_kernel_registers = 4,
+--      .alloc_buffer = csf_alloc_cs_buffer,
+--      .cookie = batch,
+--   };
+--
+-    /* Setup the queue builder */
+--   batch->csf.cs.builder = malloc(sizeof(struct cs_builder));
+--   cs_builder_init(batch->csf.cs.builder, &conf, queue);
+--   cs_req_res(batch->csf.cs.builder,
+--              CS_COMPUTE_RES | CS_TILER_RES | CS_IDVS_RES | CS_FRAG_RES);
+-+   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++) {
+-+      /* Allocate and bind the command queue */
+-+      struct cs_buffer queue = csf_alloc_cs_buffer(batch);
+-+      const struct cs_builder_conf conf = {
+-+         .nr_registers = 96,
+-+         .nr_kernel_registers = 4,
+-+         .alloc_buffer = csf_alloc_cs_buffer,
+-+         .cookie = batch,
+-+      };
+-+
+-+      struct cs_builder *b = malloc(sizeof(struct cs_builder));
+-+
+-+      batch->csf.cs[i].builder = b;
+-+
+-+      cs_builder_init(b, &conf, queue);
+- 
+--   /* Set up entries */
+--   struct cs_builder *b = batch->csf.cs.builder;
+--   cs_set_scoreboard_entry(b, 2, 0);
+-+      if (i == PANFROST_CSF_VTC_QUEUE) {
+-+         cs_req_res(b, CS_COMPUTE_RES | CS_TILER_RES | CS_IDVS_RES);
+-+      } else {
+-+         cs_req_res(b, CS_FRAG_RES);
+-+      }
+-+
+-+      /* Set up entries */
+-+      cs_set_scoreboard_entry(b, 2, 0);
+-+   }
+-+
+-+   struct csf_sync32_obj syncobj = {0};
+-+
+-+   batch->csf.tiler_frag_sync =
+-+      pan_pool_upload_aligned(&batch->pool.base, &syncobj, sizeof(syncobj), 8);
+- 
+-    batch->framebuffer = pan_pool_alloc_desc_aggregate(
+-       &batch->pool.base, PAN_DESC(FRAMEBUFFER), PAN_DESC(ZS_CRC_EXTENSION),
+-@@ -100,16 +119,14 @@ GENX(csf_init_batch)(struct panfrost_batch *batch)
+- static void
+- csf_prepare_qsubmit(struct panfrost_context *ctx,
+-                     struct drm_panthor_queue_submit *submit, uint8_t queue,
+--                    uint64_t cs_start, uint32_t cs_size,
+-+                    uint64_t cs_start, uint32_t cs_size, uint32_t flush_id,
+-                     struct drm_panthor_sync_op *syncs, uint32_t sync_count)
+- {
+--   struct panfrost_device *dev = pan_device(ctx->base.screen);
+--
+-    *submit = (struct drm_panthor_queue_submit){
+-       .queue_index = queue,
+-       .stream_addr = cs_start,
+-       .stream_size = cs_size,
+--      .latest_flush = panthor_kmod_get_flush_id(dev->kmod.dev),
+-+      .latest_flush = flush_id,
+-       .syncs = DRM_PANTHOR_OBJ_ARRAY(sync_count, syncs),
+-    };
+- }
+-@@ -148,41 +165,58 @@ static void
+- csf_emit_batch_end(struct panfrost_batch *batch)
+- {
+-    struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
+--   struct cs_builder *b = batch->csf.cs.builder;
+--
+--   /* Barrier to let everything finish */
+--   cs_wait_slots(b, BITFIELD_MASK(8), false);
+--
+--   if (dev->debug & PAN_DBG_SYNC) {
+--      /* Get the CS state */
+--      batch->csf.cs.state = pan_pool_alloc_aligned(&batch->pool.base, 8, 8);
+--      memset(batch->csf.cs.state.cpu, ~0, 8);
+--      cs_move64_to(b, cs_reg64(b, 90), batch->csf.cs.state.gpu);
+--      cs_store_state(b, cs_reg64(b, 90), 0, MALI_CS_STATE_ERROR_STATUS,
+--                     cs_now());
+--   }
+- 
+--   /* Flush caches now that we're done (synchronous) */
+--   struct cs_index flush_id = cs_reg32(b, 74);
+--   cs_move32_to(b, flush_id, 0);
+--   cs_flush_caches(b, MALI_CS_FLUSH_MODE_CLEAN, MALI_CS_FLUSH_MODE_CLEAN, true,
+--                   flush_id, cs_now());
+--   cs_wait_slot(b, 0, false);
+-+   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++) {
+-+      struct cs_builder *b = batch->csf.cs[i].builder;
+-+      bool needs_flush = false;
+- 
+--   /* Finish the command stream */
+--   assert(cs_is_valid(batch->csf.cs.builder));
+--   cs_finish(batch->csf.cs.builder);
+-+      if (i == PANFROST_CSF_FRAG_QUEUE && panfrost_has_fragment_job(batch))
+-+         needs_flush = true;
+-+
+-+      if (i == PANFROST_CSF_VTC_QUEUE && !panfrost_has_fragment_job(batch))
+-+         needs_flush = true;
+-+
+-+      if (i == PANFROST_CSF_VTC_QUEUE && batch->draw_count == 0 &&
+-+          batch->compute_count > 0)
+-+         needs_flush = true;
+-+
+-+      if ((dev->debug & PAN_DBG_SYNC) && needs_flush) {
+-+         /* Get the CS state */
+-+         batch->csf.cs[i].state =
+-+            pan_pool_alloc_aligned(&batch->pool.base, 8, 8);
+-+         memset(batch->csf.cs[i].state.cpu, ~0, 8);
+-+         cs_move64_to(b, cs_reg64(b, 90), batch->csf.cs[i].state.gpu);
+-+         cs_store_state(b, cs_reg64(b, 90), 0, MALI_CS_STATE_ERROR_STATUS,
+-+                        cs_now());
+-+      }
+-+
+-+      /* Clean caches so writes are made CPU-visible. */
+-+      if (needs_flush) {
+-+         cs_move32_to(b, cs_reg32(b, 74), 0);
+-+         cs_flush_caches(b, MALI_CS_FLUSH_MODE_CLEAN, MALI_CS_FLUSH_MODE_CLEAN,
+-+                         true, cs_reg32(b, 74), cs_defer(BITFIELD_BIT(2), 1));
+-+      }
+-+
+-+      /* Finish the command stream */
+-+      cs_finish(batch->csf.cs[i].builder);
+-+   }
+-+
+-+   uint32_t flush_id = panthor_kmod_get_flush_id(dev->kmod.dev);
+-+   for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++)
+-+      batch->csf.cs[i].flush_id = flush_id;
+- }
+- 
+- static int
+- csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+--                            struct util_dynarray *syncops,
+-+                            struct util_dynarray *vtc_syncops,
+-+                            struct util_dynarray *frag_syncops,
+-                             uint32_t vm_sync_handle)
+- {
+-    struct panfrost_context *ctx = batch->ctx;
+-    struct panfrost_device *dev = pan_device(ctx->base.screen);
+--   uint64_t vm_sync_wait_point = 0, bo_sync_point;
+-+   uint64_t vm_sync_frag_wait_point = 0, vm_sync_vtc_wait_point = 0;
+-    uint32_t bo_sync_handle;
+-+   uint64_t bo_sync_point;
+-    int ret;
+- 
+-    /* We don't wait on BOs attached to the various batch pools, because those
+-@@ -213,7 +247,13 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+-          return ret;
+- 
+-       if (bo_sync_handle == vm_sync_handle) {
+--         vm_sync_wait_point = MAX2(vm_sync_wait_point, bo_sync_point);
+-+         if (flags & PAN_BO_ACCESS_FRAGMENT)
+-+            vm_sync_frag_wait_point =
+-+               MAX2(vm_sync_frag_wait_point, bo_sync_point);
+-+         if (flags & PAN_BO_ACCESS_VERTEX_TILER)
+-+            vm_sync_vtc_wait_point =
+-+               MAX2(vm_sync_vtc_wait_point, bo_sync_point);
+-+
+-          continue;
+-       }
+- 
+-@@ -228,18 +268,46 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+-          .timeline_value = bo_sync_point,
+-       };
+- 
+--      util_dynarray_append(syncops, struct drm_panthor_sync_op, waitop);
+-+      util_dynarray_append(
+-+         flags & PAN_BO_ACCESS_VERTEX_TILER ? vtc_syncops : frag_syncops,
+-+         struct drm_panthor_sync_op, waitop);
+-    }
+- 
+--   if (vm_sync_wait_point > 0) {
+-+   if (frag_syncops == vtc_syncops) {
+-+      /* If frag_syncops and vtc_syncops point to the same array, that means
+-+       * we just have one pipeline stage, and we can merge the VM wait points
+-+       * into a signal wait point.
+-+       */
+-+      struct drm_panthor_sync_op waitop = {
+-+         .flags = DRM_PANTHOR_SYNC_OP_WAIT |
+-+                  DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
+-+         .handle = vm_sync_handle,
+-+         .timeline_value =
+-+            MAX2(vm_sync_frag_wait_point, vm_sync_vtc_wait_point),
+-+      };
+-+
+-+      if (waitop.timeline_value > 0)
+-+         util_dynarray_append(vtc_syncops, struct drm_panthor_sync_op, waitop);
+-+   } else {
+-       struct drm_panthor_sync_op waitop = {
+-          .flags = DRM_PANTHOR_SYNC_OP_WAIT |
+-                   DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
+-          .handle = vm_sync_handle,
+--         .timeline_value = vm_sync_wait_point,
+-+         .timeline_value = vm_sync_vtc_wait_point,
+-       };
+- 
+--      util_dynarray_append(syncops, struct drm_panthor_sync_op, waitop);
+-+      /* If the VTC wait point is zero, skip the wait on the VTC queue. */
+-+      if (vm_sync_vtc_wait_point > 0)
+-+         util_dynarray_append(vtc_syncops, struct drm_panthor_sync_op, waitop);
+-+
+-+      /* If the fragment wait point is less or equal to the VTC wait point
+-+       * we can skip it thanks to the explicit wait between the VTC and
+-+       * fragment queue emitted in csf_emit_batch_end().
+-+       */
+-+      if (vm_sync_frag_wait_point > vm_sync_vtc_wait_point) {
+-+         waitop.timeline_value = vm_sync_frag_wait_point;
+-+         util_dynarray_append(frag_syncops, struct drm_panthor_sync_op, waitop);
+-+      }
+-    }
+- 
+-    if (ctx->in_sync_fd >= 0) {
+-@@ -254,7 +322,8 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+-          .handle = ctx->in_sync_obj,
+-       };
+- 
+--      util_dynarray_append(syncops, struct drm_panthor_sync_op, waitop);
+-+      /* Always wait on the first pipeline stage. */
+-+      util_dynarray_append(vtc_syncops, struct drm_panthor_sync_op, waitop);
+- 
+-       close(ctx->in_sync_fd);
+-       ctx->in_sync_fd = -1;
+-@@ -265,7 +334,8 @@ csf_submit_collect_wait_ops(struct panfrost_batch *batch,
+- 
+- static int
+- csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+--                       uint64_t vm_sync_signal_point)
+-+                       uint64_t vm_sync_vtc_signal_point,
+-+                       uint64_t vm_sync_frag_signal_point)
+- {
+-    struct panfrost_context *ctx = batch->ctx;
+-    struct panfrost_device *dev = pan_device(ctx->base.screen);
+-@@ -275,12 +345,13 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+-    assert(batch->invisible_pool.bos.size == 0);
+- 
+-    /* Attach sync points to batch-private BOs first. We assume BOs can
+--    * be written by the GPU to keep things simple.
+-+    * be written by the GPU to keep things simple. We also assume BOs
+-+    * are accessed by the last pipeline stage (AKA fragment stage).
+-     */
+-    util_dynarray_foreach(&batch->pool.bos, struct panfrost_bo *, bo) {
+-       (*bo)->gpu_access |= PAN_BO_ACCESS_RW;
+-       ret = panthor_kmod_bo_attach_sync_point((*bo)->kmod_bo, vm_sync_handle,
+--                                              vm_sync_signal_point, true);
+-+                                              vm_sync_frag_signal_point, true);
+-       if (ret)
+-          return ret;
+-    }
+-@@ -289,7 +360,7 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+-                          bo) {
+-       (*bo)->gpu_access |= PAN_BO_ACCESS_RW;
+-       ret = panthor_kmod_bo_attach_sync_point((*bo)->kmod_bo, vm_sync_handle,
+--                                              vm_sync_signal_point, true);
+-+                                              vm_sync_frag_signal_point, true);
+-       if (ret)
+-          return ret;
+-    }
+-@@ -306,7 +377,9 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+- 
+-       bo->gpu_access |= flags & (PAN_BO_ACCESS_RW);
+-       ret = panthor_kmod_bo_attach_sync_point(bo->kmod_bo, vm_sync_handle,
+--                                              vm_sync_signal_point,
+-+                                              flags & PAN_BO_ACCESS_FRAGMENT
+-+                                                 ? vm_sync_frag_signal_point
+-+                                                 : vm_sync_vtc_signal_point,
+-                                               flags & PAN_BO_ACCESS_WRITE);
+-       if (ret)
+-          return ret;
+-@@ -314,7 +387,7 @@ csf_attach_sync_points(struct panfrost_batch *batch, uint32_t vm_sync_handle,
+- 
+-    /* And finally transfer the VM sync point to the context syncobj. */
+-    return drmSyncobjTransfer(panfrost_device_fd(dev), ctx->syncobj, 0,
+--                             vm_sync_handle, vm_sync_signal_point, 0);
+-+                             vm_sync_handle, vm_sync_frag_signal_point, 0);
+- }
+- 
+- static void
+-@@ -371,10 +444,23 @@ csf_submit_wait_and_dump(struct panfrost_batch *batch,
+-    }
+- 
+-    /* Jobs won't be complete if blackhole rendering, that's ok */
+--   if (!ctx->is_noop && (dev->debug & PAN_DBG_SYNC) &&
+--       *((uint64_t *)batch->csf.cs.state.cpu) != 0) {
+--      crash = true;
+--      dump = true;
+-+   if (!ctx->is_noop && (dev->debug & PAN_DBG_SYNC)) {
+-+      for (unsigned i = 0; i < ARRAY_SIZE(batch->csf.cs); i++) {
+-+         static const char *qnames[PANFROST_CSF_QUEUE_COUNT] = {
+-+            [PANFROST_CSF_VTC_QUEUE] = "vertex/tiler/compute",
+-+            [PANFROST_CSF_FRAG_QUEUE] = "fragment",
+-+         };
+-+         uint64_t *status = batch->csf.cs[i].state.cpu;
+-+
+-+         if (status && *status != 0) {
+-+            fprintf(
+-+               stderr,
+-+               "Incomplete job or timeout on the %s queue (status=0x%lx)\n",
+-+               qnames[i], *status);
+-+            crash = true;
+-+            dump = true;
+-+         }
+-+      }
+-    }
+- 
+-    if (dump) {
+-@@ -393,7 +479,6 @@ csf_submit_wait_and_dump(struct panfrost_batch *batch,
+-    }
+- 
+-    if (crash) {
+--      fprintf(stderr, "Incomplete job or timeout\n");
+-       fflush(NULL);
+-       abort();
+-    }
+-@@ -405,54 +490,111 @@ GENX(csf_submit_batch)(struct panfrost_batch *batch)
+-    /* Close the batch before submitting. */
+-    csf_emit_batch_end(batch);
+- 
+--   uint32_t cs_instr_count = batch->csf.cs.builder->root_chunk.size;
+--   uint64_t cs_start = batch->csf.cs.builder->root_chunk.buffer.gpu;
+--   uint32_t cs_size = cs_instr_count * 8;
+-    struct panfrost_context *ctx = batch->ctx;
+-    struct panfrost_device *dev = pan_device(ctx->base.screen);
+-    uint32_t vm_sync_handle = panthor_kmod_vm_sync_handle(dev->kmod.vm);
+--   struct util_dynarray syncops;
+-+   struct util_dynarray *qsyncs[PANFROST_CSF_QUEUE_COUNT] = {0};
+-+   struct util_dynarray syncops_storage[PANFROST_CSF_QUEUE_COUNT];
+-    int ret;
+- 
+--   util_dynarray_init(&syncops, NULL);
+-+   for (unsigned i = 0; i < ARRAY_SIZE(syncops_storage); i++)
+-+      util_dynarray_init(&syncops_storage[i], NULL);
+- 
+--   ret = csf_submit_collect_wait_ops(batch, &syncops, vm_sync_handle);
+-+   /* If there's no fragment job, we push the fragment syncops to the
+-+    * vertex/tiler/compute syncops array.
+-+    */
+-+   if (panfrost_has_fragment_job(batch))
+-+      qsyncs[PANFROST_CSF_FRAG_QUEUE] =
+-+         &syncops_storage[PANFROST_CSF_FRAG_QUEUE];
+-+   else
+-+      qsyncs[PANFROST_CSF_FRAG_QUEUE] =
+-+         &syncops_storage[PANFROST_CSF_VTC_QUEUE];
+-+
+-+   /* If there's no vertex/compute job, we push the vertex/compute syncops
+-+    * to the fragment syncops array.
+-+    */
+-+   if (batch->draw_count > 0 || batch->compute_count > 0)
+-+      qsyncs[PANFROST_CSF_VTC_QUEUE] = &syncops_storage[PANFROST_CSF_VTC_QUEUE];
+-+   else
+-+      qsyncs[PANFROST_CSF_VTC_QUEUE] =
+-+         &syncops_storage[PANFROST_CSF_FRAG_QUEUE];
+-+
+-+   ret = csf_submit_collect_wait_ops(batch, qsyncs[PANFROST_CSF_VTC_QUEUE],
+-+                                     qsyncs[PANFROST_CSF_FRAG_QUEUE],
+-+                                     vm_sync_handle);
+-    if (ret)
+-       goto out_free_syncops;
+- 
+-    uint64_t vm_sync_cur_point = panthor_kmod_vm_sync_lock(dev->kmod.vm);
+--   uint64_t vm_sync_signal_point = vm_sync_cur_point + 1;
+-+   uint64_t vm_sync_signal_point = vm_sync_cur_point;
+-+   uint64_t qsignal_point[PANFROST_CSF_QUEUE_COUNT] = {0};
+-+   struct drm_panthor_queue_submit qsubmit[PANFROST_CSF_QUEUE_COUNT];
+-+   struct drm_panthor_group_submit gsubmit;
+-+   uint32_t qsubmit_count = 0;
+- 
+--   struct drm_panthor_sync_op signalop = {
+--      .flags = DRM_PANTHOR_SYNC_OP_SIGNAL |
+--               DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
+--      .handle = vm_sync_handle,
+--      .timeline_value = vm_sync_signal_point,
+--   };
+-+   for (unsigned i = 0; i < PANFROST_CSF_QUEUE_COUNT; i++) {
+-+      struct cs_builder *b = batch->csf.cs[i].builder;
+-+      uint32_t cs_instr_count = b->root_chunk.size;
+-+      uint64_t cs_start = b->root_chunk.buffer.gpu;
+-+      uint32_t cs_size = cs_instr_count * 8;
+- 
+--   util_dynarray_append(&syncops, struct drm_panthor_sync_op, signalop);
+-+      if (i == PANFROST_CSF_VTC_QUEUE && batch->compute_count == 0 &&
+-+          batch->draw_count == 0)
+-+         continue;
+- 
+--   struct drm_panthor_queue_submit qsubmit;
+--   struct drm_panthor_group_submit gsubmit;
+-+      if (i == PANFROST_CSF_FRAG_QUEUE && !panfrost_has_fragment_job(batch))
+-+         continue;
+-+
+-+      if (i == PANFROST_CSF_FRAG_QUEUE ||
+-+          (i == PANFROST_CSF_VTC_QUEUE &&
+-+           (!panfrost_has_fragment_job(batch) || batch->compute_count > 0))) {
+-+         struct drm_panthor_sync_op signalop = {
+-+            .flags = DRM_PANTHOR_SYNC_OP_SIGNAL |
+-+                     DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_TIMELINE_SYNCOBJ,
+-+            .handle = vm_sync_handle,
+-+            .timeline_value = ++vm_sync_signal_point,
+-+         };
+-+
+-+         qsignal_point[i] = vm_sync_signal_point;
+-+         util_dynarray_append(qsyncs[i], struct drm_panthor_sync_op, signalop);
+-+      }
+-+
+-+      csf_prepare_qsubmit(
+-+         ctx, &qsubmit[qsubmit_count++], i, cs_start, cs_size,
+-+         batch->csf.cs[i].flush_id, util_dynarray_begin(qsyncs[i]),
+-+         util_dynarray_num_elements(qsyncs[i], struct drm_panthor_sync_op));
+-+   }
+-+
+-+   csf_prepare_gsubmit(ctx, &gsubmit, qsubmit, qsubmit_count);
+- 
+--   csf_prepare_qsubmit(
+--      ctx, &qsubmit, 0, cs_start, cs_size, util_dynarray_begin(&syncops),
+--      util_dynarray_num_elements(&syncops, struct drm_panthor_sync_op));
+--   csf_prepare_gsubmit(ctx, &gsubmit, &qsubmit, 1);
+-    ret = csf_submit_gsubmit(ctx, &gsubmit);
+-    panthor_kmod_vm_sync_unlock(dev->kmod.vm,
+-                                ret ? vm_sync_cur_point : vm_sync_signal_point);
+- 
+-    if (!ret) {
+-+      if (!qsignal_point[PANFROST_CSF_VTC_QUEUE])
+-+         qsignal_point[PANFROST_CSF_VTC_QUEUE] =
+-+            qsignal_point[PANFROST_CSF_FRAG_QUEUE];
+-+      if (!qsignal_point[PANFROST_CSF_FRAG_QUEUE])
+-+         qsignal_point[PANFROST_CSF_FRAG_QUEUE] =
+-+            qsignal_point[PANFROST_CSF_VTC_QUEUE];
+-+
+-+      assert(qsignal_point[PANFROST_CSF_VTC_QUEUE] &&
+-+             qsignal_point[PANFROST_CSF_FRAG_QUEUE]);
+-+
+-       csf_submit_wait_and_dump(batch, &gsubmit, vm_sync_handle,
+--                               vm_sync_signal_point);
+--      ret = csf_attach_sync_points(batch, vm_sync_handle, vm_sync_signal_point);
+-+                               qsignal_point[PANFROST_CSF_FRAG_QUEUE]);
+-+      ret = csf_attach_sync_points(batch, vm_sync_handle,
+-+                                   qsignal_point[PANFROST_CSF_VTC_QUEUE],
+-+                                   qsignal_point[PANFROST_CSF_FRAG_QUEUE]);
+-    } else {
+-       csf_check_ctx_state_and_reinit(batch->ctx);
+-    }
+- 
+- out_free_syncops:
+--   util_dynarray_fini(&syncops);
+-+   for (unsigned i = 0; i < ARRAY_SIZE(syncops_storage); i++)
+-+      util_dynarray_fini(&syncops_storage[i]);
+-+
+-    return ret;
+- }
+- 
+-@@ -470,24 +612,36 @@ void
+- GENX(csf_emit_fragment_job)(struct panfrost_batch *batch,
+-                             const struct pan_fb_info *pfb)
+- {
+--   struct cs_builder *b = batch->csf.cs.builder;
+-+   struct cs_builder *vtc_b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+-+   struct cs_builder *frag_b = batch->csf.cs[PANFROST_CSF_FRAG_QUEUE].builder;
+- 
+-    if (batch->draw_count > 0) {
+-+      mali_ptr syncobj_addr = batch->csf.tiler_frag_sync;
+-+
+-       /* Finish tiling and wait for IDVS and tiling */
+--      cs_finish_tiling(b, false);
+--      cs_wait_slot(b, 2, false);
+--      cs_vt_end(b, cs_now());
+-+      cs_finish_tiling(vtc_b, false);
+-+      cs_vt_end(vtc_b, cs_defer(BITFIELD_BIT(2), 1));
+-+
+-+      cs_move48_to(vtc_b, cs_reg64(vtc_b, 90), syncobj_addr);
+-+      cs_move32_to(vtc_b, cs_reg32(vtc_b, 89), 1);
+-+      cs_sync32_set(vtc_b, true, MALI_CS_SYNC_SCOPE_CSG, cs_reg32(vtc_b, 89),
+-+                    cs_reg64(vtc_b, 90), cs_defer(BITFIELD_BIT(1), 3));
+-+
+-+      cs_move48_to(frag_b, cs_reg64(frag_b, 90), syncobj_addr);
+-+      cs_move32_to(frag_b, cs_reg32(frag_b, 89), 0);
+-+      cs_sync32_wait(frag_b, false, MALI_CS_CONDITION_GREATER,
+-+                     cs_reg32(frag_b, 89), cs_reg64(frag_b, 90));
+-    }
+- 
+-    /* Set up the fragment job */
+--   cs_move64_to(b, cs_reg64(b, 40), batch->framebuffer.gpu);
+--   cs_move32_to(b, cs_reg32(b, 42), (batch->miny << 16) | batch->minx);
+--   cs_move32_to(b, cs_reg32(b, 43),
+-+   cs_move64_to(frag_b, cs_reg64(frag_b, 40), batch->framebuffer.gpu);
+-+   cs_move32_to(frag_b, cs_reg32(frag_b, 42),
+-+                (batch->miny << 16) | batch->minx);
+-+   cs_move32_to(frag_b, cs_reg32(frag_b, 43),
+-                 ((batch->maxy - 1) << 16) | (batch->maxx - 1));
+- 
+-    /* Run the fragment job and wait */
+--   cs_run_fragment(b, false, MALI_TILE_RENDER_ORDER_Z_ORDER, false);
+--   cs_wait_slot(b, 2, false);
+-+   cs_run_fragment(frag_b, false, MALI_TILE_RENDER_ORDER_Z_ORDER, false);
+- 
+-    /* Gather freed heap chunks and add them to the heap context free list
+-     * so they can be re-used next time the tiler heap runs out of chunks.
+-@@ -496,11 +650,12 @@ GENX(csf_emit_fragment_job)(struct panfrost_batch *batch,
+-     * (completed_{top,bottom fields}). */
+-    if (batch->draw_count > 0) {
+-       assert(batch->tiler_ctx.bifrost);
+--      cs_move64_to(b, cs_reg64(b, 90), batch->tiler_ctx.bifrost);
+--      cs_load_to(b, cs_reg_tuple(b, 86, 4), cs_reg64(b, 90), BITFIELD_MASK(4),
+--                 40);
+--      cs_wait_slot(b, 0, false);
+--      cs_finish_fragment(b, true, cs_reg64(b, 86), cs_reg64(b, 88), cs_now());
+-+      cs_move64_to(frag_b, cs_reg64(frag_b, 90), batch->tiler_ctx.bifrost);
+-+      cs_load_to(frag_b, cs_reg_tuple(frag_b, 86, 4), cs_reg64(frag_b, 90),
+-+                 BITFIELD_MASK(4), 40);
+-+      cs_wait_slot(frag_b, 0, false);
+-+      cs_finish_fragment(frag_b, true, cs_reg64(frag_b, 86),
+-+                         cs_reg64(frag_b, 88), cs_defer(BITFIELD_BIT(2), 1));
+-    }
+- }
+- 
+-@@ -516,7 +671,7 @@ csf_emit_shader_regs(struct panfrost_batch *batch, enum pipe_shader_type stage,
+-    unsigned offset = (stage == PIPE_SHADER_FRAGMENT) ? 4 : 0;
+-    unsigned fau_count = DIV_ROUND_UP(batch->nr_push_uniforms[stage], 2);
+- 
+--   struct cs_builder *b = batch->csf.cs.builder;
+-+   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+-    cs_move64_to(b, cs_reg64(b, 0 + offset), resources);
+-    cs_move64_to(b, cs_reg64(b, 8 + offset),
+-                 batch->push_uniforms[stage] | ((uint64_t)fau_count << 56));
+-@@ -534,7 +689,7 @@ GENX(csf_launch_grid)(struct panfrost_batch *batch,
+-    struct panfrost_context *ctx = batch->ctx;
+-    struct panfrost_device *dev = pan_device(ctx->base.screen);
+-    struct panfrost_compiled_shader *cs = ctx->prog[PIPE_SHADER_COMPUTE];
+--   struct cs_builder *b = batch->csf.cs.builder;
+-+   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+- 
+-    csf_emit_shader_regs(batch, PIPE_SHADER_COMPUTE,
+-                         batch->rsd[PIPE_SHADER_COMPUTE]);
+-@@ -640,7 +795,7 @@ void
+- GENX(csf_launch_xfb)(struct panfrost_batch *batch,
+-                      const struct pipe_draw_info *info, unsigned count)
+- {
+--   struct cs_builder *b = batch->csf.cs.builder;
+-+   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+- 
+-    cs_move64_to(b, cs_reg64(b, 24), batch->tls.gpu);
+- 
+-@@ -732,10 +887,10 @@ GENX(csf_launch_draw)(struct panfrost_batch *batch,
+- 
+-    assert(idvs && "IDVS required for CSF");
+- 
+--   struct cs_builder *b = batch->csf.cs.builder;
+-+   struct cs_builder *b = batch->csf.cs[PANFROST_CSF_VTC_QUEUE].builder;
+- 
+-    if (batch->draw_count == 0)
+--      cs_vt_start(batch->csf.cs.builder, cs_now());
+-+      cs_vt_start(b, cs_now());
+- 
+-    csf_emit_shader_regs(batch, PIPE_SHADER_VERTEX,
+-                         panfrost_get_position_shader(batch, info));
+-@@ -947,10 +1102,16 @@ void
+- GENX(csf_init_context)(struct panfrost_context *ctx)
+- {
+-    struct panfrost_device *dev = pan_device(ctx->base.screen);
+--   struct drm_panthor_queue_create qc[] = {{
+--      .priority = 1,
+--      .ringbuf_size = 64 * 1024,
+--   }};
+-+   struct drm_panthor_queue_create qc[] = {
+-+      {
+-+         .priority = 1,
+-+         .ringbuf_size = 64 * 1024,
+-+      },
+-+      {
+-+         .priority = 1,
+-+         .ringbuf_size = 64 * 1024,
+-+      },
+-+   };
+- 
+-    struct drm_panthor_group_create gc = {
+-       .compute_core_mask = dev->kmod.props.shader_present,
+-@@ -1024,29 +1185,34 @@ GENX(csf_init_context)(struct panfrost_context *ctx)
+-    cs_move64_to(&b, heap, thc.tiler_heap_ctx_gpu_va);
+-    cs_heap_set(&b, heap);
+- 
+--   struct drm_panthor_queue_submit qsubmit;
+--   struct drm_panthor_group_submit gsubmit;
+--   struct drm_panthor_sync_op sync = {
+--      .flags =
+--         DRM_PANTHOR_SYNC_OP_SIGNAL | DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_SYNCOBJ,
+--      .handle = ctx->syncobj,
+--   };
+--
+-    assert(cs_is_valid(&b));
+-+
+-    cs_finish(&b);
+- 
+-    uint32_t cs_instr_count = b.root_chunk.size;
+-    uint64_t cs_start = b.root_chunk.buffer.gpu;
+-    uint32_t cs_size = cs_instr_count * 8;
+- 
+--   csf_prepare_qsubmit(ctx, &qsubmit, 0, cs_start, cs_size, &sync, 1);
+--   csf_prepare_gsubmit(ctx, &gsubmit, &qsubmit, 1);
+--   ret = csf_submit_gsubmit(ctx, &gsubmit);
+--   assert(!ret);
+-+   for (unsigned i = 0; i < 2; i++) {
+-+      struct drm_panthor_group_submit gsubmit;
+-+      struct drm_panthor_queue_submit qsubmit;
+-+      struct drm_panthor_sync_op sync = {
+-+         .flags = DRM_PANTHOR_SYNC_OP_SIGNAL |
+-+                  DRM_PANTHOR_SYNC_OP_HANDLE_TYPE_SYNCOBJ,
+-+         .handle = ctx->syncobj,
+-+      };
+-+
+-+      csf_prepare_qsubmit(ctx, &qsubmit, i, cs_start, cs_size,
+-+                          panthor_kmod_get_flush_id(dev->kmod.dev), &sync, 1);
+-+      csf_prepare_gsubmit(ctx, &gsubmit, &qsubmit, 1);
+-+      ret = csf_submit_gsubmit(ctx, &gsubmit);
+-+      assert(!ret);
+-+
+-+      /* Wait before freeing the buffer. */
+-+      drmSyncobjWait(panfrost_device_fd(dev), &ctx->syncobj, 1, INT64_MAX, 0,
+-+                     NULL);
+-+   }
+- 
+--   /* Wait before freeing the buffer. */
+--   drmSyncobjWait(panfrost_device_fd(dev), &ctx->syncobj, 1, INT64_MAX, 0,
+--                  NULL);
+-    panfrost_bo_unreference(cs_bo);
+- }
+- 
+-diff --git a/src/gallium/drivers/panfrost/pan_csf.h b/src/gallium/drivers/panfrost/pan_csf.h
+-index ee03219ddc7f6..cb922c8693a12 100644
+---- a/src/gallium/drivers/panfrost/pan_csf.h
+-+++ b/src/gallium/drivers/panfrost/pan_csf.h
+-@@ -32,19 +32,33 @@
+- 
+- struct cs_builder;
+- 
+-+enum panfrost_csf_queue_id {
+-+   /* Vertex/tiler/compute queue. */
+-+   PANFROST_CSF_VTC_QUEUE,
+-+   PANFROST_CSF_FRAG_QUEUE,
+-+   PANFROST_CSF_QUEUE_COUNT,
+-+};
+-+
+- struct panfrost_csf_batch {
+-    /* CS related fields. */
+-    struct {
+-       /* CS builder. */
+-       struct cs_builder *builder;
+- 
+--      /* CS state, written through the CS, and checked when PAN_MESA_DEBUG=sync.
+-+      /* CS state, written through the CS, and checked when
+-+       * PAN_MESA_DEBUG=sync.
+-        */
+-       struct panfrost_ptr state;
+--   } cs;
+-+
+-+      /* Flush ID saved at cs_finish() time. */
+-+      uint32_t flush_id;
+-+   } cs[PANFROST_CSF_QUEUE_COUNT];
+- 
+-    /* Pool used to allocate CS chunks. */
+-    struct panfrost_pool cs_chunk_pool;
+-+
+-+   /* Tiler -> fragment sync object. */
+-+   mali_ptr tiler_frag_sync;
+- };
+- 
+- struct panfrost_csf_context {
+--- 
+-GitLab
+-
+-
+diff --git a/packages/graphics/mesa/patches/p2.patch.dis b/packages/graphics/mesa/patches/p2.patch.dis
+deleted file mode 100644
+index 6c0dcafe19..0000000000
+--- a/packages/graphics/mesa/patches/p2.patch.dis
++++ /dev/null
+@@ -1,23 +0,0 @@
+-From 832c3c7117e4366e415ded92a6f07ec203fd9233 Mon Sep 17 00:00:00 2001
+-From: boogie <boogiepop@gmx.com>
+-Date: Mon, 20 Nov 2023 22:48:56 +0100
+-Subject: [PATCH] panfrost: disable native fences, it is not implemented in
+- panfork
+-
+----
+- src/gallium/drivers/panfrost/pan_screen.c | 2 +-
+- 1 file changed, 1 insertion(+), 1 deletion(-)
+-
+-diff --git a/src/gallium/drivers/panfrost/pan_screen.c b/src/gallium/drivers/panfrost/pan_screen.c
+-index ea315f8be64..39e578601ba 100644
+---- a/src/gallium/drivers/panfrost/pan_screen.c
+-+++ b/src/gallium/drivers/panfrost/pan_screen.c
+-@@ -362,7 +362,7 @@
+-       return 1;
+- 
+-    case PIPE_CAP_NATIVE_FENCE_FD:
+--      return 1;
+-+      return 0;
+- 
+-    default:
+-       return u_pipe_screen_get_param_defaults(screen, param);
+diff --git a/packages/multimedia/ffmpeg/package.mk b/packages/multimedia/ffmpeg/package.mk
+index c03a4662be..2fa65a2030 100644
+--- a/packages/multimedia/ffmpeg/package.mk
++++ b/packages/multimedia/ffmpeg/package.mk
+@@ -3,7 +3,7 @@
+ # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
+ 
+ PKG_NAME="ffmpeg"
+-PKG_VERSION="09cd2a2d18f0b2b557976b8e66ec2fd71e21db1a"
++PKG_VERSION="9efe5bcff082d6538702d01c9b7126f40da27361"
+ PKG_SHA256=""
+ PKG_LICENSE="GPL-3.0-only"
+ PKG_SITE="https://ffmpeg.org"
+diff --git a/packages/multimedia/rkmpp/package.mk b/packages/multimedia/rkmpp/package.mk
+index 48913cc5ff..14a31f0b25 100755
+--- a/packages/multimedia/rkmpp/package.mk
++++ b/packages/multimedia/rkmpp/package.mk
+@@ -2,7 +2,7 @@
+ # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
+ 
+ PKG_NAME="rkmpp"
+-PKG_VERSION="4cc3fb25f72fd862596743778575b1aae5b2e9aa"
++PKG_VERSION="1f256cfd5a6393f140585bb957fb786c9b5d7dbc"
+ PKG_SHA256=""
+ PKG_ARCH="arm aarch64"
+ PKG_LICENSE="APL"
+diff --git a/packages/multimedia/rkmpp/patches/dma-heap.patch b/packages/multimedia/rkmpp/patches/dma-heap.patch
+index f263bca3f7..cc7bb2d099 100644
+--- a/packages/multimedia/rkmpp/patches/dma-heap.patch
++++ b/packages/multimedia/rkmpp/patches/dma-heap.patch
+@@ -1,7 +1,7 @@
+-From 6e76ecb50ab85b7c3de9368903e687b6aa21aad2 Mon Sep 17 00:00:00 2001
++From fa3a01ea02bd4021bc5475977e87a18412026968 Mon Sep 17 00:00:00 2001
+ From: nyanmisaka <nst799610810@gmail.com>
+-Date: Wed, 13 Mar 2024 14:08:20 +0800
+-Subject: [PATCH 1/8] fix[h264d]: Update hor align to 64 for high10 and rga3
++Date: Tue, 9 Apr 2024 18:22:19 +0800
++Subject: [PATCH 1/6] fix[h264d]: Update hor align to 64 for high10 and rga3
+  use case
+ 
+ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+@@ -9,14 +9,13 @@ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+  mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c | 2 +-
+  mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c | 2 +-
+  mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c | 2 +-
+- mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c | 2 +-
+- 4 files changed, 4 insertions(+), 4 deletions(-)
++ 3 files changed, 3 insertions(+), 3 deletions(-)
+ 
+ diff --git a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+-index 2e1adfcd..4c83033a 100644
++index 217aeac9..1c73f587 100644
+ --- a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+ +++ b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
+-@@ -230,7 +230,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
++@@ -229,7 +229,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+  
+  static RK_U32 rkv_hor_align(RK_U32 val)
+  {
+@@ -26,10 +25,10 @@ index 2e1adfcd..4c83033a 100644
+  
+  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+ diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+-index e5325ef9..55f96cd5 100644
++index ac303fba..e338a0c7 100644
+ --- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+ +++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
+-@@ -328,7 +328,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
++@@ -329,7 +329,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+  
+  static RK_U32 rkv_hor_align(RK_U32 val)
+  {
+@@ -39,23 +38,10 @@ index e5325ef9..55f96cd5 100644
+  
+  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+ diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+-index b9a3a3ee..b2e6f8fb 100644
++index b20ddbed..277999ee 100644
+ --- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+ +++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
+-@@ -334,7 +334,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+- 
+- static RK_U32 rkv_hor_align(RK_U32 val)
+- {
+--    return MPP_ALIGN(val, 16);
+-+    return MPP_ALIGN(val, 64); // align to 64 for h264 high10
+- }
+- 
+- static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+-diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c
+-index 99b86bd0..7f7a8a72 100644
+---- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c
+-+++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu383.c
+-@@ -116,7 +116,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
++@@ -335,7 +335,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+  
+  static RK_U32 rkv_hor_align(RK_U32 val)
+  {
+@@ -65,10 +51,10 @@ index 99b86bd0..7f7a8a72 100644
+  
+  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
+ 
+-From 72c01b4c5b8d139a82b09caa865f57b9dcac43e2 Mon Sep 17 00:00:00 2001
++From e63b8934e90aeacc5f1eb801406625bcfb28f50b Mon Sep 17 00:00:00 2001
+ From: nyanmisaka <nst799610810@gmail.com>
+ Date: Tue, 26 Sep 2023 23:21:26 +0800
+-Subject: [PATCH 2/8] Revert "fix[hal_vp9d]: not support fast mode for rk3588"
++Subject: [PATCH 2/6] Revert "fix[hal_vp9d]: not support fast mode for rk3588"
+ 
+ This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
+ ---
+@@ -76,10 +62,10 @@ This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
+  1 file changed, 1 insertion(+), 1 deletion(-)
+ 
+ diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+-index 1dafaec6..181eb601 100644
++index e02039d7..2233a06e 100644
+ --- a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+ +++ b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
+-@@ -57,7 +57,7 @@ MPP_RET hal_vp9d_init(void *ctx, MppHalCfg *cfg)
++@@ -59,7 +59,7 @@ MPP_RET hal_vp9d_init(void *ctx, MppHalCfg *cfg)
+          p->api = &hal_vp9d_vdpu34x;
+          cfg->support_fast_mode = 1;
+          if (mpp_get_soc_type() == ROCKCHIP_SOC_RK3588)
+@@ -89,10 +75,10 @@ index 1dafaec6..181eb601 100644
+          p->api = &hal_vp9d_rkv;
+          cfg->support_fast_mode = 0;
+ 
+-From bc26805adfd69dbfb8cd36205dd5c3077bcddc82 Mon Sep 17 00:00:00 2001
++From a47d0d98b6b29b4698223df5db0214ddcf6b5ad3 Mon Sep 17 00:00:00 2001
+ From: nyanmisaka <nst799610810@gmail.com>
+ Date: Sun, 10 Dec 2023 17:01:42 +0800
+-Subject: [PATCH 3/8] fix[allocator]: Fix validating dma_heap drivers
++Subject: [PATCH 3/6] fix[allocator]: Fix validating dma_heap drivers
+ 
+ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+ ---
+@@ -115,21 +101,21 @@ index c2379963..123b2569 100644
+      if (!allocator_valid[MPP_BUFFER_TYPE_ION] &&
+          !allocator_valid[MPP_BUFFER_TYPE_DRM] &&
+ 
+-From 04719587d4fd60ea1d5f13087b2e830f1f3e9dce Mon Sep 17 00:00:00 2001
++From aa8f7f7d7c72c7cd9a0549aa7f5a5f9e3928ce73 Mon Sep 17 00:00:00 2001
+ From: nyanmisaka <nst799610810@gmail.com>
+-Date: Sun, 17 Dec 2023 01:44:02 +0800
+-Subject: [PATCH 4/8] fix[mpp]: Fix NULL pointer warning
++Date: Wed, 22 May 2024 22:46:08 +0800
++Subject: [PATCH 4/6] fix[mpp]: Fix NULL pointer warning
+ 
+ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+ ---
+- mpp/mpp.cpp | 3 ++-
+- 1 file changed, 2 insertions(+), 1 deletion(-)
++ mpp/mpp.cpp | 6 ++++--
++ 1 file changed, 4 insertions(+), 2 deletions(-)
+ 
+ diff --git a/mpp/mpp.cpp b/mpp/mpp.cpp
+-index 7b217a3f..04c3ea9d 100644
++index 9bac8578..7fc3d3a1 100644
+ --- a/mpp/mpp.cpp
+ +++ b/mpp/mpp.cpp
+-@@ -785,7 +785,8 @@ MPP_RET Mpp::get_packet(MppPacket *packet)
++@@ -787,7 +787,8 @@ MPP_RET Mpp::get_packet(MppPacket *packet)
+          MppBuffer buf = impl->buffer;
+          RK_U32 offset = (RK_U32)((char *)impl->pos - (char *)impl->data);
+  
+@@ -137,13 +123,23 @@ index 7b217a3f..04c3ea9d 100644
+ +        if (buf)
+ +            mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
+  
+-         mpp_dbg_pts("pts %lld\n", impl->pts);
++         mpp_dbg_pts("%p output packet pts %lld\n", this, impl->pts);
+      }
++@@ -864,7 +865,8 @@ MPP_RET Mpp::get_packet_async(MppPacket *packet)
++ 
++         impl = (MppPacketImpl *)pkt;
++         offset = (RK_U32)((char *)impl->pos - (char *)impl->data);
++-        mpp_buffer_sync_ro_partial_begin(impl->buffer, offset, impl->length);
+++        if (impl->buffer)
+++            mpp_buffer_sync_ro_partial_begin(impl->buffer, offset, impl->length);
++     } else {
++         AutoMutex autoFrameLock(mFrmIn->mutex());
++ 
+ 
+-From 6c0ac707e5a667c67ace7783844c9cc879138662 Mon Sep 17 00:00:00 2001
++From bfe37cfab16d7d0c9f424ee95a26fa1050e4d2df Mon Sep 17 00:00:00 2001
+ From: nyanmisaka <nst799610810@gmail.com>
+ Date: Fri, 5 Jan 2024 10:27:39 +0800
+-Subject: [PATCH 5/8] fix[mpp_buf_slot]: Support FBC buffer size calc for NV20
++Subject: [PATCH 5/6] fix[mpp_buf_slot]: Support FBC buffer size calc for NV20
+ 
+ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+ ---
+@@ -151,7 +147,7 @@ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+  1 file changed, 5 insertions(+), 1 deletion(-)
+ 
+ diff --git a/mpp/base/mpp_buf_slot.cpp b/mpp/base/mpp_buf_slot.cpp
+-index becf30d3..ad54858d 100644
++index 4a48b880..b33c064f 100644
+ --- a/mpp/base/mpp_buf_slot.cpp
+ +++ b/mpp/base/mpp_buf_slot.cpp
+ @@ -304,7 +304,8 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+@@ -175,23 +171,22 @@ index becf30d3..ad54858d 100644
+              size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 12);
+          } break;
+ 
+-From 6221ca89d9837935edbc56af46cf651bd3c5b6cf Mon Sep 17 00:00:00 2001
++From d1078ad2b69dadd405457543833c0f894bd82523 Mon Sep 17 00:00:00 2001
+ From: nyanmisaka <nst799610810@gmail.com>
+-Date: Wed, 13 Mar 2024 14:13:29 +0800
+-Subject: [PATCH 6/8] fix[av1d]: Update hor align to 64 for main 10bit and rga3
++Date: Tue, 9 Apr 2024 18:24:53 +0800
++Subject: [PATCH 6/6] fix[av1d]: Update hor align to 64 for main 10bit and rga3
+  use case
+ 
+ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+ ---
+- mpp/hal/vpu/av1d/hal_av1d_vdpu.c    | 2 +-
+- mpp/hal/vpu/av1d/hal_av1d_vdpu383.c | 2 +-
+- 2 files changed, 2 insertions(+), 2 deletions(-)
++ mpp/hal/vpu/av1d/hal_av1d_vdpu.c | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
+ 
+ diff --git a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+-index 1208f74d..3f25480f 100644
++index 5b6e1f9a..c1e6edb1 100644
+ --- a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+ +++ b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
+-@@ -116,7 +116,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
++@@ -115,7 +115,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+  
+  static RK_U32 rkv_hor_align(RK_U32 val)
+  {
+@@ -200,17 +195,4 @@ index 1208f74d..3f25480f 100644
+  }
+  
+  static RK_U32 rkv_len_align(RK_U32 val)
+-diff --git a/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c b/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c
+-index 1347da70..8586a890 100644
+---- a/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c
+-+++ b/mpp/hal/vpu/av1d/hal_av1d_vdpu383.c
+-@@ -1264,7 +1264,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
+- 
+- static RK_U32 rkv_hor_align(RK_U32 val)
+- {
+--    return MPP_ALIGN(val, 8);
+-+    return MPP_ALIGN(val, 64); // align to 64 for av1 main 10bit
+- }
+- 
+- static RK_U32 rkv_len_align(RK_U32 val)
+ 
+diff --git a/packages/multimedia/rkmpp/patches/dma-heap.patch.dis b/packages/multimedia/rkmpp/patches/dma-heap.patch.dis
+deleted file mode 100644
+index c4c349900b..0000000000
+--- a/packages/multimedia/rkmpp/patches/dma-heap.patch.dis
++++ /dev/null
+@@ -1,25 +0,0 @@
+-From bc26805adfd69dbfb8cd36205dd5c3077bcddc82 Mon Sep 17 00:00:00 2001
+-From: nyanmisaka <nst799610810@gmail.com>
+-Date: Sun, 10 Dec 2023 17:01:42 +0800
+-Subject: [PATCH 3/8] fix[allocator]: Fix validating dma_heap drivers
+-
+-Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+----
+- osal/mpp_runtime.cpp | 4 +++-
+- 1 file changed, 3 insertions(+), 1 deletion(-)
+-
+-diff --git a/osal/mpp_runtime.cpp b/osal/mpp_runtime.cpp
+-index c2379963..123b2569 100644
+---- a/osal/mpp_runtime.cpp
+-+++ b/osal/mpp_runtime.cpp
+-@@ -86,7 +86,9 @@ MppRuntimeService::MppRuntimeService()
+-     allocator_valid[MPP_BUFFER_TYPE_NORMAL] = 1;
+-     allocator_valid[MPP_BUFFER_TYPE_ION] = !access("/dev/ion", F_OK | R_OK | W_OK);
+-     allocator_valid[MPP_BUFFER_TYPE_DRM] = !access("/dev/dri/card0", F_OK | R_OK | W_OK);
+--    allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap", F_OK | R_OK);
+-+    allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap/system-dma32", F_OK | R_OK) ||
+-+                                                !access("/dev/dma_heap/system-uncached", F_OK | R_OK) ||
+-+                                                !access("/dev/dma_heap/system-uncached-dma32", F_OK | R_OK);
+- 
+-     if (!allocator_valid[MPP_BUFFER_TYPE_ION] &&
+-         !allocator_valid[MPP_BUFFER_TYPE_DRM] &&
+diff --git a/packages/python/devel/waf/package.mk b/packages/python/devel/waf/package.mk
+index fcf8321e1f..a2d29c8cb3 100644
+--- a/packages/python/devel/waf/package.mk
++++ b/packages/python/devel/waf/package.mk
+@@ -7,6 +7,7 @@ PKG_SHA256="c33d19c1bdfae1b078edaef2fab19b1bc734294edd4cc005d4881e9d53ed219c"
+ PKG_LICENSE="MIT"
+ PKG_SITE="https://waf.io"
+ PKG_URL="https://waf.io/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
++PKG_DEPENDS_HOST="toolchain:host"
+ PKG_LONGDESC="The Waf build system"
+ PKG_TOOLCHAIN="manual"
+ 
+diff --git a/packages/python/graphics/Pillow/package.mk b/packages/python/graphics/Pillow/package.mk
+index 0f39c6bb2a..d2e2cbf822 100644
+--- a/packages/python/graphics/Pillow/package.mk
++++ b/packages/python/graphics/Pillow/package.mk
+@@ -8,7 +8,7 @@ PKG_SHA256="fe695f6fa8bbc341b9044b6553a32d84cf6d6ea0de104396aece85e454c7cbc2"
+ PKG_LICENSE="BSD"
+ PKG_SITE="https://python-pillow.org/"
+ PKG_URL="https://github.com/python-pillow/${PKG_NAME}/archive/${PKG_VERSION}.tar.gz"
+-PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host zlib freetype libjpeg-turbo tiff"
++PKG_DEPENDS_TARGET="toolchain Python3 distutilscross:host zlib freetype libjpeg-turbo tiff libwebp"
+ PKG_LONGDESC="The Python Imaging Library adds image processing capabilities to your Python interpreter."
+ PKG_TOOLCHAIN="manual"
+ 
+diff --git a/packages/supervisedthinking/oem/Rockchip/package.mk b/packages/supervisedthinking/oem/Rockchip/package.mk
+index 65c116e785..310fa951bf 100644
+--- a/packages/supervisedthinking/oem/Rockchip/package.mk
++++ b/packages/supervisedthinking/oem/Rockchip/package.mk
+@@ -5,7 +5,7 @@ PKG_NAME="Rockchip"
+ PKG_VERSION="1.0.9"
+ PKG_LICENSE="GPL-2.0-or-later"
+ PKG_SITE="https://bit.ly/3vL5rH3"
+-PKG_DEPENDS_TARGET="toolchain retroarch emulationstation flycast vice-libretro snes9x scummvm mame2010 pcsx_rearmed ppsspp mupen64plus-nx dosbox-staging citra-sa amiberry  dolphin-libretro raze rr-config-tool midnight-commander htop-system glmark2 ffmpegx mpv-drmprime"
++PKG_DEPENDS_TARGET="toolchain retroarch emulationstation  vice-libretro snes9x scummvm mame2010 pcsx_rearmed ppsspp mupen64plus-nx dosbox-staging citra-sa amiberry  dolphin-libretro raze rr-config-tool midnight-commander htop-system glmark2 ffmpegx mpv-drmprime flycast"
+ PKG_LONGDESC="Metapackage for various LibreELEC-RR OEM packages"
+ PKG_TOOLCHAIN="manual"
+  
+diff --git a/projects/Rockchip/devices/RK3588/linux/linux.aarch64.conf b/projects/Rockchip/devices/RK3588/linux/linux.aarch64.conf
+index 3588b5a039..71f6a71a95 100644
+--- a/projects/Rockchip/devices/RK3588/linux/linux.aarch64.conf
++++ b/projects/Rockchip/devices/RK3588/linux/linux.aarch64.conf
+@@ -568,9 +568,9 @@ CONFIG_CPU_FREQ_STAT=y
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_PERFORMANCE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_POWERSAVE is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_USERSPACE is not set
+-# CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND is not set
++CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND=y
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE is not set
+-CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
++# CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL is not set
+ # CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE is not set
+ CONFIG_CPU_FREQ_GOV_PERFORMANCE=y
+ CONFIG_CPU_FREQ_GOV_POWERSAVE=y
+@@ -4425,7 +4425,7 @@ CONFIG_ROCKCHIP_CIF_WORKMODE_PINGPONG=y
+ CONFIG_ROCKCHIP_CIF_USE_DUMMY_BUF=y
+ # CONFIG_ROCKCHIP_CIF_USE_NONE_DUMMY_BUF is not set
+ # CONFIG_ROCKCHIP_CIF_USE_MONITOR is not set
+-# CONFIG_VIDEO_ROCKCHIP_RKISP1 is not set
++CONFIG_VIDEO_ROCKCHIP_RKISP1=y
+ CONFIG_VIDEO_ROCKCHIP_ISP=y
+ CONFIG_VIDEO_ROCKCHIP_ISP_VERSION_V1X=y
+ # CONFIG_VIDEO_ROCKCHIP_ISP_VERSION_V20 is not set
+@@ -5052,7 +5052,7 @@ CONFIG_DRM_PANTHOR=m
+ CONFIG_ROCKCHIP_REGULATOR_COUPLER=y
+ 
+ CONFIG_DRM_EDID=y
+-CONFIG_DRM_IGNORE_IOTCL_PERMIT=y
++# CONFIG_DRM_IGNORE_IOTCL_PERMIT is not set
+ CONFIG_DRM_MIPI_DSI=y
+ # CONFIG_DRM_DEBUG_MM is not set
+ CONFIG_DRM_KMS_HELPER=y
+@@ -5610,7 +5610,8 @@ CONFIG_SND_SOC_ROCKCHIP_I2S_TDM=y
+ # CONFIG_SND_SOC_ROCKCHIP_I2S_TDM_MULTI_LANES is not set
+ # CONFIG_SND_SOC_ROCKCHIP_MULTI_DAIS is not set
+ CONFIG_SND_SOC_ROCKCHIP_PDM=y
+-# CONFIG_SND_SOC_ROCKCHIP_SAI is not set
++CONFIG_SND_SOC_ROCKCHIP_SAI=y
++# CONFIG_SND_SOC_ROCKCHIP_SAI_VERBOSE is not set
+ CONFIG_SND_SOC_ROCKCHIP_SPDIF=y
+ CONFIG_SND_SOC_ROCKCHIP_SPDIFRX=y
+ # CONFIG_SND_SOC_ROCKCHIP_VAD is not set

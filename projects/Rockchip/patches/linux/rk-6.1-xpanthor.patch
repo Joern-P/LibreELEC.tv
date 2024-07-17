@@ -51,15 +51,15 @@ index 063b0c891c9d0..23eba2a9ef06f 100644
  
  		if (!queue)
  			continue;
-@@ -2739,11 +2741,14 @@ static void group_sync_upd_work(struct work_struct *work)
- 			if (!job->call_info.size)
- 				continue;
+@@ -2799,11 +2799,14 @@
  
+ 		spin_lock(&queue->fence_ctx.lock);
+ 		list_for_each_entry_safe(job, job_tmp, &queue->fence_ctx.in_flight_jobs, node) {
 -			if (syncobj->seqno < job->done_fence->seqno)
 +			if (syncobj->seqno < job->done_fence->seqno) {
 +				requeue = signaled;
  				break;
-+			}
++			}	
  
  			list_move_tail(&job->node, &done_jobs);
  			dma_fence_signal_locked(job->done_fence);

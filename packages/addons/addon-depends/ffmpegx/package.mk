@@ -138,6 +138,7 @@ configure_target() {
     `#General options` \
     --disable-lzma \
     --disable-alsa \
+    --disable-vulkan \
     ${PKG_FFMPEG_X11_GRAB} \
     \
     `#Toolchain options` \

@@ -3,7 +3,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="09cd2a2d18f0b2b557976b8e66ec2fd71e21db1a"
+PKG_VERSION="9efe5bcff082d6538702d01c9b7126f40da27361"
 PKG_SHA256=""
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
@@ -191,6 +191,7 @@ configure_target() {
               --disable-libx264 \
               --disable-libxavs \
               --disable-libxvid \
+              --disable-vulkan \
               --enable-zlib \
               --enable-asm \
               --disable-altivec \

@@ -37,19 +37,6 @@ configure_package() {
 }
 
 pre_configure_target() {
-  PKG_CMAKE_OPTS_TARGET="-DLIBRETRO=ON \
-                         -DUSE_OPENMP=OFF"
-
-  if [ "$OPENGLES_SUPPORT" = yes ]; then
-    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES=ON"
-  fi
-
-  if [ "$VULKAN_SUPPORT" = yes ]; then
-    PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN=ON"
-  fi
-}
-
-pre_configure_target() {
   PKG_CMAKE_OPTS_TARGET="-D USE_SHARED_ENET=on \
   			 -D USE_UPNP=ON \
                          -D ENABLE_NOGUI=ON \
@@ -66,6 +53,14 @@ pre_configure_target() {
                          
   if [ "${DISPLAYSERVER}" != "x11" ]; then
     PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_X11=OFF"
+  fi
+  
+  if [ "$OPENGLES_SUPPORT" = yes ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D USE_GLES=ON"
+  fi
+
+  if [ "$VULKAN_SUPPORT" = yes ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D USE_VULKAN=ON"
   fi
 }
 
