@@ -1,0 +1,104 @@
+From bc2355cedf1d3bdfd15d86cb854bb3ad395e8221 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Fri, 16 Feb 2024 11:49:23 +0100
+Subject: [PATCH] drm/panthor: high-prio wq
+
+---
+ drivers/gpu/drm/panthor/panthor_sched.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_sched.c b/drivers/gpu/drm/panthor/panthor_sched.c
+index 5f7803b6fc48c..063b0c891c9d0 100644
+--- a/drivers/gpu/drm/panthor/panthor_sched.c
++++ b/drivers/gpu/drm/panthor/panthor_sched.c
+@@ -3486,7 +3486,7 @@ int panthor_sched_init(struct panthor_device *ptdev)
+ 	 * system is running out of memory.
+ 	 */
+ 	sched->heap_alloc_wq = alloc_workqueue("panthor-heap-alloc", WQ_UNBOUND, 0);
+-	sched->wq = alloc_workqueue("panthor-csf-sched", WQ_MEM_RECLAIM | WQ_UNBOUND, 0);
++	sched->wq = alloc_workqueue("panthor-csf-sched", WQ_MEM_RECLAIM | WQ_HIGHPRI/* | WQ_UNBOUND*/, 0);
+ 	if (!sched->wq || !sched->heap_alloc_wq) {
+ 		panthor_sched_fini(&ptdev->base, sched);
+ 		drm_err(&ptdev->base, "Failed to allocate the workqueues");
+From 90e32cc2652ecb26965be2f853edd98a39b6a1c7 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Sun, 18 Feb 2024 21:24:11 +0100
+Subject: [PATCH] drm/panthor: Requeue the sync_upd_work to speed up fence
+ signalling
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+---
+ drivers/gpu/drm/panthor/panthor_sched.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_sched.c b/drivers/gpu/drm/panthor/panthor_sched.c
+index 063b0c891c9d0..23eba2a9ef06f 100644
+--- a/drivers/gpu/drm/panthor/panthor_sched.c
++++ b/drivers/gpu/drm/panthor/panthor_sched.c
+@@ -2720,6 +2720,7 @@ static void group_sync_upd_work(struct work_struct *work)
+ 	struct panthor_group *group =
+ 		container_of(work, struct panthor_group, sync_upd_work);
+ 	struct panthor_job *job, *job_tmp;
++	bool requeue = false;
+ 	LIST_HEAD(done_jobs);
+ 	u32 queue_idx;
+ 	bool cookie;
+@@ -2728,6 +2729,7 @@ static void group_sync_upd_work(struct work_struct *work)
+ 	for (queue_idx = 0; queue_idx < group->queue_count; queue_idx++) {
+ 		struct panthor_queue *queue = group->queues[queue_idx];
+ 		struct panthor_syncobj_64b *syncobj;
++		bool signaled = false;
+ 
+ 		if (!queue)
+ 			continue;
+@@ -2799,11 +2799,14 @@
+ 
+ 		spin_lock(&queue->fence_ctx.lock);
+ 		list_for_each_entry_safe(job, job_tmp, &queue->fence_ctx.in_flight_jobs, node) {
+-			if (syncobj->seqno < job->done_fence->seqno)
++			if (syncobj->seqno < job->done_fence->seqno) {
++				requeue = signaled;
+ 				break;
++			}	
+ 
+ 			list_move_tail(&job->node, &done_jobs);
+ 			dma_fence_signal_locked(job->done_fence);
++			signaled = true;
+ 		}
+ 		spin_unlock(&queue->fence_ctx.lock);
+ 	}
+@@ -2754,6 +2759,12 @@ static void group_sync_upd_work(struct work_struct *work)
+ 		panthor_job_put(&job->base);
+ 	}
+ 
++	/* Pro-actively requeue the work if we signaled at least one fence,
++	 * and we have jobs remaining.
++	 */
++	if (requeue)
++		group_queue_work(group, sync_upd);
++
+ 	group_put(group);
+ } 
+ 
+From 8db8b3f84f357f25d3676ecb754ee18c0a7ed15c Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Sun, 18 Feb 2024 21:24:53 +0100
+Subject: [PATCH] [HACK]drm/rockchip: Remove annoying trace
+
+---
+ drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
+index dd154855a38a7..03f5965ccfc80 100644
+--- a/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
++++ b/drivers/gpu/drm/rockchip/dw_hdmi-rockchip.c
+@@ -879,7 +879,7 @@
+ 	hdmi->link_cfg.add_func = hdmi->add_func;
+ 
+ 	if (!max_frl_rate || (tmdsclk < HDMI20_MAX_RATE && mode.clock < HDMI20_MAX_RATE)) {
+-		dev_info_once(hdmi->dev, "use tmds mode\n");
++		//dev_info_once(hdmi->dev, "use tmds mode\n");
+ 		hdmi->link_cfg.frl_mode = false;
+ 		return;
+ 	}

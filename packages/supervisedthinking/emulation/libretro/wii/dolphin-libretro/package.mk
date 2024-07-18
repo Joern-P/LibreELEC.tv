@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
+
+PKG_NAME="dolphin-libretro"
+PKG_VERSION="2f4b0f7902257d40a054f60b2c670d6e314f2a04"
+PKG_SHA256="5a91f33475c5c2feec1f0f521f148e5c6f186988587520a8d7978660f38a5968"
+PKG_LICENSE="GPL-2.0-or-later"
+PKG_SITE="https://github.com/libretro/dolphin"
+PKG_URL="https://github.com/libretro/dolphin/archive/${PKG_VERSION}.tar.gz"
+PKG_DEPENDS_TARGET="toolchain systemd enet-system bluez lzo alsa-lib ffmpeg curl libpng zlib zstd"
+PKG_LONGDESC="Dolphin is a GameCube / Wii emulator, allowing you to play games for these two platforms on PC with improvements."
+PKG_BUILD_FLAGS="+lto -sysroot"
+
+PKG_LIBNAME="dolphin_libretro.so"
+PKG_LIBPATH="${PKG_LIBNAME}"
+
+configure_package() {
+  # Displayserver Support
+  if [ "${DISPLAYSERVER}" = "x11" ]; then
+    PKG_DEPENDS_TARGET+=" xorg-server"
+  fi
+
+  # OpenGL Support
+  if [ "${OPENGL_SUPPORT}" = "yes" ]; then
+    PKG_DEPENDS_TARGET+=" ${OPENGL}"
+  fi
+
+  # OpenGLES Support
+  if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
+    PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  fi
+
+  # Vulkan Support
+  if [ "${VULKAN_SUPPORT}" = "yes" ]; then
+    PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  fi
+}
+
+pre_configure_target() {
+  PKG_CMAKE_OPTS_TARGET="-D USE_SHARED_ENET=on \
+  			 -D USE_UPNP=ON \
+                         -D ENABLE_NOGUI=ON \
+                         -D ENABLE_QT=OFF \
+                         -D ENABLE_LTO=OFF \
+                         -D ENABLE_GENERIC=OFF \
+                         -D ENABLE_HEADLESS=ON \
+                         -D ENABLE_ALSA=ALSA \
+                         -D ENABLE_PULSEAUDIO=ON \                         
+                         -D USE_DISCORD_PRESENCE=OFF \
+                         -D ENABLE_TESTS=OFF \
+                         -D LIBRETRO=ON"
+                         
+                         
+  if [ "${DISPLAYSERVER}" != "x11" ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D ENABLE_X11=OFF"
+  fi
+  
+  if [ "$OPENGLES_SUPPORT" = yes ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D USE_GLES=ON"
+  fi
+
+  if [ "$VULKAN_SUPPORT" = yes ]; then
+    PKG_CMAKE_OPTS_TARGET+=" -D USE_VULKAN=ON"
+  fi
+}
+
+pre_make_target() {
+  # fix cross compiling
+  find ${PKG_BUILD} -name flags.make -exec sed  -i "s:isystem :I:g" \{} \;
+  find ${PKG_BUILD} -name build.ninja -exec sed -i "s:isystem :I:g" \{} \;
+}
+
+makeinstall_target() {
+  mkdir -p ${INSTALL}/usr/lib/libretro
+    cp -v ${PKG_LIBPATH} ${INSTALL}/usr/lib/libretro/
+}
+
+post_makeinstall_target() {
+  mkdir -p ${INSTALL}/usr/share/retroarch/bios/dolphin-emu
+    cp -vr ${PKG_BUILD}/Data/Sys ${INSTALL}/usr/share/retroarch/bios/dolphin-emu/
+}

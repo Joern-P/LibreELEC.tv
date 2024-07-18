@@ -1,0 +1,55 @@
+diff -uNr a/Common/Data/Format/IniFile.h b/Common/Data/Format/IniFile.h
+--- a/Common/Data/Format/IniFile.h	2023-03-06 12:05:33.000000000 +0100
++++ b/Common/Data/Format/IniFile.h	2023-04-27 11:13:01.568167088 +0200
+@@ -7,6 +7,7 @@
+ #include <istream>
+ #include <map>
+ #include <string>
++#include <cstdint>
+ #include <vector>
+ 
+ #include "Common/File/Path.h"
+diff -uNr a/Common/GPU/OpenGL/GLFeatures.h b/Common/GPU/OpenGL/GLFeatures.h
+--- a/Common/GPU/OpenGL/GLFeatures.h	2023-03-06 12:05:33.000000000 +0100
++++ b/Common/GPU/OpenGL/GLFeatures.h	2023-04-27 11:21:26.205071844 +0200
+@@ -5,6 +5,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ 
+ // TODO: Replace with thin3d's vendor enum.
+ enum {
+diff -uNr a/Common/Net/NetBuffer.h b/Common/Net/NetBuffer.h
+--- a/Common/Net/NetBuffer.h	2023-03-06 12:05:33.000000000 +0100
++++ b/Common/Net/NetBuffer.h	2023-04-27 11:15:21.767227041 +0200
+@@ -1,6 +1,7 @@
+ ﻿#pragma once
+ 
+ #include "Common/Buffer.h"
++#include <cstdint>
+ 
+ namespace net {
+ 
+diff -uNr a/Core/Reporting.h b/Core/Reporting.h
+--- a/Core/Reporting.h	2023-03-06 12:05:34.000000000 +0100
++++ b/Core/Reporting.h	2023-04-27 11:08:58.426033282 +0200
+@@ -18,6 +18,7 @@
+ #pragma once
+ 
+ #include <string>
++#include <cstdint>
+ #include <vector>
+ 
+ #include "Common/CommonTypes.h"
+diff -uNr a/ext/vma/vk_mem_alloc.h b/ext/vma/vk_mem_alloc.h
+--- a/ext/vma/vk_mem_alloc.h	2023-03-06 12:05:33.000000000 +0100
++++ b/ext/vma/vk_mem_alloc.h	2023-04-27 11:18:41.190006765 +0200
+@@ -2702,6 +2702,7 @@
+     #include <cassert> // for assert
+     #include <algorithm> // for min, max
+     #include <mutex>
++    #include <cstdio>
+ #else
+     #include VMA_CONFIGURATION_USER_INCLUDES_H
+ #endif

@@ -28,6 +28,14 @@ case "${LINUX}" in
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
+  rockchip)
+#    PKG_VERSION="8968e142821fbca242f81b20aadac5fbde3c4d47"
+#    PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
+#    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr1"
+    PKG_VERSION="a75e6968ac8e655adc9b2613e248e85a8ef51968"
+    PKG_URL="https://github.com/hbiyik/linux/archive/${PKG_VERSION}.tar.gz"
+    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr3-panthor"
+    ;;
   *)
     PKG_VERSION="6.6.30"
     PKG_SHA256="b66a5b863b0f8669448b74ca83bd641a856f164b29956e539bbcb5fdeeab9cc6"

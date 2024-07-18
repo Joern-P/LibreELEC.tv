@@ -2,13 +2,12 @@
 # setup system defaults
 ################################################################################
 
-  # Bootloader to use (syslinux / u-boot / bcm2835-bootloader)
+  # Bootloader to use (syslinux / u-boot)
     BOOTLOADER="u-boot"
 
-  # U-Boot firmware package(s) to use
-    UBOOT_FIRMWARE="rkbin"
-    UBOOT_FIT_IMAGE="u-boot-rockchip.bin"
-
+  # Kernel extra targets to build
+    KERNEL_UBOOT_EXTRA_TARGET=""
+   
   # Additional kernel make parameters (for example to specify the u-boot loadaddress)
     KERNEL_MAKE_EXTRACMD="dtbs"
 
@@ -17,7 +16,7 @@
 
   # Kernel to use. values can be:
   # default:  default mainline kernel
-    LINUX="${LINUX:-default}"
+    LINUX="rockchip"
 
 ################################################################################
 # setup build defaults
@@ -59,7 +58,7 @@
   # additional Firmware to use (dvb-firmware, misc-firmware, wlan-firmware)
   # Space separated list is supported,
   # e.g. FIRMWARE="dvb-firmware misc-firmware wlan-firmware"
-    FIRMWARE="misc-firmware wlan-firmware dvb-firmware brcmfmac_sdio-firmware"
+    FIRMWARE="misc-firmware wlan-firmware dvb-firmware brcmfmac_sdio-firmware rockchip-firmware"
 
   # additional packages to install
     ADDITIONAL_PACKAGES+=" dtc"

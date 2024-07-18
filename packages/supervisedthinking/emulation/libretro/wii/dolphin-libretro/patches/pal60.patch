@@ -1,0 +1,41 @@
+From d49ada36f8170297c3aae3666ce96cfdb6f79a71 Mon Sep 17 00:00:00 2001
+From: Bobby Smith <33353403+bslenul@users.noreply.github.com>
+Date: Thu, 25 May 2023 12:52:08 +0200
+Subject: [PATCH] Fix refresh rate for PAL GC games with 60Hz option
+
+---
+ Source/Core/DolphinLibretro/Main.cpp    | 6 +-----
+ Source/Core/DolphinLibretro/Options.cpp | 2 +-
+ 2 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/Source/Core/DolphinLibretro/Main.cpp b/Source/Core/DolphinLibretro/Main.cpp
+index 9ce0e4d43ea5..1f861783a7d4 100644
+--- a/Source/Core/DolphinLibretro/Main.cpp
++++ b/Source/Core/DolphinLibretro/Main.cpp
+@@ -295,11 +295,7 @@ bool retro_unserialize(const void* data, size_t size)
+ 
+ unsigned retro_get_region(void)
+ {
+-  if (DiscIO::IsNTSC(SConfig::GetInstance().m_region) ||
+-      (SConfig::GetInstance().bWii && Config::Get(Config::SYSCONF_PAL60)))
+-    return RETRO_REGION_NTSC;
+-
+-  return RETRO_REGION_PAL;
++  return RETRO_REGION_NTSC;
+ }
+ 
+ unsigned retro_api_version()
+diff --git a/Source/Core/DolphinLibretro/Options.cpp b/Source/Core/DolphinLibretro/Options.cpp
+index 47978c2ef959..20db87171e4f 100644
+--- a/Source/Core/DolphinLibretro/Options.cpp
++++ b/Source/Core/DolphinLibretro/Options.cpp
+@@ -130,7 +130,7 @@ Option<ShaderCompilationMode> shaderCompilationMode(
+      {"a-sync UberShaders", ShaderCompilationMode::AsynchronousUberShaders}});
+ Option<bool> waitForShaders("dolphin_wait_for_shaders", "Wait for Shaders before Starting", false);
+ Option<bool> progressiveScan("dolphin_progressive_scan", "Progressive Scan", true);
+-Option<bool> pal60("dolphin_pal60", "PAL60", true);
++Option<bool> pal60("dolphin_pal60", "PAL60 (Wii)", true);
+ Option<int> antiAliasing("dolphin_anti_aliasing", "Anti-Aliasing",
+     {"None", "2x MSAA", "4x MSAA", "8x MSAA", "2x SSAA", "4x SSAA", "8x SSAA"});
+ Option<int> maxAnisotropy("dolphin_max_anisotropy", "Max Anisotropy", {"1x", "2x", "4x", "8x", "16x"});
+

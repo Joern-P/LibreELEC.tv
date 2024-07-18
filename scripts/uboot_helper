@@ -298,6 +298,12 @@ devices = \
         'config': 'rock64-rk3328_defconfig'
       },
     },
+    'RK3588': {
+      'nanopct6': {
+        'dtb': 'rk3588-nanopc-t6.dtb',
+        'config': 'nanopc_t6_defconfig'
+      },
+    },
     'RK3399': {
       'hugsun-x99': {
         'dtb': 'rk3399-hugsun-x99.dtb',

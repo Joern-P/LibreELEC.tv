@@ -3,13 +3,14 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="24.0.9"
-PKG_SHA256="51aa686ca4060e38711a9e8f60c8f1efaa516baf411946ed7f2c265cd582ca4c"
+PKG_VERSION="1ced84063226aa08263d94f812e2b99b6d11e99e"
+PKG_SHA256=""
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
-PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
+PKG_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/main/mesa-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
+
 
 get_graphicdrivers
 
@@ -50,6 +51,10 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
                            -Ddri3=disabled \
                            -Dglx=disabled"
+fi
+
+if listcontains "${GRAPHIC_DRIVERS}" "iris"; then
+  PKG_MESON_OPTS_TARGET+=" -Dintel-xe-kmd=enabled"
 fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "(nvidia|nvidia-ng)"; then
@@ -99,3 +104,4 @@ if [ "${VULKAN_SUPPORT}" = "yes" ]; then
 else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
 fi
+

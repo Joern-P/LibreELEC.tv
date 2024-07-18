@@ -1,0 +1,69 @@
+diff -uNr a/arch/arm64/boot/dts/rockchip/rk3588s.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s.dtsi
+--- a/arch/arm64/boot/dts/rockchip/rk3588s.dtsi	2024-03-23 00:35:08.000000000 +0100
++++ b/arch/arm64/boot/dts/rockchip/rk3588s.dtsi	2024-03-25 11:11:02.931612621 +0100
+@@ -1109,28 +1109,28 @@
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2256000000 {
+-			opp-supported-hw = <0xf9 0x13>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2256000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2304000000 {
+-			opp-supported-hw = <0xf9 0x24>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2304000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2352000000 {
+-			opp-supported-hw = <0xf9 0x48>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2352000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2400000000 {
+-			opp-supported-hw = <0xf9 0x80>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2400000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+@@ -1438,28 +1438,28 @@
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2256000000 {
+-			opp-supported-hw = <0xf9 0x13>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2256000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2304000000 {
+-			opp-supported-hw = <0xf9 0x24>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2304000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2352000000 {
+-			opp-supported-hw = <0xf9 0x48>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2352000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
+ 			clock-latency-ns = <40000>;
+ 		};
+ 		opp-2400000000 {
+-			opp-supported-hw = <0xf9 0x80>;
++			opp-supported-hw = <0xf9 0xffff>;
+ 			opp-hz = /bits/ 64 <2400000000>;
+ 			opp-microvolt = <1000000 1000000 1000000>,
+ 					<1000000 1000000 1000000>;
