@@ -1,0 +1,11 @@
+diff -uNr a/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi	2024-07-18 10:33:24.167410000 +0200
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi	2024-07-19 08:53:18.826880000 +0200
+@@ -673,6 +673,7 @@
+ &vop {
+ 	assigned-clocks = <&cru ACLK_VOP>;
+ 	assigned-clock-rates = <800000000>;
++	vop-supply = <&vdd_log_s0>;
+ 	status = "okay";
+ 	disable-win-move;
+ };
