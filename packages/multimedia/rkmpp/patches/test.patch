@@ -1,7 +1,7 @@
-From f2d6e5c9ad49ef7ef4ec088704cd8e87a09e1fab Mon Sep 17 00:00:00 2001
+From 007d4577a317d82c2e8c3116ed9569e174485684 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Wed, 12 Jun 2024 17:23:34 +0800
-Subject: [PATCH 1/8] Revert "fix[drm]: Fix permission check issue on GKI
+Subject: [PATCH 01/10] Revert "fix[drm]: Fix permission check issue on GKI
  kernel"
 
 Create drm dumb failed on renderD128.
@@ -99,10 +99,10 @@ index 079463e8..c2379963 100644
  
      if (!allocator_valid[MPP_BUFFER_TYPE_ION] &&
 
-From 9c254f49f79ffbcd56accef6c0f9f4fa3a513556 Mon Sep 17 00:00:00 2001
+From 9c82381099f5f18590dd1612cfbd2a59b8e78171 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Wed, 12 Jun 2024 18:48:41 +0800
-Subject: [PATCH 2/8] Revert "fix[mpp]: fix mpp frame leak when async enc"
+Subject: [PATCH 02/10] Revert "fix[mpp]: fix mpp frame leak when async enc"
 
 This reverts commit 822324101cb81507d6aeef9275390a30e6509e1d.
 ---
@@ -145,10 +145,10 @@ index 1e8a5bec..9bac8578 100644
          if (mInputTimeout == MPP_POLL_BUTT)
              mInputTimeout = MPP_POLL_BLOCK;
 
-From 8b4e80785fe402341bbc1bdef8196c7cfa3869dc Mon Sep 17 00:00:00 2001
+From d1a12f4ea4d590619be0a421be179af3b968bd0d Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Tue, 9 Apr 2024 18:22:19 +0800
-Subject: [PATCH 3/8] fix[h264d]: Update hor align to 64 for high10 and rga3
+Subject: [PATCH 03/10] fix[h264d]: Update hor align to 64 for high10 and rga3
  use case
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
@@ -198,10 +198,11 @@ index b20ddbed..277999ee 100644
  
  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
 
-From 5d35d6fcffc6c5f2dd002ebabe5a1b902dc3392c Mon Sep 17 00:00:00 2001
+From a21757e2e6a4935dfea3333c5bb65ed4f28930a7 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Tue, 26 Sep 2023 23:21:26 +0800
-Subject: [PATCH 4/8] Revert "fix[hal_vp9d]: not support fast mode for rk3588"
+Subject: [PATCH 04/10] Revert "fix[hal_vp9d]: not support fast mode for
+ rk3588"
 
 This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
 ---
@@ -222,10 +223,10 @@ index e02039d7..2233a06e 100644
          p->api = &hal_vp9d_rkv;
          cfg->support_fast_mode = 0;
 
-From 8ba6fe3ad726be1104586cd46c6a20b9e31f173a Mon Sep 17 00:00:00 2001
+From ba9dad599285d47ef8c96bc523a961208511d2e1 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Sun, 10 Dec 2023 17:01:42 +0800
-Subject: [PATCH 5/8] fix[allocator]: Fix validating dma_heap drivers
+Subject: [PATCH 05/10] fix[allocator]: Fix validating dma_heap drivers
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
@@ -248,10 +249,10 @@ index c2379963..123b2569 100644
      if (!allocator_valid[MPP_BUFFER_TYPE_ION] &&
          !allocator_valid[MPP_BUFFER_TYPE_DRM] &&
 
-From 6577c67d56fe9f8356170475302c8045ba304949 Mon Sep 17 00:00:00 2001
+From 84040eecb46456c14115ef42ae70393ce3d499ca Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Wed, 22 May 2024 22:46:08 +0800
-Subject: [PATCH 6/8] fix[mpp]: Fix NULL pointer warning
+Subject: [PATCH 06/10] fix[mpp]: Fix NULL pointer warning
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
@@ -283,10 +284,11 @@ index 9bac8578..7fc3d3a1 100644
          AutoMutex autoFrameLock(mFrmIn->mutex());
  
 
-From 8b48858a82b665ff91eac19e47e6d1a7f6fa3541 Mon Sep 17 00:00:00 2001
+From ad0435967db449ff142131f44a73f24bb7cf90fe Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Fri, 5 Jan 2024 10:27:39 +0800
-Subject: [PATCH 7/8] fix[mpp_buf_slot]: Support FBC buffer size calc for NV20
+Subject: [PATCH 07/10] fix[mpp_buf_slot]: Support FBC buffer size calc for
+ NV20
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
@@ -318,11 +320,11 @@ index 4a48b880..b33c064f 100644
              size = get_afbc_min_size(hor_stride_pixel, hal_ver_stride, 12);
          } break;
 
-From 2218dc0fc57062c0d33d06d350aea73d9fef5d57 Mon Sep 17 00:00:00 2001
+From 5275a9a6c6daf6e8d0fdd165c7bb0ffd976629c1 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Tue, 9 Apr 2024 18:24:53 +0800
-Subject: [PATCH 8/8] fix[av1d]: Update hor align to 64 for main 10bit and rga3
- use case
+Subject: [PATCH 08/10] fix[av1d]: Update hor align to 64 for main 10bit and
+ rga3 use case
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
@@ -342,4 +344,236 @@ index 5b6e1f9a..c1e6edb1 100644
  }
  
  static RK_U32 rkv_len_align(RK_U32 val)
+
+From 66af270e1e54432d0767cf929a5c4aee2b456d8c Mon Sep 17 00:00:00 2001
+From: Brett Jia <dev.bjia56@gmail.com>
+Date: Wed, 19 Jun 2024 11:44:23 -0400
+Subject: [PATCH 09/10] fix[vp9d]: namespace vars that conflict with vpx
+
+---
+ mpp/hal/rkdec/vp9d/hal_vp9d_com.c | 30 +++++++++++++++---------------
+ mpp/hal/rkdec/vp9d/hal_vp9d_com.h |  6 +++---
+ 2 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_com.c b/mpp/hal/rkdec/vp9d/hal_vp9d_com.c
+index c1913893..898970a8 100644
+--- a/mpp/hal/rkdec/vp9d/hal_vp9d_com.c
++++ b/mpp/hal/rkdec/vp9d/hal_vp9d_com.c
+@@ -838,7 +838,7 @@ static const RK_U8 vp9_default_coef_probs[4][2][2][6][6][3] = {
+     }
+ };
+ 
+-const vp9_prob vp9_kf_y_mode_prob[INTRA_MODES][INTRA_MODES][INTRA_MODES - 1] = {
++const vp9_prob mpp_vp9_kf_y_mode_prob[INTRA_MODES][INTRA_MODES][INTRA_MODES - 1] = {
+     {
+         // above = dc
+         { 137,  30,  42, 148, 151, 207,  70,  52,  91 },  // left = dc
+@@ -953,7 +953,7 @@ const vp9_prob vp9_kf_y_mode_prob[INTRA_MODES][INTRA_MODES][INTRA_MODES - 1] = {
+     }
+ };
+ 
+-const vp9_prob vp9_kf_uv_mode_prob[INTRA_MODES][INTRA_MODES - 1] = {
++const vp9_prob mpp_vp9_kf_uv_mode_prob[INTRA_MODES][INTRA_MODES - 1] = {
+     { 144,  11,  54, 157, 195, 130,  46,  58, 108 },  // y = dc
+     { 118,  15, 123, 148, 131, 101,  44,  93, 131 },  // y = v
+     { 113,  12,  23, 188, 226, 142,  26,  32, 125 },  // y = h
+@@ -966,7 +966,7 @@ const vp9_prob vp9_kf_uv_mode_prob[INTRA_MODES][INTRA_MODES - 1] = {
+     { 102,  19,  66, 162, 182, 122,  35,  59, 128 }   // y = tm
+ };
+ 
+-const vp9_prob vp9_kf_partition_probs[PARTITION_CONTEXTS][PARTITION_TYPES - 1] = {
++const vp9_prob mpp_vp9_kf_partition_probs[PARTITION_CONTEXTS][PARTITION_TYPES - 1] = {
+     // 8x8 -> 4x4
+     { 158,  97,  94 },  // a/l both not split
+     {  93,  24,  99 },  // a split, l not split
+@@ -1013,8 +1013,8 @@ MPP_RET hal_vp9d_output_probe(void *buf, void *dxva)
+     memset(buf, 0, 304 * 8);
+ 
+     if (intraFlag) {
+-        memcpy(partition_probs, vp9_kf_partition_probs, sizeof(partition_probs));
+-        memcpy(uv_mode_prob, vp9_kf_uv_mode_prob, sizeof(uv_mode_prob));
++        memcpy(partition_probs, mpp_vp9_kf_partition_probs, sizeof(partition_probs));
++        memcpy(uv_mode_prob, mpp_vp9_kf_uv_mode_prob, sizeof(uv_mode_prob));
+     } else {
+         memcpy(partition_probs, pic_param->prob.partition, sizeof(partition_probs));
+         memcpy(uv_mode_prob, pic_param->prob.uv_mode, sizeof(uv_mode_prob));
+@@ -1073,11 +1073,11 @@ MPP_RET hal_vp9d_output_probe(void *buf, void *dxva)
+             }
+ 
+         //intra mode prob  80 x 128 bit
+-        for (i = 0; i < INTRA_MODES; i++) { //vp9_kf_y_mode_prob
++        for (i = 0; i < INTRA_MODES; i++) { //mpp_vp9_kf_y_mode_prob
+             RK_S32 byte_count = 0;
+             for (j = 0; j < INTRA_MODES; j++)
+                 for (k = 0; k < INTRA_MODES - 1; k++) {
+-                    mpp_put_bits(&bp, vp9_kf_y_mode_prob[i][j][k], 8);
++                    mpp_put_bits(&bp, mpp_vp9_kf_y_mode_prob[i][j][k], 8);
+                     byte_count++;
+                     if (byte_count == 27) {
+                         byte_count = 0;
+@@ -1087,7 +1087,7 @@ MPP_RET hal_vp9d_output_probe(void *buf, void *dxva)
+                 }
+             if (i < 4) {
+                 for (m = 0; m < (i < 3 ? 23 : 21); m++)
+-                    mpp_put_bits(&bp, ((vp9_prob *)(&vp9_kf_uv_mode_prob[0][0]))[i * 23 + m], 8);
++                    mpp_put_bits(&bp, ((vp9_prob *)(&mpp_vp9_kf_uv_mode_prob[0][0]))[i * 23 + m], 8);
+                 for (; m < 23; m++)
+                     mpp_put_bits(&bp, 0, 8);
+             } else {
+@@ -1462,7 +1462,7 @@ MPP_RET hal_vp9d_prob_flag_delta(void *buf, void *dxva)
+     memset(buf, 0, PROB_SIZE);
+ 
+     if (intraFlag) {
+-        memcpy(partition_probs, vp9_kf_partition_probs, sizeof(partition_probs));
++        memcpy(partition_probs, mpp_vp9_kf_partition_probs, sizeof(partition_probs));
+     } else {
+         memcpy(partition_flag, prob_flag->partition, sizeof(partition_flag));
+         memcpy(partition_delta, prob_delta->partition, sizeof(partition_delta));
+@@ -1575,11 +1575,11 @@ MPP_RET hal_vp9d_prob_flag_delta(void *buf, void *dxva)
+             }
+ 
+         //intra mode prob  80 x 128 bit
+-        for (i = 0; i < INTRA_MODES; i++) { //vp9_kf_y_mode_prob
++        for (i = 0; i < INTRA_MODES; i++) { //mpp_vp9_kf_y_mode_prob
+             RK_S32 byte_count = 0;
+             for (j = 0; j < INTRA_MODES; j++)
+                 for (k = 0; k < INTRA_MODES - 1; k++) {
+-                    mpp_put_bits(&bp, vp9_kf_y_mode_prob[i][j][k], 8);
++                    mpp_put_bits(&bp, mpp_vp9_kf_y_mode_prob[i][j][k], 8);
+                     byte_count++;
+                     if (byte_count == 27) {
+                         byte_count = 0;
+@@ -1589,7 +1589,7 @@ MPP_RET hal_vp9d_prob_flag_delta(void *buf, void *dxva)
+                 }
+             if (i < 4) {
+                 for (m = 0; m < (i < 3 ? 23 : 21); m++)
+-                    mpp_put_bits(&bp, ((vp9_prob *)(&vp9_kf_uv_mode_prob[0][0]))[i * 23 + m], 8);
++                    mpp_put_bits(&bp, ((vp9_prob *)(&mpp_vp9_kf_uv_mode_prob[0][0]))[i * 23 + m], 8);
+                 for (; m < 23; m++)
+                     mpp_put_bits(&bp, 0, 8);
+             } else {
+@@ -1936,7 +1936,7 @@ MPP_RET hal_vp9d_prob_kf(void *buf)
+ 
+     for (i = 0; i < 16; i++)//kf_partition_prob
+         for (j = 0; j < 3; j++)
+-            mpp_put_bits(&bp, vp9_kf_partition_probs[i][j], 8);
++            mpp_put_bits(&bp, mpp_vp9_kf_partition_probs[i][j], 8);
+ 
+     //intra mode prob  80 x 128 bit, 10x 8x 128bit
+     for (i = 0; i < 10; i++) {
+@@ -1944,7 +1944,7 @@ MPP_RET hal_vp9d_prob_kf(void *buf)
+         RK_U8 val = 0;
+         for (j = 0; j < 10; j++)
+             for (k = 0; k < 9; k++) {
+-                mpp_put_bits(&bp, vp9_kf_y_mode_prob[i][j][k], 8);
++                mpp_put_bits(&bp, mpp_vp9_kf_y_mode_prob[i][j][k], 8);
+                 byte_count++;
+                 if (byte_count == 27) {
+                     byte_count = 0;
+@@ -1954,7 +1954,7 @@ MPP_RET hal_vp9d_prob_kf(void *buf)
+         // 6x128 bit, 23x4 bytes
+         if (i < 4) {
+             for (m = 0; m < (i < 3 ? 23 : 21); m++) {
+-                val = ((RK_U8 *)(&vp9_kf_uv_mode_prob[0][0]))[i * 23 + m];
++                val = ((RK_U8 *)(&mpp_vp9_kf_uv_mode_prob[0][0]))[i * 23 + m];
+                 mpp_put_bits(&bp, val, 8);
+             }
+             for (; m < 23; m++)
+diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_com.h b/mpp/hal/rkdec/vp9d/hal_vp9d_com.h
+index 8dee8e56..3c41a935 100644
+--- a/mpp/hal/rkdec/vp9d/hal_vp9d_com.h
++++ b/mpp/hal/rkdec/vp9d/hal_vp9d_com.h
+@@ -77,9 +77,9 @@ do{\
+ }} while (0)
+ 
+ 
+-extern const vp9_prob vp9_kf_y_mode_prob[INTRA_MODES][INTRA_MODES][INTRA_MODES - 1];
+-extern const vp9_prob vp9_kf_uv_mode_prob[INTRA_MODES][INTRA_MODES - 1];
+-extern const vp9_prob vp9_kf_partition_probs[PARTITION_CONTEXTS][PARTITION_TYPES - 1];
++extern const vp9_prob mpp_vp9_kf_y_mode_prob[INTRA_MODES][INTRA_MODES][INTRA_MODES - 1];
++extern const vp9_prob mpp_vp9_kf_uv_mode_prob[INTRA_MODES][INTRA_MODES - 1];
++extern const vp9_prob mpp_vp9_kf_partition_probs[PARTITION_CONTEXTS][PARTITION_TYPES - 1];
+ 
+ #ifdef __cplusplus
+ extern "C" {
+
+From 19611f16d515cd3725bac67e5dd87df096869b40 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Wed, 24 Jul 2024 21:38:10 +0800
+Subject: [PATCH 10/10] Revert "chore[cmake]: compile both dynamic and static
+ libraries"
+
+This reverts commit d4d204174e67d8c9a6bedd4af9e3c8a405dfecce.
+---
+ mpp/CMakeLists.txt | 49 ++++++++++++++++++++++------------------------
+ 1 file changed, 23 insertions(+), 26 deletions(-)
+
+diff --git a/mpp/CMakeLists.txt b/mpp/CMakeLists.txt
+index fad59b13..b1d55ab8 100644
+--- a/mpp/CMakeLists.txt
++++ b/mpp/CMakeLists.txt
+@@ -49,15 +49,19 @@ set (MPP_SRC
+ set(MPP_VERSION "0")
+ set(MPP_ABI_VERSION "1")
+ 
+-add_library(${MPP_SHARED} SHARED ${MPP_SRC})
+-target_link_libraries(${MPP_SHARED} ${ASAN_LIB})
+-set_target_properties(${MPP_SHARED} PROPERTIES C_VISIBILITY_PRESET default)
+-set_target_properties(${MPP_SHARED} PROPERTIES CXX_VISIBILITY_PRESET default)
++if(BUILD_SHARED_LIBS)
++    add_library(${MPP_SHARED} SHARED ${MPP_SRC})
++    target_link_libraries(${MPP_SHARED} ${ASAN_LIB})
++    set_target_properties(${MPP_SHARED} PROPERTIES C_VISIBILITY_PRESET default)
++    set_target_properties(${MPP_SHARED} PROPERTIES CXX_VISIBILITY_PRESET default)
+ 
+-# NOTE: due to legacy libray naming issue we can not support version on Android
+-if (NOT ANDROID)
+-set_target_properties(${MPP_SHARED} PROPERTIES VERSION ${MPP_VERSION})
+-set_target_properties(${MPP_SHARED} PROPERTIES SOVERSION ${MPP_ABI_VERSION})
++    # NOTE: due to legacy libray naming issue we can not support version on Android
++    if (NOT ANDROID)
++    set_target_properties(${MPP_SHARED} PROPERTIES VERSION ${MPP_VERSION})
++    set_target_properties(${MPP_SHARED} PROPERTIES SOVERSION ${MPP_ABI_VERSION})
++    endif()
++else()
++    add_library(${MPP_SHARED} STATIC ${MPP_SRC})
+ endif()
+ 
+ set_target_properties(${MPP_SHARED} PROPERTIES FOLDER "mpp")
+@@ -65,24 +69,17 @@ set_target_properties(${MPP_SHARED} PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+ target_link_libraries(${MPP_SHARED} mpp_codec mpp_hal mpp_vproc
+                       ${BEGIN_WHOLE_ARCHIVE} mpp_base ${END_WHOLE_ARCHIVE})
+ 
+-# build static library
+-add_library(${MPP_STATIC} STATIC ${MPP_SRC})
+-set_target_properties(${MPP_STATIC} PROPERTIES FOLDER "mpp" OUTPUT_NAME "${MPP_SHARED}")
+-set_target_properties(${MPP_STATIC} PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+-target_link_libraries(${MPP_STATIC} mpp_codec mpp_hal mpp_vproc
+-    ${BEGIN_WHOLE_ARCHIVE} mpp_base ${END_WHOLE_ARCHIVE})
+-
+-add_custom_command(TARGET ${MPP_STATIC} POST_BUILD
+-    COMMAND ${CMAKE_AR} x $<TARGET_FILE:${MPP_STATIC}>
+-    COMMAND ${CMAKE_AR} x $<TARGET_FILE:osal>
+-    COMMAND ${CMAKE_AR} x $<TARGET_FILE:mpp_base>
+-    COMMAND ${CMAKE_AR} rcs lib${MPP_SHARED}.a *.o
+-    COMMAND ${CMAKE_STRIP} --strip-debug lib${MPP_SHARED}.a
+-    COMMAND pwd
+-    COMMAND rm *.o
+-    )
+ 
+ add_subdirectory(legacy)
+ 
+-install(TARGETS ${MPP_SHARED} LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+-install(TARGETS ${MPP_STATIC} ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
++if(BUILD_SHARED_LIBS)
++    install(TARGETS ${MPP_SHARED} LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
++else()
++    add_custom_command(TARGET ${MPP_SHARED} POST_BUILD
++    COMMAND ${CMAKE_SOURCE_DIR}/merge_static_lib.sh ${CMAKE_BINARY_DIR} ${MPP_SHARED}_merged
++    COMMAND ${CMAKE_STRIP} --strip-debug ${CMAKE_BINARY_DIR}/mpp/lib${MPP_SHARED}.a
++    COMMENT "Building a merged static lib."
++    )
++
++    install(FILES ${CMAKE_BINARY_DIR}/mpp/lib${MPP_SHARED}_merged.a TYPE LIB RENAME lib${MPP_SHARED}.a)
++endif()
 
