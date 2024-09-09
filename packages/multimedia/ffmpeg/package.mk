@@ -31,7 +31,7 @@ get_graphicdrivers
 PKG_FFMPEG_HWACCEL=" --enable-hwaccels"
 PKG_DEPENDS_TARGET+=" rkmpp libdrm rga"
 PKG_NEED_UNPACK+=" $(get_pkg_directory libdrm)"
-PKG_FFMPEG_V4L2=" --enable-libdrm --enable-rkmpp --enable-rkrga --disable-v4l2_m2m"
+PKG_FFMPEG_V4L2=" --enable-libdrm --enable-rkmpp --enable-rkrga"
 
 
 

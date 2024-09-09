@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="midnight-commander"
-PKG_VERSION="$(get_pkg_version mc)"
+PKG_VERSION="4.8.31"
 PKG_SHA256="53be761b505f539ab1ba5d112734628667b8abb06de75a04953b0ffce71548b7"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="http://www.midnight-commander.org"

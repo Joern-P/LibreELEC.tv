@@ -99,7 +99,7 @@ get_graphicdrivers() {
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
-    GALLIUM_DRIVERS+=" kmsro panfrost"
+    GALLIUM_DRIVERS+=" panfrost"
     VULKAN_DRIVERS_MESA+=" panfrost"
     V4L2_SUPPORT="yes"
   fi
