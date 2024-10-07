@@ -3,7 +3,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="8164ff7dadd655d78a28340ddc9fcef9af6999bb"
+PKG_VERSION="5ddd3d4f5b98c4abd7e2e3633c35ee4a93f2f33e"
 PKG_SHA256=""
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"

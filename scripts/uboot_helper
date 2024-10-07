@@ -301,7 +301,7 @@ devices = \
     'RK3588': {
       'nanopct6': {
         'dtb': 'rk3588-nanopc-t6.dtb',
-        'config': 'nanopc_t6_defconfig'
+        'config': 'nanopc-t6-rk3588_defconfig'
       },
     },
     'RK3399': {
