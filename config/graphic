@@ -99,9 +99,9 @@ get_graphicdrivers() {
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
-    GALLIUM_DRIVERS+=" panfrost"
+    GALLIUM_DRIVERS+=" panfrost zink"
     VULKAN_DRIVERS_MESA+=" panfrost"
-    V4L2_SUPPORT="yes"
+    V4L2_SUPPORT="no"
   fi
 
   if listcontains "${GRAPHIC_DRIVERS}" "r300"; then

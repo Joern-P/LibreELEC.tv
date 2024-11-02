@@ -3,11 +3,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dvb-firmware"
-PKG_VERSION="1.5.0"
-PKG_SHA256="ec054c74f541d600b8e2d080ecd9627c6e16311c1cb556cd1355438769da9802"
+PKG_VERSION="864fd360c2eaafd1015c4b8e453a86f655b26bb5"
+PKG_SHA256=""
 PKG_LICENSE="Free-to-use"
 PKG_SITE="https://github.com/LibreELEC/dvb-firmware"
-PKG_URL="https://github.com/LibreELEC/dvb-firmware/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/Joern-P/dvb-firmware/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="dvb-firmware: firmwares for various DVB drivers"
 PKG_TOOLCHAIN="manual"

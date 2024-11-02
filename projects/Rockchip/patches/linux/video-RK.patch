@@ -1,0 +1,347 @@
+diff -uNr a/drivers/video/rockchip/mpp/mpp_iep2.c b/drivers/video/rockchip/mpp/mpp_iep2.c
+--- a/drivers/video/rockchip/mpp/mpp_iep2.c	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/mpp/mpp_iep2.c	2024-10-24 10:33:18.517085682 +0200
+@@ -36,6 +36,9 @@
+ #define MVL			28
+ #define MVR			27
+ 
++#define IOMMU_GET_BUS_ID(x)	(((x) >> 6) & 0x1f)
++#define AUX_PAGE_SIZE		SZ_4K
++
+ enum rockchip_iep2_fmt {
+ 	ROCKCHIP_IEP2_FMT_YUV422 = 2,
+ 	ROCKCHIP_IEP2_FMT_YUV420
+@@ -193,6 +196,12 @@
+ 	u32 y_end[8];
+ };
+ 
++struct iep2_session_priv {
++	/* workaround for pagefault */
++	unsigned long aux_iova;
++	struct page *aux_page;
++};
++
+ struct iep_task {
+ 	struct mpp_task mpp_task;
+ 	struct mpp_hw_info *hw_info;
+@@ -247,6 +256,8 @@
+ 		ARRAY_SIZE(task->params.dst) * 3 + 2;
+ 
+ 	u32 *paddr = &task->params.src[0].y;
++	struct mpp_dev *mpp = session->mpp;
++	struct iep2_session_priv *priv = session->priv;
+ 
+ 	for (i = 0; i < addr_num; ++i) {
+ 		int usr_fd;
+@@ -279,6 +290,27 @@
+ 		mpp_debug(DEBUG_IOMMU, "reg[%3d]: %3d => %pad + offset %u\n",
+ 			  iep2_addr_rnum[i], usr_fd, &mem_region->iova, offset);
+ 		paddr[i] = mem_region->iova + offset;
++
++		/* workaround for invalid access to src image */
++		if (task->params.dil_mode == ROCKCHIP_IEP2_DIL_MODE_I1O1T &&
++			iep2_addr_rnum[i] == 24 && priv->aux_page) {
++			int ret = 0;
++			unsigned long page_iova = mem_region->iova + mem_region->len;
++
++			if (priv->aux_iova != -1) {
++				iommu_unmap(mpp->iommu_info->domain, priv->aux_iova, AUX_PAGE_SIZE);
++				priv->aux_iova = -1;
++			}
++
++			page_iova = round_down(page_iova, AUX_PAGE_SIZE);
++			ret = iommu_map(mpp->iommu_info->domain, page_iova,
++					page_to_phys(priv->aux_page), AUX_PAGE_SIZE,
++					IOMMU_READ);
++			if (!ret) {
++				priv->aux_iova = page_iova;
++				mpp_debug(DEBUG_IOMMU, "aux iova %lx\n", page_iova);
++			}
++		}
+ 	}
+ 
+ 	return 0;
+@@ -765,6 +797,12 @@
+ 			  struct mpp_task *mpp_task)
+ {
+ 	struct iep_task *task = to_iep_task(mpp_task);
++	struct iep2_session_priv *priv = session->priv;
++
++	if (priv->aux_iova != -1) {
++		iommu_unmap(session->mpp->iommu_info->domain, priv->aux_iova, AUX_PAGE_SIZE);
++		priv->aux_iova = -1;
++	}
+ 
+ 	mpp_task_finalize(session, mpp_task);
+ 	kfree(task);
+@@ -928,6 +966,55 @@
+ 	return 0;
+ }
+ 
++static int iep2_init_session(struct mpp_session *session)
++{
++	struct iep2_session_priv *priv;
++
++	if (!session) {
++		mpp_err("session is null\n");
++		return -EINVAL;
++	}
++
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	/* warkaround for mmu pagefault */
++	priv->aux_iova = -1;
++	priv->aux_page = alloc_page(GFP_KERNEL);
++	if (!priv->aux_page) {
++		dev_err(session->mpp->dev, "allocate a page for auxiliary usage\n");
++		priv->aux_page = NULL;
++	}
++
++	session->priv = priv;
++
++	return 0;
++}
++
++static int iep2_free_session(struct mpp_session *session)
++{
++	if (session && session->priv) {
++		struct iep2_session_priv *priv = session->priv;
++		struct mpp_dev *mpp = session->mpp;
++
++		if (priv->aux_iova != -1) {
++			iommu_unmap(mpp->iommu_info->domain, priv->aux_iova, AUX_PAGE_SIZE);
++			priv->aux_iova = -1;
++		}
++
++		if (priv->aux_page) {
++			__free_page(priv->aux_page);
++			priv->aux_page = NULL;
++		}
++
++		kfree(session->priv);
++		session->priv = NULL;
++	}
++
++	return 0;
++}
++
+ static struct mpp_hw_ops iep_v2_hw_ops = {
+ 	.init = iep2_init,
+ 	.clk_on = iep2_clk_on,
+@@ -944,6 +1031,8 @@
+ 	.finish = iep2_finish,
+ 	.result = iep2_result,
+ 	.free_task = iep2_free_task,
++	.init_session = iep2_init_session,
++	.free_session = iep2_free_session,
+ };
+ 
+ static struct mpp_hw_info iep2_hw_info = {
+diff -uNr a/drivers/video/rockchip/mpp_osal/Kconfig b/drivers/video/rockchip/mpp_osal/Kconfig
+--- a/drivers/video/rockchip/mpp_osal/Kconfig	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/mpp_osal/Kconfig	2024-10-24 10:33:33.168104082 +0200
+@@ -2,7 +2,7 @@
+ 
+ config ROCKCHIP_MPP_OSAL
+ 	bool "mpp osal"
+-	depends on CPU_RV1106
++	depends on CPU_RV1103B || CPU_RV1106
+ 	default y
+ 	help
+ 	  rockchip mpp osal adapt for kmpp
+diff -uNr a/drivers/video/rockchip/rga3/include/rga_hw_config.h b/drivers/video/rockchip/rga3/include/rga_hw_config.h
+--- a/drivers/video/rockchip/rga3/include/rga_hw_config.h	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/rga3/include/rga_hw_config.h	2024-10-24 10:33:48.817125729 +0200
+@@ -78,6 +78,7 @@
+ extern const struct rga_hw_data rga2e_1106_data;
+ extern const struct rga_hw_data rga2e_iommu_data;
+ extern const struct rga_hw_data rga2p_iommu_data;
++extern const struct rga_hw_data rga2p_lite_1103b_data;
+ 
+ #define rga_hw_has_issue(scheduler, issue) test_bit(issue, &((scheduler)->hw_issues_mask))
+ #define rga_hw_set_issue_mask(scheduler, issue) set_bit(issue, &((scheduler)->hw_issues_mask))
+diff -uNr a/drivers/video/rockchip/rga3/rga2_reg_info.c b/drivers/video/rockchip/rga3/rga2_reg_info.c
+--- a/drivers/video/rockchip/rga3/rga2_reg_info.c	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/rga3/rga2_reg_info.c	2024-10-24 10:36:38.443476754 +0200
+@@ -2340,8 +2340,6 @@
+ 	    (req->rotate_mode == 0)) {
+ 		if (req->src.format == RGA_FORMAT_YCbCr_420_SP_10B ||
+ 		    req->src.format == RGA_FORMAT_YCrCb_420_SP_10B ||
+-		    req->src.format == RGA_FORMAT_YCbCr_422_SP_10B ||
+-		    req->src.format == RGA_FORMAT_YCrCb_422_SP_10B ||
+ 		    req->src.format == RGA_FORMAT_YCbCr_444_SP ||
+ 		    req->src.format == RGA_FORMAT_YCrCb_444_SP ||
+ 		    req->dst.format == RGA_FORMAT_YCbCr_444_SP ||
+@@ -2466,7 +2464,7 @@
+ 					req->alpha_config.bg_global_alpha_value = 0xff;
+ 				}
+ 			} else {
+-				req->alpha_config.fg_global_alpha_value = 0xff;
++				req->alpha_config.bg_global_alpha_value = 0xff;
+ 				req->alpha_config.bg_global_alpha_value = 0xff;
+ 			}
+ 
+@@ -2891,7 +2889,6 @@
+ static int rga2_set_reg(struct rga_job *job, struct rga_scheduler_t *scheduler)
+ {
+ 	int i;
+-	int cur_num;
+ 	bool master_mode_en;
+ 	uint32_t sys_ctrl;
+ 	uint32_t *cmd;
+@@ -2932,10 +2929,8 @@
+ 		 *   when RGA is running continuously, disabling auto_rst
+ 		 * requires resetting core_clk.
+ 		 */
+-		cur_num = (rga_read(RGA2_STATUS1, scheduler) & m_RGA2_STATUS1_SW_CMD_CUR_NUM) >> 8;
+-		if (cur_num > 0)
+-			rga_write(m_RGA2_SYS_CTRL_AUTO_CKG | m_RGA2_SYS_CTRL_CCLK_SRESET_P,
+-				  RGA2_SYS_CTRL, scheduler);
++		rga_write(m_RGA2_SYS_CTRL_AUTO_CKG | m_RGA2_SYS_CTRL_CCLK_SRESET_P,
++			  RGA2_SYS_CTRL, scheduler);
+ 	} else {
+ 		sys_ctrl |= m_RGA2_SYS_CTRL_AUTO_RST;
+ 	}
+@@ -2968,8 +2963,6 @@
+ 		for (i = 0; i <= 32; i++)
+ 			rga_write(cmd[i], 0x100 + i * 4, scheduler);
+ 
+-		rga_write(rga_read(RGA2_CMD_CTRL, scheduler) | m_RGA2_CMD_CTRL_CMD_LINE_ST_P,
+-			  RGA2_CMD_CTRL, scheduler);
+ 		rga_write(sys_ctrl, RGA2_SYS_CTRL, scheduler);
+ 	}
+ 
+diff -uNr a/drivers/video/rockchip/rga3/rga3_reg_info.c b/drivers/video/rockchip/rga3/rga3_reg_info.c
+--- a/drivers/video/rockchip/rga3/rga3_reg_info.c	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/rga3/rga3_reg_info.c	2024-10-24 10:37:12.456569388 +0200
+@@ -331,7 +331,7 @@
+ 		 (s_RGA3_WIN0_RD_CTRL_SW_WIN0_YUV10B_COMPACT(1)));
+ 
+ 	/* Only on raster mode, yuv 10bit can change to compact or set endian */
+-	if (msg->win0.rd_mode == 0 && yuv10 == 1) {
++	if (msg->win0.rd_mode == RGA_RASTER_MODE && yuv10 == 1) {
+ 		reg =
+ 			((reg & (~m_RGA3_WIN0_RD_CTRL_SW_WIN0_YUV10B_COMPACT)) |
+ 			 (s_RGA3_WIN0_RD_CTRL_SW_WIN0_YUV10B_COMPACT
+@@ -703,7 +703,7 @@
+ 		 (s_RGA3_WIN1_RD_CTRL_SW_WIN1_YUV10B_COMPACT(1)));
+ 
+ 	/* Only on roster mode, yuv 10bit can change to compact or set endian */
+-	if (msg->win1.rd_mode == 0 && yuv10 == 1) {
++	if (msg->win1.rd_mode == RGA_RASTER_MODE && yuv10 == 1) {
+ 		reg =
+ 			((reg & (~m_RGA3_WIN1_RD_CTRL_SW_WIN1_YUV10B_COMPACT)) |
+ 			 (s_RGA3_WIN1_RD_CTRL_SW_WIN1_YUV10B_COMPACT
+@@ -1662,7 +1662,7 @@
+ 					req->alpha_config.bg_global_alpha_value = 0xff;
+ 				}
+ 			} else {
+-				req->alpha_config.fg_global_alpha_value = 0xff;
++				req->alpha_config.bg_global_alpha_value = 0xff;
+ 				req->alpha_config.bg_global_alpha_value = 0xff;
+ 			}
+ 
+diff -uNr a/drivers/video/rockchip/rga3/rga_drv.c b/drivers/video/rockchip/rga3/rga_drv.c
+--- a/drivers/video/rockchip/rga3/rga_drv.c	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/rga3/rga_drv.c	2024-10-24 10:37:25.738607307 +0200
+@@ -1374,6 +1374,8 @@
+ 		} else if (!strcmp(scheduler->version.str, "3.e.19357")) {
+ 			scheduler->data = &rga2p_iommu_data;
+ 			rga_hw_set_issue_mask(scheduler, RGA_HW_ISSUE_DIS_AUTO_RST);
++		} else if (!strcmp(scheduler->version.str, "3.f.23690")) {
++			scheduler->data = &rga2p_lite_1103b_data;
+ 		} else {
+ 			scheduler->data = &rga2e_data;
+ 		}
+diff -uNr a/drivers/video/rockchip/rga3/rga_hw_config.c b/drivers/video/rockchip/rga3/rga_hw_config.c
+--- a/drivers/video/rockchip/rga3/rga_hw_config.c	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/rga3/rga_hw_config.c	2024-10-24 10:37:42.545656637 +0200
+@@ -442,6 +442,30 @@
+ 	},
+ };
+ 
++const struct rga_win_data rga2p_lite_win_data[] = {
++	{
++		.name = "rga2e-src0",
++		.formats[RGA_RASTER_INDEX] = rga2e_input_raster_format,
++		.formats_count[RGA_RASTER_INDEX] = ARRAY_SIZE(rga2e_input_raster_format),
++		.supported_rotations = RGA_MODE_ROTATE_MASK,
++		.scale_up_mode = RGA_SCALE_UP_BIC,
++		.scale_down_mode = RGA_SCALE_DOWN_AVG,
++		.rd_mode = RGA_RASTER_MODE,
++
++	},
++
++	{
++		.name = "rga2-dst",
++		.formats[RGA_RASTER_INDEX] = rga2e_output_raster_format,
++		.formats_count[RGA_RASTER_INDEX] = ARRAY_SIZE(rga2e_output_raster_format),
++		.supported_rotations = 0,
++		.scale_up_mode = RGA_SCALE_UP_NONE,
++		.scale_down_mode = RGA_SCALE_DOWN_NONE,
++		.rd_mode = RGA_RASTER_MODE,
++
++	},
++};
++
+ const struct rga_hw_data rga3_data = {
+ 	.version = 0,
+ 	.input_range = {{68, 2}, {8176, 8176}},
+@@ -564,3 +588,27 @@
+ 			RGA_MODE_CSC_BT709,
+ 	.mmu = RGA_IOMMU,
+ };
++
++const struct rga_hw_data rga2p_lite_1103b_data = {
++	.version = 0,
++	.input_range = {{2, 2}, {2880, 1620}},
++	.output_range = {{2, 2}, {2880, 1620}},
++
++	.win = rga2p_lite_win_data,
++	.win_size = ARRAY_SIZE(rga2p_lite_win_data),
++	/* 1 << factor mean real factor */
++	.max_upscale_factor = 4,
++	.max_downscale_factor = 4,
++
++	.byte_stride_align = 4,
++	.max_byte_stride = WORD_TO_BYTE(8192),
++
++	.feature = RGA_COLOR_FILL | RGA_DITHER | RGA_YIN_YOUT |
++		   RGA_YUV_HDS | RGA_YUV_VDS |
++		   RGA_PRE_INTR | RGA_FULL_CSC,
++	.csc_r2y_mode = RGA_MODE_CSC_BT601L | RGA_MODE_CSC_BT601F |
++			RGA_MODE_CSC_BT709,
++	.csc_y2r_mode = RGA_MODE_CSC_BT601L | RGA_MODE_CSC_BT601F |
++			RGA_MODE_CSC_BT709,
++	.mmu = RGA_NONE_MMU,
++};
+diff -uNr a/drivers/video/rockchip/vtunnel/rkvtunnel.c b/drivers/video/rockchip/vtunnel/rkvtunnel.c
+--- a/drivers/video/rockchip/vtunnel/rkvtunnel.c	2024-07-14 00:45:30.000000000 +0200
++++ b/drivers/video/rockchip/vtunnel/rkvtunnel.c	2024-10-24 10:38:00.289710304 +0200
+@@ -928,6 +928,11 @@
+ 
+ 	base = &data->base;
+ 	buffer = rkvt_get_free_buf(inst);
++	if (!buffer) {
++		dev_err(vt_dev->dev, "VTQB [%d] no unused buffer.\n", inst->id);
++		ret = -EINVAL;
++		goto queue_fail;
++	}
+ 	for (i = 0; i < base->num_fds; i++) {
+ 		buffer->fds_con[i] = -1;
+ 		buffer->fds_pro[i] = base->fds[i];
+@@ -1292,6 +1297,11 @@
+ 
+ 	buf_base = &data->base;
+ 	buffer = rkvt_get_free_buf(inst);
++	if (!buffer) {
++		dev_err(vt_dev->dev, "VTCB [%d] no unused buffer.\n", inst->id);
++		rkvt_inst_put(inst);
++		return -EINVAL;
++	}
+ 	for (i = 0; i < buf_base->num_fds; i++) {
+ 		buffer->fds_con[i] = -1;
+ 		buffer->fds_pro[i] = buf_base->fds[i];
+ 		

@@ -1,0 +1,115 @@
+From 870e8cc7572c9ebf2c5311e2726cb96db1336df3 Mon Sep 17 00:00:00 2001
+From: boogie <boogiepop@gmx.com>
+Date: Sat, 13 Jan 2024 21:48:53 +0100
+Subject: [PATCH 2/2] VideoLayerBridgeDRMPRIME: Use crop fields to render the
+ picture offsets
+
+Hardware decoders when used with AFBC compression, may output picture
+with offsets which may be different for each frame. Since this offset is
+applied after the decompression is done, only way to represent this in
+SRC_X and SRC_Y plane props. This commits utilizes AVFrame crop fields
+to pass picture offsets.
+---
+ .../cores/VideoPlayer/Buffers/VideoBufferDRMPRIME.h |  2 ++
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp   |  2 ++
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h     |  2 ++
+ .../DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp       | 13 +++++++++++++
+ .../HwDecRender/VideoLayerBridgeDRMPRIME.cpp        | 11 ++++++-----
+ 5 files changed, 25 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/Buffers/VideoBufferDRMPRIME.h b/xbmc/cores/VideoPlayer/Buffers/VideoBufferDRMPRIME.h
+index b83ee8ca68..495c428909 100644
+--- a/xbmc/cores/VideoPlayer/Buffers/VideoBufferDRMPRIME.h
++++ b/xbmc/cores/VideoPlayer/Buffers/VideoBufferDRMPRIME.h
+@@ -54,6 +54,8 @@ public:
+   virtual const VideoPicture& GetPicture() const { return m_picture; }
+   virtual uint32_t GetWidth() const { return GetPicture().iWidth; }
+   virtual uint32_t GetHeight() const { return GetPicture().iHeight; }
++  virtual uint32_t GetXOffset() const { return GetPicture().iXOffset; }
++  virtual uint32_t GetYOffset() const { return GetPicture().iYOffset; }
+ 
+   virtual AVDRMFrameDescriptor* GetDescriptor() const = 0;
+   virtual bool IsValid() const { return true; }
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
+index 0d986e9154..abfc937f5a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
+@@ -56,6 +56,8 @@ void VideoPicture::Reset()
+ 
+   iWidth = 0;
+   iHeight = 0;
++  iXOffset = 0;
++  iYOffset = 0;
+   iDisplayWidth = 0;
+   iDisplayHeight = 0;
+ }
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
+index 3c55a7b06c..7a4b0ef3ec 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
+@@ -73,6 +73,8 @@ public:
+ 
+   unsigned int iWidth;
+   unsigned int iHeight;
++  unsigned int iXOffset;
++  unsigned int iYOffset;
+   unsigned int iDisplayWidth;           //< width of the picture without black bars
+   unsigned int iDisplayHeight;          //< height of the picture without black bars
+ 
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+index eb2943bb8c..75ec720346 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.cpp
+@@ -506,6 +506,19 @@ void CDVDVideoCodecDRMPRIME::SetPictureParams(VideoPicture* pVideoPicture)
+   pVideoPicture->iWidth = m_pFrame->width;
+   pVideoPicture->iHeight = m_pFrame->height;
+ 
++  /* according to ffmpeg devs crop fields in AVFrame are not always maintained actively
++   * and may cause under-shot buffers or mis-aligned strides if not implemented correctly
++   * in decoders. drm_prime frames on the other hand has their own memory allocators,
++   * and as long as the plane number is single, there should be no future regression
++   * related to usage of crop fields.
++   */
++  AVDRMFrameDescriptor* desc = reinterpret_cast<AVDRMFrameDescriptor*>(m_pFrame->data[0]);
++  if (m_pFrame->format == AV_PIX_FMT_DRM_PRIME && desc->nb_layers == 1)
++  {
++    pVideoPicture->iXOffset = m_pFrame->crop_left;
++    pVideoPicture->iYOffset = m_pFrame->crop_top;
++  }
++
+   double aspect_ratio = 0;
+   AVRational pixel_aspect = m_pFrame->sample_aspect_ratio;
+   if (pixel_aspect.num)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp
+index 34d1ab6235..33db29b140 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VideoLayerBridgeDRMPRIME.cpp
+@@ -118,9 +118,10 @@ bool CVideoLayerBridgeDRMPRIME::Map(CVideoBufferDRMPRIME* buffer)
+     flags = DRM_MODE_FB_MODIFIERS;
+ 
+   // add the video frame FB
+-  ret = drmModeAddFB2WithModifiers(m_DRM->GetFileDescriptor(), buffer->GetWidth(),
+-                                   buffer->GetHeight(), layer->format, handles, pitches, offsets,
+-                                   modifier, &buffer->m_fb_id, flags);
++  ret = drmModeAddFB2WithModifiers(m_DRM->GetFileDescriptor(),
++                                   buffer->GetWidth() + buffer->GetXOffset(),
++                                   buffer->GetHeight() + buffer->GetYOffset(), layer->format,
++                                   handles, pitches, offsets, modifier, &buffer->m_fb_id, flags);
+   if (ret < 0)
+   {
+     CLog::Log(LOGERROR, "CVideoLayerBridgeDRMPRIME::{} - failed to add fb {}, ret = {}",
+@@ -188,8 +189,8 @@ void CVideoLayerBridgeDRMPRIME::SetVideoPlane(CVideoBufferDRMPRIME* buffer, cons
+   auto plane = m_DRM->GetVideoPlane();
+   m_DRM->AddProperty(plane, "FB_ID", buffer->m_fb_id);
+   m_DRM->AddProperty(plane, "CRTC_ID", m_DRM->GetCrtc()->GetCrtcId());
+-  m_DRM->AddProperty(plane, "SRC_X", 0);
+-  m_DRM->AddProperty(plane, "SRC_Y", 0);
++  m_DRM->AddProperty(plane, "SRC_X", buffer->GetXOffset() << 16);
++  m_DRM->AddProperty(plane, "SRC_Y", buffer->GetYOffset() << 16);
+   m_DRM->AddProperty(plane, "SRC_W", buffer->GetWidth() << 16);
+   m_DRM->AddProperty(plane, "SRC_H", buffer->GetHeight() << 16);
+   m_DRM->AddProperty(plane, "CRTC_X", static_cast<int32_t>(destRect.x1) & ~1);
+-- 
+2.43.0
+
+
