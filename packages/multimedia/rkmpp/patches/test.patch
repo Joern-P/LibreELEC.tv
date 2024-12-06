@@ -576,4 +576,3 @@ index fad59b13..b1d55ab8 100644
 +
 +    install(FILES ${CMAKE_BINARY_DIR}/mpp/lib${MPP_SHARED}_merged.a TYPE LIB RENAME lib${MPP_SHARED}.a)
 +endif()
-

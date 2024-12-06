@@ -17,7 +17,9 @@ configure_package() {
   PKG_MESON_SCRIPT="${PKG_BUILD}/meson.build"
 }
 
-PKG_MESON_OPTS_TARGET=" --buildtype=release \
+PKG_MESON_OPTS_TARGET=" --prefix=/usr \
+    			--libdir=lib \
+    			--buildtype=release \
 			--default-library=shared \
     		        -Dcpp_args=-fpermissive \
    	                -Dlibdrm=false \

@@ -5,9 +5,10 @@
   # Bootloader to use (syslinux / u-boot)
     BOOTLOADER="u-boot"
 
-  # Kernel extra targets to build
-    KERNEL_UBOOT_EXTRA_TARGET=""
-   
+  # U-Boot firmware package(s) to use
+    UBOOT_FIRMWARE="rkbin"
+    UBOOT_FIT_IMAGE="u-boot-rockchip.bin"
+
   # Additional kernel make parameters (for example to specify the u-boot loadaddress)
     KERNEL_MAKE_EXTRACMD="dtbs"
 

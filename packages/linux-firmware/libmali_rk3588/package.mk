@@ -18,7 +18,7 @@ makeinstall_target() {
       curl -Lo ${INSTALL}/$(get_full_firmware_dir)/arm/mali/arch10.8/mali_csffw.bin ${PKG_ACE_FIRMWARE}
     ;;
     RK3588)
-      cp -rf ${PKG_DIR}/firmware/* ${INSTALL}/$(get_full_firmware_dir)/arm/mali/arch10.8/
+      cp -rf ${PKG_DIR}/firmware/mali_csffw.bin ${INSTALL}/$(get_full_firmware_dir)/arm/mali/arch10.8/
     ;;
   esac
 }

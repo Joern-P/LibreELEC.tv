@@ -1,0 +1,25 @@
+diff -uNr a/arch/arm64/boot/dts/rockchip/rk3588s.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s.dtsi
+--- a/arch/arm64/boot/dts/rockchip/rk3588s.dtsi	2024-11-28 04:16:11.000000000 +0100
++++ b/arch/arm64/boot/dts/rockchip/rk3588s.dtsi	2024-11-28 10:50:13.807256688 +0100
+@@ -2403,7 +2403,8 @@
+ 		interrupt-names = "job", "mmu", "gpu";
+ 		operating-points-v2 = <&gpu_opp_table_panthor>;
+ 		power-domains = <&power RK3588_PD_GPU>;
+-		status = "disabled";
++		status = "okay";
++		mali-supply = <&vdd_gpu_s0>;
+ 
+ 		gpu_opp_table_panthor: opp-table {
+ 			compatible = "operating-points-v2";
+diff -uNr a/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi b/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi
+--- a/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi	2024-11-28 04:16:11.000000000 +0100
++++ b/arch/arm64/boot/dts/rockchip/rk3588s-nanopi-r6-common.dtsi	2024-11-28 10:47:42.359013739 +0100
+@@ -161,7 +161,7 @@
+ 	mem-supply = <&vdd_gpu_mem_s0>;
+ 	upthreshold = <60>;
+ 	downdifferential = <30>;
+-	status = "okay";
++	status = "disabled";
+ };
+ 
+ &gmac1 {

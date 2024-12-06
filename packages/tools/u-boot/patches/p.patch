@@ -1,0 +1,13 @@
+diff -uNr a/configs/nanopc-t6-rk3588_defconfig b/configs/nanopc-t6-rk3588_defconfig
+--- a/configs/nanopc-t6-rk3588_defconfig	2024-10-07 16:54:35.000000000 +0200
++++ b/configs/nanopc-t6-rk3588_defconfig	2024-11-27 16:45:45.621820724 +0100
+@@ -91,3 +91,9 @@
+ CONFIG_USB_ETHER_RTL8152=y
+ CONFIG_USB_ETHER_SMSC95XX=y
+ CONFIG_ERRNO_STR=y
++CONFIG_ENV_IS_NOWHERE=n
++CONFIG_ENV_IS_IN_SPI_FLASH=y
++CONFIG_ENV_SECT_SIZE_AUTO=y
++CONFIG_ENV_OVERWRITE=y
++CONFIG_ENV_SIZE="0x20000"
++CONFIG_ENV_OFFSET="0xc00000"

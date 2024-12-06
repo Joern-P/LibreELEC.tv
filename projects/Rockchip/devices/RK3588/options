@@ -42,7 +42,7 @@
     #DEVICE_DTB=("rk3588s-orangepi-5" "rk3588-rock-5b" "rk3588s-indiedroid-nova")
     #UBOOT_DTB="rk3588-evb"
 
-    UBOOT_CONFIG="nanopc_t6_defconfig"
+    UBOOT_CONFIG="nanopc-t6-rk3588_defconfig"
     PKG_SOC="rk3588"
     PKG_DATAFILE="${PKG_RKBIN}/bin/rk35/rk3588_ddr_lp4_2112MHz_lp5_2400MHz_v1.17.bin"
     PKG_LOADER="spl/u-boot-spl.bin"
@@ -83,7 +83,7 @@
     WINDOWMANAGER="no"
   
   # kernel serial console
-    EXTRA_CMDLINE=" quiet rootwait systemd.debug_shell=ttyFIQ0 earlycon=uart8250,mmio32,0xfeb50000 console=ttyFIQ0 console=tty0 coherent_pool=2M"
+    EXTRA_CMDLINE=" earlycon console=uart8250,mmio32,0xfeb50000 console=tty0 coherent_pool=2M cec.debounce_ms=5000 "
 
   # set the addon project
     ADDON_PROJECT="ARMv8"

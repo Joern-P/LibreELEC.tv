@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="24.2.6"
-PKG_SHA256="2b68c4a6f204c1999815a457299f81c41ba7bf48c4674b0b2d1d8864f41f3709"
+PKG_VERSION="24.3.0"
+PKG_SHA256="97813fe65028ef21b4d4e54164563059e8408d8fee3489a2323468d198bf2efc"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -21,7 +21,6 @@ fi
 PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-rusticl=false \
-                       -Dgallium-omx=disabled \
                        -Dgallium-nine=false \
                        -Dgallium-opencl=disabled \
                        -Dshader-cache=enabled \
@@ -36,23 +35,19 @@ PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dbuild-tests=false \
                        -Ddraw-use-llvm=false \
                        -Dmicrosoft-clc=disabled \
-                       -Dselinux=false \
                        -Dosmesa=false"
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET+=" xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr"
   export X11_INCLUDES=
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=x11 \
-                           -Ddri3=enabled \
                            -Dglx=dri"
 elif [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
   PKG_MESON_OPTS_TARGET+=" -Dplatforms=wayland \
-                           -Ddri3=disabled \
                            -Dglx=disabled"
 else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
-                           -Ddri3=disabled \
                            -Dglx=disabled"
 fi
 
