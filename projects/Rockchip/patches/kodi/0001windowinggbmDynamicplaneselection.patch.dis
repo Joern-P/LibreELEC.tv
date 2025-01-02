@@ -207,13 +207,13 @@ index f92f716fc4..fcf9d772e3 100644
 --- a/xbmc/windowing/gbm/drm/DRMUtils.h
 +++ b/xbmc/windowing/gbm/drm/DRMUtils.h
 @@ -64,6 +64,7 @@ public:
+   static uint32_t FourCCWithAlpha(uint32_t fourcc);
    static uint32_t FourCCWithoutAlpha(uint32_t fourcc);
- 
-   void SetInFenceFd(int fd) { m_inFenceFd = fd; }
+
 +  bool FindPlanes(uint32_t format, uint64_t modifier);
-   int TakeOutFenceFd()
-   {
-     int fd{-1};
+ protected:
+   bool OpenDrm(bool needConnector);
+   drm_fb* DrmFbGetFromBo(struct gbm_bo *bo);
 @@ -89,13 +90,13 @@ protected:
    int m_inFenceFd{-1};
    int m_outFenceFd{-1};

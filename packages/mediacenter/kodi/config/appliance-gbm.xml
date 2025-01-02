@@ -11,6 +11,7 @@
         </setting>
         <setting id="videoplayer.useprimerenderer">
           <default>0</default>
+          <visible>true</visible>
         </setting>
       </group>
     </category>

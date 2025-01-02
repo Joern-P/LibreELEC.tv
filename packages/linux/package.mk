@@ -32,7 +32,7 @@ case "${LINUX}" in
 #    PKG_VERSION="8968e142821fbca242f81b20aadac5fbde3c4d47"
 #    PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
 #    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr1"
-    PKG_VERSION="f862d3842fdda80a2d16ac365a04ae4d2f6de489"
+    PKG_VERSION="5e3a7b2b1d25a6ff59bc2fbc2e0631103960ac7f"
     PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
     PKG_GIT_CLONE_BRANCH="rk-6.1-rkr4.1"
     ;;

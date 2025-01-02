@@ -2,11 +2,11 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpegx"
-PKG_VERSION="6.0.1"
-PKG_SHA256="9b16b8731d78e596b4be0d720428ca42df642bb2d78342881ff7f5bc29fc9623"
+PKG_VERSION="abfc47f288d10ea9ea4ff05ea4deea5e153ac709"
+PKG_SHA256=""
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
-PKG_URL="https://ffmpeg.org/releases/ffmpeg-${PKG_VERSION}.tar.xz"
+PKG_URL="https://github.com/nyanmisaka/ffmpeg-rockchip/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain aom bzip2 openssl lame libvorbis libxml2 opus x264 zlib"
 PKG_LONGDESC="FFmpegx is an complete FFmpeg build to support encoding and decoding."
 PKG_BUILD_FLAGS="-sysroot"

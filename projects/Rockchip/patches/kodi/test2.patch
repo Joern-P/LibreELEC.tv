@@ -1,0 +1,24 @@
+From f447391d002535a5ff534307c9763b312fbfea75 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Mon, 29 Apr 2024 19:30:57 +0200
+Subject: [PATCH] GLES: disable attribute array when rendering from FBO
+
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index 6ba930e7d2c98..97663f9c09746 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -1293,6 +1293,9 @@ void CLinuxRendererGLES::RenderFromFBO()
+ 
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, idx);
+ 
++  glDisableVertexAttribArray(loc);
++  glDisableVertexAttribArray(vertLoc);
++
+   VerifyGLState();
+ 
+   if (m_pVideoFilterShader)
+

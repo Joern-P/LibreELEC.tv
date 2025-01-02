@@ -1,0 +1,61 @@
+From f770fe5f96bcb6d0ffc77a99c562968a2a8150ef Mon Sep 17 00:00:00 2001
+From: CrystalP <crystalp@kodi.tv>
+Date: Mon, 11 Nov 2024 15:38:59 -0500
+Subject: [PATCH 1/2] [Video] Define more PCM AV_CODEC_ID for codec name
+ formatting
+
+---
+ xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.cpp | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.cpp b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.cpp
+index 63fb9264a8348..91aab65764fdd 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.cpp
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.cpp
+@@ -117,15 +117,13 @@ std::string CDemuxStreamAudio::GetStreamType()
+     case AV_CODEC_ID_VORBIS:
+       strInfo = "Vorbis ";
+       break;
+-    case AV_CODEC_ID_PCM_BLURAY:
+-    case AV_CODEC_ID_PCM_DVD:
+-      strInfo = "PCM ";
+-      break;
+     default:
+-      strInfo = "";
+       break;
+   }
+ 
++  if (codec >= AV_CODEC_ID_PCM_S16LE && codec <= AV_CODEC_ID_PCM_SGA)
++    strInfo = "PCM ";
++
+   strInfo += m_channelLayoutName;
+ 
+   return strInfo;
+
+From 12455bf218ffdc5d923cb2264fe5c70de35a5604 Mon Sep 17 00:00:00 2001
+From: CrystalP <crystalp@kodi.tv>
+Date: Mon, 11 Nov 2024 15:44:36 -0500
+Subject: [PATCH 2/2] [Video] Use modern layout API for layout name generation
+
+The partially migrated code returned "0 channels" for a positive number of channels with a blank layout mask.
+---
+ xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 458b54114df84..6aa75102b14b3 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -1637,10 +1637,7 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
+         st->iBitsPerSample = pStream->codecpar->bits_per_raw_sample;
+         char buf[32] = {};
+         // https://github.com/FFmpeg/FFmpeg/blob/6ccc3989d15/doc/APIchanges#L50-L53
+-        AVChannelLayout layout = {};
+-        av_channel_layout_from_mask(&layout, st->iChannelLayout);
+-        av_channel_layout_describe(&layout, buf, sizeof(buf));
+-        av_channel_layout_uninit(&layout);
++        av_channel_layout_describe(&pStream->codecpar->ch_layout, buf, sizeof(buf));
+         st->m_channelLayoutName = buf;
+         if (st->iBitsPerSample == 0)
+           st->iBitsPerSample = pStream->codecpar->bits_per_coded_sample;
+

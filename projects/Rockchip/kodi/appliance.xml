@@ -14,7 +14,7 @@
       <group id="4">
         <setting id="videoscreen.noofbuffers">
           <default>2</default>
-          <visible>false</visible>
+          <visible>true</visible>
         </setting>
       </group>
     </category>
@@ -25,7 +25,7 @@
         </setting>
       </group>
       <group id="3">
-        <visible>false</visible>
+        <visible>true</visible>
         <setting id="audiooutput.passthrough">
           <default>false</default>
         </setting>
