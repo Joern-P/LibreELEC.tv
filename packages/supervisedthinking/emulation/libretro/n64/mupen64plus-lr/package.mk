@@ -21,42 +21,32 @@
 
 PKG_NAME="mupen64plus-lr"
 PKG_VERSION="ab8134ac90a567581df6de4fc427dd67bfad1b17"
-PKG_REV="1"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro"
 PKG_URL="${PKG_SITE}/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
-PKG_PRIORITY="optional"
-PKG_SECTION="libretro"
-PKG_SHORTDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
 PKG_LONGDESC="mupen64plus + RSP-HLE + GLideN64 + libretro"
 PKG_TOOLCHAIN="make"
 PKG_BUILD_FLAGS="-lto"
 PKG_PATCH_DIRS+=" ${DEVICE}"
 
-if [ ! "${OPENGL}" = "no" ]; then
+if [ "${OPENGL}" = "yes" ] && [ ! "${PREFER_GLES}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL} glu"
-fi
-
-if [ "${OPENGLES_SUPPORT}" = yes ]; then
+  PKG_MAKE_OPTS_TARGET+=" GLES=0 GL_LIB=\"-lGL\""
+elif [ "${OPENGLES_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
+  PKG_MAKE_OPTS_TARGET+=" GLES=1 GL_LIB=\"-lGLESv2\""
 fi
-
-pre_make_target() {
-  export CFLAGS="${CFLAGS} -fcommon"
-}
 
 pre_configure_target() {
-  case ${DEVICE} in
-    RK3*)
-      PKG_MAKE_OPTS_TARGET=" platform=${DEVICE}"
-      CFLAGS="${CFLAGS} -DLINUX -DEGL_API_FB"
-      CPPFLAGS="${CPPFLAGS} -DLINUX -DEGL_API_FB"
-    ;;
-    *)
-      PKG_MAKE_OPTS_TARGET="GLES=0 GLES3=0"
+  export CFLAGS="${CFLAGS} -fcommon -Wno-error=incompatible-pointer-types"
+
+  case ${ARCH} in
+    aarch64)
+      PKG_MAKE_OPTS_TARGET+=" OS_LINUX=1 platform=${DEVICE}"
     ;;
   esac
+
   sed -i 's/\-O[23]/-Ofast/' ${PKG_BUILD}/Makefile
 }
 
