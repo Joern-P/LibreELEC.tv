@@ -163,6 +163,7 @@ configure_target() {
     --disable-gnutls \
     --enable-openssl \
     --enable-libxml2 \
+    --disable-vulkan \
     \
     `#Advanced options` \
     --disable-hardcoded-tables \

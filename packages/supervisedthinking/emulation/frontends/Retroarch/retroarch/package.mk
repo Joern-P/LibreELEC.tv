@@ -2,7 +2,7 @@
 # Copyright (C) 2018-present Frank Hartung (supervisedthinking (@) gmail.com)
 
 PKG_NAME="retroarch"
-PKG_VERSION="06fa5325f8b3cd42e6fba3d57835d5924c9ea2e7" # v1.18.0
+PKG_VERSION="ab3b175848fa6cd8b2340809631e30bc0fe1d136" # v1.20.0
 PKG_SITE="https://github.com/libretro/RetroArch"
 PKG_URL="https://github.com/libretro/RetroArch.git"
 PKG_DEPENDS_TARGET="toolchain linux glibc systemd dbus openssl expat alsa-lib libpng libusb libass speex flac-system tinyalsa fluidsynth-system freetype zlib bzip2 ffmpeg common-overlays-lr core-info-lr database-lr glsl-shaders-lr overlay-borders-lr samples-lr retroarch-assets retroarch-joypad-autoconfig libxkbcommon openal-soft-system"
@@ -40,7 +40,7 @@ configure_package() {
 
   # Vulkan Support
   if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-    PKG_DEPENDS_TARGET+=" ${VULKAN} slang-shaders-lr"
+    PKG_DEPENDS_TARGET+=" vulkan-loader vulkan-headers slang-shaders-lr"
   fi
 }
 
@@ -146,7 +146,7 @@ esac
 
   # Vulkan support
   if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-     PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
+     PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan --enable-vulkan_display"
   fi
 }
 

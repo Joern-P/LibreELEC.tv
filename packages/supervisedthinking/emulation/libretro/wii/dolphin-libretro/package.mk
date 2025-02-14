@@ -48,6 +48,7 @@ pre_configure_target() {
                          -D ENABLE_PULSEAUDIO=ON \                         
                          -D USE_DISCORD_PRESENCE=OFF \
                          -D ENABLE_TESTS=OFF \
+                         -D ENABLE_SDL=OFF \
                          -D LIBRETRO=ON"
                          
                          

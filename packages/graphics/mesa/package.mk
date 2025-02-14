@@ -3,7 +3,7 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="24.3.3"
+PKG_VERSION="25.0.0-rc3"
 PKG_SHA256=""
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
@@ -25,7 +25,6 @@ PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-opencl=disabled \
                        -Dshader-cache=enabled \
                        -Dshared-glapi=enabled \
-                       -Dopencl-spirv=false \
                        -Dopengl=true \
                        -Dgbm=enabled \
                        -Degl=enabled \

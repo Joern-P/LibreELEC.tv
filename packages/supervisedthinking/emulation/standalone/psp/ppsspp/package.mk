@@ -30,7 +30,7 @@ configure_package() {
 
   # Vulkan Support
   if [ "${VULKAN_SUPPORT}" = "yes" ]; then
-    PKG_DEPENDS_TARGET+=" ${VULKAN}"
+    PKG_DEPENDS_TARGET+=" vulkan-loader"
   fi
 }
 

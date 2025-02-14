@@ -5,7 +5,7 @@ PKG_NAME="Rockchip"
 PKG_VERSION="1.0.9"
 PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="https://bit.ly/3vL5rH3"
-PKG_DEPENDS_TARGET="toolchain retroarch emulationstation  vice-libretro snes9x scummvm mame2010 pcsx_rearmed ppsspp mupen64plus-sa dosbox-staging citra-sa amiberry  dolphin-libretro raze rr-config-tool midnight-commander htop-system ffmpegx flycast"
+PKG_DEPENDS_TARGET="toolchain retroarch emulationstation  vice-libretro snes9x scummvm mame2010 pcsx_rearmed ppsspp mupen64plus_next mupen64plus-sa dosbox-staging citra-sa amiberry  dolphin-libretro raze rr-config-tool midnight-commander htop-system ffmpegx flycast vkmark" 
 PKG_LONGDESC="Metapackage for various LibreELEC-RR OEM packages"
 PKG_TOOLCHAIN="manual"
  

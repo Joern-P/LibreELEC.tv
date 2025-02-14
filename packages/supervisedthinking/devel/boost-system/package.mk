@@ -3,7 +3,7 @@
 
 PKG_NAME="boost-system"
 PKG_VERSION="$(get_pkg_version ${PKG_NAME::-7})"
-PKG_SHA256="$(get_pkg_sha256 ${PKG_NAME::-7})"
+PKG_SHA256="79e6d3f986444e5a80afbeccdaf2d1c1cf964baa8d766d20859d653a16c39848"
 PKG_LICENSE="BSL-1.0"
 PKG_SITE="http://www.boost.org/"
 PKG_URL="https://boostorg.jfrog.io/artifactory/main/release/${PKG_VERSION}/source/boost_${PKG_VERSION//./_}.tar.bz2"

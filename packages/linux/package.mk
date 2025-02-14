@@ -29,12 +29,11 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   rockchip)
-#    PKG_VERSION="8968e142821fbca242f81b20aadac5fbde3c4d47"
-#    PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
-#    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr1"
-    PKG_VERSION="5e3a7b2b1d25a6ff59bc2fbc2e0631103960ac7f"
+    #PKG_VERSION="5e3a7b2b1d25a6ff59bc2fbc2e0631103960ac7f"
+    #PKG_GIT_CLONE_BRANCH="rk-6.1-rkr4.1"
+    PKG_VERSION="7956aa222a1ba78dba9d45c16013daad1ae44ee8"
     PKG_URL="https://github.com/armbian/linux-rockchip/archive/${PKG_VERSION}.tar.gz"
-    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr4.1"
+    PKG_GIT_CLONE_BRANCH="rk-6.1-rkr5"
     ;;
   *)
     PKG_VERSION="6.6.71"

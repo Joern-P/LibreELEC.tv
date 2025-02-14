@@ -1,0 +1,1421 @@
+From 72250c35d98238fc8be1ae361551315e48f4894b Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Wed, 11 Dec 2024 08:54:15 +0100
+Subject: [PATCH 01/13] drm/panthor: Preserve the result returned by
+ panthor_fw_resume()
+
+WARN() will return true if the condition is true, false otherwise.
+If we store the return of drm_WARN_ON() in ret, we lose the actual
+error code.
+
+v3:
+- Add R-b
+v2:
+- Add R-b
+
+Fixes: 5fe909cae118 ("drm/panthor: Add the device logical block")
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Reviewed-by: Adrian Larumbe <adrian.larumbe@collabora.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241211075419.2333731-2-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_device.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+index 1fc90ba4c1f0..75ca47629794 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -464,8 +464,8 @@ int panthor_device_resume(struct device *dev)
+ 	    drm_dev_enter(&ptdev->base, &cookie)) {
+ 		panthor_gpu_resume(ptdev);
+ 		panthor_mmu_resume(ptdev);
+-		ret = drm_WARN_ON(&ptdev->base, panthor_fw_resume(ptdev));
+-		if (!ret) {
++		ret = panthor_fw_resume(ptdev);
++		if (!drm_WARN_ON(&ptdev->base, ret)) {
+ 			panthor_sched_resume(ptdev);
+ 		} else {
+ 			panthor_mmu_suspend(ptdev);
+
+From a322b85ff2a1657ac19f8ea8016ba28b72b3bf8a Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Wed, 11 Dec 2024 08:54:16 +0100
+Subject: [PATCH 02/13] drm/panthor: Be robust against runtime PM resume
+ failures in the suspend path
+
+The runtime PM resume operation is not guaranteed to succeed, but if it
+fails, the device should be in a suspended state. Make sure we're robust
+to resume failures in the unplug path.
+
+v3:
+- Fix typo
+- Add R-bs
+
+v2:
+- Move the bit that belonged in the next commit
+- Drop the panthor_device_unplug() changes
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Adrian Larumbe <adrian.larumbe@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241211075419.2333731-3-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_fw.c  | 14 +++++++++-----
+ drivers/gpu/drm/panthor/panthor_gpu.c |  3 ++-
+ drivers/gpu/drm/panthor/panthor_mmu.c |  3 ++-
+ 3 files changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
+index 4a2e36504fea..7cdf25128197 100644
+--- a/drivers/gpu/drm/panthor/panthor_fw.c
++++ b/drivers/gpu/drm/panthor/panthor_fw.c
+@@ -12,6 +12,7 @@
+ #include <linux/iosys-map.h>
+ #include <linux/mutex.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
+ 
+ #include <drm/drm_drv.h>
+ #include <drm/drm_managed.h>
+@@ -1190,11 +1191,13 @@ void panthor_fw_unplug(struct panthor_device *ptdev)
+ 
+ 	cancel_delayed_work_sync(&ptdev->fw->watchdog.ping_work);
+ 
+-	/* Make sure the IRQ handler can be called after that point. */
+-	if (ptdev->fw->irq.irq)
+-		panthor_job_irq_suspend(&ptdev->fw->irq);
++	if (!IS_ENABLED(CONFIG_PM) || pm_runtime_active(ptdev->base.dev)) {
++		/* Make sure the IRQ handler cannot be called after that point. */
++		if (ptdev->fw->irq.irq)
++			panthor_job_irq_suspend(&ptdev->fw->irq);
+ 
+-	panthor_fw_stop(ptdev);
++		panthor_fw_stop(ptdev);
++	}
+ 
+ 	list_for_each_entry(section, &ptdev->fw->sections, node)
+ 		panthor_kernel_bo_destroy(section->mem);
+@@ -1207,7 +1210,8 @@ void panthor_fw_unplug(struct panthor_device *ptdev)
+ 	panthor_vm_put(ptdev->fw->vm);
+ 	ptdev->fw->vm = NULL;
+ 
+-	panthor_gpu_power_off(ptdev, L2, ptdev->gpu_info.l2_present, 20000);
++	if (!IS_ENABLED(CONFIG_PM) || pm_runtime_active(ptdev->base.dev))
++		panthor_gpu_power_off(ptdev, L2, ptdev->gpu_info.l2_present, 20000);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/panthor/panthor_gpu.c b/drivers/gpu/drm/panthor/panthor_gpu.c
+index 0f3cac6ec88e..ee85a371bc38 100644
+--- a/drivers/gpu/drm/panthor/panthor_gpu.c
++++ b/drivers/gpu/drm/panthor/panthor_gpu.c
+@@ -180,7 +180,8 @@ void panthor_gpu_unplug(struct panthor_device *ptdev)
+ 	unsigned long flags;
+ 
+ 	/* Make sure the IRQ handler is not running after that point. */
+-	panthor_gpu_irq_suspend(&ptdev->gpu->irq);
++	if (!IS_ENABLED(CONFIG_PM) || pm_runtime_active(ptdev->base.dev))
++		panthor_gpu_irq_suspend(&ptdev->gpu->irq);
+ 
+ 	/* Wake-up all waiters. */
+ 	spin_lock_irqsave(&ptdev->gpu->reqs_lock, flags);
+diff --git a/drivers/gpu/drm/panthor/panthor_mmu.c b/drivers/gpu/drm/panthor/panthor_mmu.c
+index 5ec9cdc213ce..9d31536d6a7a 100644
+--- a/drivers/gpu/drm/panthor/panthor_mmu.c
++++ b/drivers/gpu/drm/panthor/panthor_mmu.c
+@@ -2671,7 +2671,8 @@ int panthor_vm_prepare_mapped_bos_resvs(struct drm_exec *exec, struct panthor_vm
+  */
+ void panthor_mmu_unplug(struct panthor_device *ptdev)
+ {
+-	panthor_mmu_irq_suspend(&ptdev->mmu->irq);
++	if (!IS_ENABLED(CONFIG_PM) || pm_runtime_active(ptdev->base.dev))
++		panthor_mmu_irq_suspend(&ptdev->mmu->irq);
+ 
+ 	mutex_lock(&ptdev->mmu->as.slots_lock);
+ 	for (u32 i = 0; i < ARRAY_SIZE(ptdev->mmu->as.slots); i++) {
+
+From b0d934c31471c9ce6a9bcde51ce069773a5d2557 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Wed, 11 Dec 2024 08:54:17 +0100
+Subject: [PATCH 03/13] drm/panthor: Ignore devfreq_{suspend, resume}_device()
+ failures
+
+devfreq_{resume,suspend}_device() don't bother undoing the suspend_count
+modifications if something fails, so either it assumes failures are
+harmless, or it's super fragile/buggy. In either case it's not something
+we can address at the driver level, so let's just assume failures are
+harmless for now, like is done in panfrost.
+
+v3:
+- Add R-b
+
+v2:
+- Add R-b
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Reviewed-by: Adrian Larumbe <adrian.larumbe@collabora.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241211075419.2333731-4-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_devfreq.c | 12 ++++----
+ drivers/gpu/drm/panthor/panthor_devfreq.h |  4 +--
+ drivers/gpu/drm/panthor/panthor_device.c  | 35 ++---------------------
+ 3 files changed, 11 insertions(+), 40 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_devfreq.c b/drivers/gpu/drm/panthor/panthor_devfreq.c
+index ecc7a52bd688..3686515d368d 100644
+--- a/drivers/gpu/drm/panthor/panthor_devfreq.c
++++ b/drivers/gpu/drm/panthor/panthor_devfreq.c
+@@ -243,26 +243,26 @@ int panthor_devfreq_init(struct panthor_device *ptdev)
+ 	return 0;
+ }
+ 
+-int panthor_devfreq_resume(struct panthor_device *ptdev)
++void panthor_devfreq_resume(struct panthor_device *ptdev)
+ {
+ 	struct panthor_devfreq *pdevfreq = ptdev->devfreq;
+ 
+ 	if (!pdevfreq->devfreq)
+-		return 0;
++		return;
+ 
+ 	panthor_devfreq_reset(pdevfreq);
+ 
+-	return devfreq_resume_device(pdevfreq->devfreq);
++	drm_WARN_ON(&ptdev->base, devfreq_resume_device(pdevfreq->devfreq));
+ }
+ 
+-int panthor_devfreq_suspend(struct panthor_device *ptdev)
++void panthor_devfreq_suspend(struct panthor_device *ptdev)
+ {
+ 	struct panthor_devfreq *pdevfreq = ptdev->devfreq;
+ 
+ 	if (!pdevfreq->devfreq)
+-		return 0;
++		return;
+ 
+-	return devfreq_suspend_device(pdevfreq->devfreq);
++	drm_WARN_ON(&ptdev->base, devfreq_suspend_device(pdevfreq->devfreq));
+ }
+ 
+ void panthor_devfreq_record_busy(struct panthor_device *ptdev)
+diff --git a/drivers/gpu/drm/panthor/panthor_devfreq.h b/drivers/gpu/drm/panthor/panthor_devfreq.h
+index 83a5c9522493..b7631de695f7 100644
+--- a/drivers/gpu/drm/panthor/panthor_devfreq.h
++++ b/drivers/gpu/drm/panthor/panthor_devfreq.h
+@@ -12,8 +12,8 @@ struct panthor_devfreq;
+ 
+ int panthor_devfreq_init(struct panthor_device *ptdev);
+ 
+-int panthor_devfreq_resume(struct panthor_device *ptdev);
+-int panthor_devfreq_suspend(struct panthor_device *ptdev);
++void panthor_devfreq_resume(struct panthor_device *ptdev);
++void panthor_devfreq_suspend(struct panthor_device *ptdev);
+ 
+ void panthor_devfreq_record_busy(struct panthor_device *ptdev);
+ void panthor_devfreq_record_idle(struct panthor_device *ptdev);
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+index 75ca47629794..cb00f6adde83 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -456,9 +456,7 @@ int panthor_device_resume(struct device *dev)
+ 	if (ret)
+ 		goto err_disable_stacks_clk;
+ 
+-	ret = panthor_devfreq_resume(ptdev);
+-	if (ret)
+-		goto err_disable_coregroup_clk;
++	panthor_devfreq_resume(ptdev);
+ 
+ 	if (panthor_device_is_initialized(ptdev) &&
+ 	    drm_dev_enter(&ptdev->base, &cookie)) {
+@@ -495,8 +493,6 @@ int panthor_device_resume(struct device *dev)
+ 
+ err_suspend_devfreq:
+ 	panthor_devfreq_suspend(ptdev);
+-
+-err_disable_coregroup_clk:
+ 	clk_disable_unprepare(ptdev->clks.coregroup);
+ 
+ err_disable_stacks_clk:
+@@ -513,7 +509,7 @@ int panthor_device_resume(struct device *dev)
+ int panthor_device_suspend(struct device *dev)
+ {
+ 	struct panthor_device *ptdev = dev_get_drvdata(dev);
+-	int ret, cookie;
++	int cookie;
+ 
+ 	if (atomic_read(&ptdev->pm.state) != PANTHOR_DEVICE_PM_STATE_ACTIVE)
+ 		return -EINVAL;
+@@ -545,36 +541,11 @@ int panthor_device_suspend(struct device *dev)
+ 		drm_dev_exit(cookie);
+ 	}
+ 
+-	ret = panthor_devfreq_suspend(ptdev);
+-	if (ret) {
+-		if (panthor_device_is_initialized(ptdev) &&
+-		    drm_dev_enter(&ptdev->base, &cookie)) {
+-			panthor_gpu_resume(ptdev);
+-			panthor_mmu_resume(ptdev);
+-			drm_WARN_ON(&ptdev->base, panthor_fw_resume(ptdev));
+-			panthor_sched_resume(ptdev);
+-			drm_dev_exit(cookie);
+-		}
+-
+-		goto err_set_active;
+-	}
++	panthor_devfreq_suspend(ptdev);
+ 
+ 	clk_disable_unprepare(ptdev->clks.coregroup);
+ 	clk_disable_unprepare(ptdev->clks.stacks);
+ 	clk_disable_unprepare(ptdev->clks.core);
+ 	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_SUSPENDED);
+ 	return 0;
+-
+-err_set_active:
+-	/* If something failed and we have to revert back to an
+-	 * active state, we also need to clear the MMIO userspace
+-	 * mappings, so any dumb pages that were mapped while we
+-	 * were trying to suspend gets invalidated.
+-	 */
+-	mutex_lock(&ptdev->pm.mmio_lock);
+-	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_ACTIVE);
+-	unmap_mapping_range(ptdev->base.anon_inode->i_mapping,
+-			    DRM_PANTHOR_USER_MMIO_OFFSET, 0, 1);
+-	mutex_unlock(&ptdev->pm.mmio_lock);
+-	return ret;
+ }
+
+From 21f6abbabda3f023bf868867813de9d50262f22e Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Wed, 11 Dec 2024 08:54:18 +0100
+Subject: [PATCH 04/13] drm/panthor: Be robust against resume failures
+
+When the runtime PM resume callback returns an error, it puts the device
+in a state where it can't be resumed anymore. Make sure we can recover
+from such transient failures by calling pm_runtime_set_suspended()
+explicitly after a pm_runtime_resume_and_get() failure.
+
+v3:
+- Add R-b/A-b
+
+v2:
+- Add a comment explaining potential races in
+  panthor_device_resume_and_get()
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Adrian Larumbe <adrian.larumbe@collabora.com>
+Acked-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241211075419.2333731-5-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_device.c |  1 +
+ drivers/gpu/drm/panthor/panthor_device.h | 26 ++++++++++++++++++++++++
+ drivers/gpu/drm/panthor/panthor_drv.c    |  2 +-
+ drivers/gpu/drm/panthor/panthor_sched.c  |  4 ++--
+ 4 files changed, 30 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+index cb00f6adde83..f683a508df8d 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -503,6 +503,7 @@ int panthor_device_resume(struct device *dev)
+ 
+ err_set_suspended:
+ 	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_SUSPENDED);
++	atomic_set(&ptdev->pm.recovery_needed, 1);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/gpu/drm/panthor/panthor_device.h b/drivers/gpu/drm/panthor/panthor_device.h
+index 2109905813e8..362f543c1ff0 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.h
++++ b/drivers/gpu/drm/panthor/panthor_device.h
+@@ -9,6 +9,7 @@
+ #include <linux/atomic.h>
+ #include <linux/io-pgtable.h>
+ #include <linux/regulator/consumer.h>
++#include <linux/pm_runtime.h>
+ #include <linux/sched.h>
+ #include <linux/spinlock.h>
+ 
+@@ -180,6 +181,9 @@ struct panthor_device {
+ 		 * is suspended.
+ 		 */
+ 		struct page *dummy_latest_flush;
++
++		/** @recovery_needed: True when a resume attempt failed. */
++		atomic_t recovery_needed;
+ 	} pm;
+ 
+ 	/** @profile_mask: User-set profiling flags for job accounting. */
+@@ -235,6 +239,28 @@ int panthor_device_mmap_io(struct panthor_device *ptdev,
+ int panthor_device_resume(struct device *dev);
+ int panthor_device_suspend(struct device *dev);
+ 
++static inline int panthor_device_resume_and_get(struct panthor_device *ptdev)
++{
++	int ret = pm_runtime_resume_and_get(ptdev->base.dev);
++
++	/* If the resume failed, we need to clear the runtime_error, which
++	 * can done by forcing the RPM state to suspended. If multiple
++	 * threads called panthor_device_resume_and_get(), we only want
++	 * one of them to update the state, hence the cmpxchg. Note that a
++	 * thread might enter panthor_device_resume_and_get() and call
++	 * pm_runtime_resume_and_get() after another thread had attempted
++	 * to resume and failed. This means we will end up with an error
++	 * without even attempting a resume ourselves. The only risk here
++	 * is to report an error when the second resume attempt might have
++	 * succeeded. Given resume errors are not expected, this is probably
++	 * something we can live with.
++	 */
++	if (ret && atomic_cmpxchg(&ptdev->pm.recovery_needed, 1, 0) == 1)
++		pm_runtime_set_suspended(ptdev->base.dev);
++
++	return ret;
++}
++
+ enum drm_panthor_exception_type {
+ 	DRM_PANTHOR_EXCEPTION_OK = 0x00,
+ 	DRM_PANTHOR_EXCEPTION_TERMINATED = 0x04,
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+index 8fc1ed3729a1..27ce6db0c19c 100644
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -761,7 +761,7 @@ static int panthor_query_timestamp_info(struct panthor_device *ptdev,
+ {
+ 	int ret;
+ 
+-	ret = pm_runtime_resume_and_get(ptdev->base.dev);
++	ret = panthor_device_resume_and_get(ptdev);
+ 	if (ret)
+ 		return ret;
+ 
+diff --git a/drivers/gpu/drm/panthor/panthor_sched.c b/drivers/gpu/drm/panthor/panthor_sched.c
+index 19d2d27ce57e..e45b167bcfa3 100644
+--- a/drivers/gpu/drm/panthor/panthor_sched.c
++++ b/drivers/gpu/drm/panthor/panthor_sched.c
+@@ -2340,7 +2340,7 @@ static void tick_work(struct work_struct *work)
+ 	if (!drm_dev_enter(&ptdev->base, &cookie))
+ 		return;
+ 
+-	ret = pm_runtime_resume_and_get(ptdev->base.dev);
++	ret = panthor_device_resume_and_get(ptdev);
+ 	if (drm_WARN_ON(&ptdev->base, ret))
+ 		goto out_dev_exit;
+ 
+@@ -3064,7 +3064,7 @@ queue_run_job(struct drm_sched_job *sched_job)
+ 		return dma_fence_get(job->done_fence);
+ 	}
+ 
+-	ret = pm_runtime_resume_and_get(ptdev->base.dev);
++	ret = panthor_device_resume_and_get(ptdev);
+ 	if (drm_WARN_ON(&ptdev->base, ret))
+ 		return ERR_PTR(ret);
+ 
+
+From 0e7fd00bb0b61fc6375494993e676a8f9101fbbc Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Wed, 11 Dec 2024 08:54:19 +0100
+Subject: [PATCH 05/13] drm/panthor: Fix the fast-reset logic
+
+If we do a GPU soft-reset, that's no longer fast reset. This also means
+the slow reset fallback doesn't work because the MCU state is only reset
+after a GPU soft-reset.
+
+Let's move the retry logic to panthor_device_resume() to issue a
+soft-reset between the fast and slow attempts, and patch
+panthor_gpu_suspend() to only power-off the L2 when a fast reset is
+requested.
+
+v3:
+- No changes
+
+v2:
+- Add R-b
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241211075419.2333731-6-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_device.c | 32 ++++++++++----
+ drivers/gpu/drm/panthor/panthor_device.h | 11 +++++
+ drivers/gpu/drm/panthor/panthor_fw.c     | 54 ++++++------------------
+ drivers/gpu/drm/panthor/panthor_gpu.c    | 11 ++---
+ 4 files changed, 53 insertions(+), 55 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+index f683a508df8d..5094cf8f7246 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -434,6 +434,22 @@ int panthor_device_mmap_io(struct panthor_device *ptdev, struct vm_area_struct *
+ 	return 0;
+ }
+ 
++static int panthor_device_resume_hw_components(struct panthor_device *ptdev)
++{
++	int ret;
++
++	panthor_gpu_resume(ptdev);
++	panthor_mmu_resume(ptdev);
++
++	ret = panthor_fw_resume(ptdev);
++	if (!ret)
++		return 0;
++
++	panthor_mmu_suspend(ptdev);
++	panthor_gpu_suspend(ptdev);
++	return ret;
++}
++
+ int panthor_device_resume(struct device *dev)
+ {
+ 	struct panthor_device *ptdev = dev_get_drvdata(dev);
+@@ -460,16 +476,16 @@ int panthor_device_resume(struct device *dev)
+ 
+ 	if (panthor_device_is_initialized(ptdev) &&
+ 	    drm_dev_enter(&ptdev->base, &cookie)) {
+-		panthor_gpu_resume(ptdev);
+-		panthor_mmu_resume(ptdev);
+-		ret = panthor_fw_resume(ptdev);
+-		if (!drm_WARN_ON(&ptdev->base, ret)) {
+-			panthor_sched_resume(ptdev);
+-		} else {
+-			panthor_mmu_suspend(ptdev);
+-			panthor_gpu_suspend(ptdev);
++		ret = panthor_device_resume_hw_components(ptdev);
++		if (ret && ptdev->reset.fast) {
++			drm_err(&ptdev->base, "Fast reset failed, trying a slow reset");
++			ptdev->reset.fast = false;
++			ret = panthor_device_resume_hw_components(ptdev);
+ 		}
+ 
++		if (!ret)
++			panthor_sched_resume(ptdev);
++
+ 		drm_dev_exit(cookie);
+ 
+ 		if (ret)
+diff --git a/drivers/gpu/drm/panthor/panthor_device.h b/drivers/gpu/drm/panthor/panthor_device.h
+index 362f543c1ff0..fedd4bfb5a07 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.h
++++ b/drivers/gpu/drm/panthor/panthor_device.h
+@@ -157,6 +157,17 @@ struct panthor_device {
+ 
+ 		/** @pending: Set to true if a reset is pending. */
+ 		atomic_t pending;
++
++		/**
++		 * @fast: True if the post_reset logic can proceed with a fast reset.
++		 *
++		 * A fast reset is just a reset where the driver doesn't reload the FW sections.
++		 *
++		 * Any time the firmware is properly suspended, a fast reset can take place.
++		 * On the other hand, if the halt operation failed, the driver will reload
++		 * all FW sections to make sure we start from a fresh state.
++		 */
++		bool fast;
+ 	} reset;
+ 
+ 	/** @pm: Power management related data. */
+diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
+index 7cdf25128197..68eb4fb4d3a8 100644
+--- a/drivers/gpu/drm/panthor/panthor_fw.c
++++ b/drivers/gpu/drm/panthor/panthor_fw.c
+@@ -263,17 +263,6 @@ struct panthor_fw {
+ 	/** @booted: True is the FW is booted */
+ 	bool booted;
+ 
+-	/**
+-	 * @fast_reset: True if the post_reset logic can proceed with a fast reset.
+-	 *
+-	 * A fast reset is just a reset where the driver doesn't reload the FW sections.
+-	 *
+-	 * Any time the firmware is properly suspended, a fast reset can take place.
+-	 * On the other hand, if the halt operation failed, the driver will reload
+-	 * all sections to make sure we start from a fresh state.
+-	 */
+-	bool fast_reset;
+-
+ 	/** @irq: Job irq data. */
+ 	struct panthor_irq irq;
+ };
+@@ -1090,7 +1079,7 @@ void panthor_fw_pre_reset(struct panthor_device *ptdev, bool on_hang)
+ 	/* Make sure we won't be woken up by a ping. */
+ 	cancel_delayed_work_sync(&ptdev->fw->watchdog.ping_work);
+ 
+-	ptdev->fw->fast_reset = false;
++	ptdev->reset.fast = false;
+ 
+ 	if (!on_hang) {
+ 		struct panthor_fw_global_iface *glb_iface = panthor_fw_get_glb_iface(ptdev);
+@@ -1100,7 +1089,7 @@ void panthor_fw_pre_reset(struct panthor_device *ptdev, bool on_hang)
+ 		gpu_write(ptdev, CSF_DOORBELL(CSF_GLB_DOORBELL_ID), 1);
+ 		if (!readl_poll_timeout(ptdev->iomem + MCU_STATUS, status,
+ 					status == MCU_STATUS_HALT, 10, 100000)) {
+-			ptdev->fw->fast_reset = true;
++			ptdev->reset.fast = true;
+ 		} else {
+ 			drm_warn(&ptdev->base, "Failed to cleanly suspend MCU");
+ 		}
+@@ -1125,49 +1114,30 @@ int panthor_fw_post_reset(struct panthor_device *ptdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	/* If this is a fast reset, try to start the MCU without reloading
+-	 * the FW sections. If it fails, go for a full reset.
+-	 */
+-	if (ptdev->fw->fast_reset) {
++	if (!ptdev->reset.fast) {
++		/* On a slow reset, reload all sections, including RO ones.
++		 * We're not supposed to end up here anyway, let's just assume
++		 * the overhead of reloading everything is acceptable.
++		 */
++		panthor_reload_fw_sections(ptdev, true);
++	} else {
+ 		/* The FW detects 0 -> 1 transitions. Make sure we reset
+ 		 * the HALT bit before the FW is rebooted.
+ 		 * This is not needed on a slow reset because FW sections are
+ 		 * re-initialized.
+ 		 */
+ 		struct panthor_fw_global_iface *glb_iface = panthor_fw_get_glb_iface(ptdev);
+-		panthor_fw_update_reqs(glb_iface, req, 0, GLB_HALT);
+-
+-		ret = panthor_fw_start(ptdev);
+-		if (!ret)
+-			goto out;
+ 
+-		/* Forcibly reset the MCU and force a slow reset, so we get a
+-		 * fresh boot on the next panthor_fw_start() call.
+-		 */
+-		panthor_fw_stop(ptdev);
+-		ptdev->fw->fast_reset = false;
+-		drm_err(&ptdev->base, "FW fast reset failed, trying a slow reset");
+-
+-		ret = panthor_vm_flush_all(ptdev->fw->vm);
+-		if (ret) {
+-			drm_err(&ptdev->base, "FW slow reset failed (couldn't flush FW's AS l2cache)");
+-			return ret;
+-		}
++		panthor_fw_update_reqs(glb_iface, req, 0, GLB_HALT);
+ 	}
+ 
+-	/* Reload all sections, including RO ones. We're not supposed
+-	 * to end up here anyway, let's just assume the overhead of
+-	 * reloading everything is acceptable.
+-	 */
+-	panthor_reload_fw_sections(ptdev, true);
+-
+ 	ret = panthor_fw_start(ptdev);
+ 	if (ret) {
+-		drm_err(&ptdev->base, "FW slow reset failed (couldn't start the FW )");
++		drm_err(&ptdev->base, "FW %s reset failed",
++			ptdev->reset.fast ?  "fast" : "slow");
+ 		return ret;
+ 	}
+ 
+-out:
+ 	/* We must re-initialize the global interface even on fast-reset. */
+ 	panthor_fw_init_global_iface(ptdev);
+ 	return 0;
+diff --git a/drivers/gpu/drm/panthor/panthor_gpu.c b/drivers/gpu/drm/panthor/panthor_gpu.c
+index ee85a371bc38..671049020afa 100644
+--- a/drivers/gpu/drm/panthor/panthor_gpu.c
++++ b/drivers/gpu/drm/panthor/panthor_gpu.c
+@@ -470,11 +470,12 @@ int panthor_gpu_soft_reset(struct panthor_device *ptdev)
+  */
+ void panthor_gpu_suspend(struct panthor_device *ptdev)
+ {
+-	/*
+-	 * It may be preferable to simply power down the L2, but for now just
+-	 * soft-reset which will leave the L2 powered down.
+-	 */
+-	panthor_gpu_soft_reset(ptdev);
++	/* On a fast reset, simply power down the L2. */
++	if (!ptdev->reset.fast)
++		panthor_gpu_soft_reset(ptdev);
++	else
++		panthor_gpu_power_off(ptdev, L2, 1, 20000);
++
+ 	panthor_gpu_irq_suspend(&ptdev->gpu->irq);
+ }
+ 
+
+From 931da4db51faad73ffeb268d26497548cf72037e Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Wed, 11 Dec 2024 09:05:00 +0100
+Subject: [PATCH 06/13] drm/panthor: Report innocent group kill
+
+Groups can be killed during a reset even though they did nothing wrong.
+That usually happens when the FW is put in a bad state by other groups,
+resulting in group suspension failures when the reset happens.
+
+If we end up in that situation, flag the group innocent and report
+innocence through a new DRM_PANTHOR_GROUP_STATE flag.
+
+Bump the minor driver version to reflect the uAPI change.
+
+Changes in v4:
+- Add an entry to the driver version changelog
+- Add R-bs
+
+Changes in v3:
+- Actually report innocence to userspace
+
+Changes in v2:
+- New patch
+
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Liviu Dudau <liviu.dudau@arm.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241211080500.2349505-1-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_drv.c   |  3 ++-
+ drivers/gpu/drm/panthor/panthor_sched.c | 18 ++++++++++++++++++
+ include/uapi/drm/panthor_drm.h          |  9 +++++++++
+ 3 files changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_drv.c b/drivers/gpu/drm/panthor/panthor_drv.c
+index 27ce6db0c19c..feba765a23e6 100644
+--- a/drivers/gpu/drm/panthor/panthor_drv.c
++++ b/drivers/gpu/drm/panthor/panthor_drv.c
+@@ -1451,6 +1451,7 @@ static const struct file_operations panthor_drm_driver_fops = {
+  * - 1.1 - adds DEV_QUERY_TIMESTAMP_INFO query
+  * - 1.2 - adds DEV_QUERY_GROUP_PRIORITIES_INFO query
+  *       - adds PANTHOR_GROUP_PRIORITY_REALTIME priority
++ * - 1.3 - adds DRM_PANTHOR_GROUP_STATE_INNOCENT flag
+  */
+ static const struct drm_driver panthor_drm_driver = {
+ 	.driver_features = DRIVER_RENDER | DRIVER_GEM | DRIVER_SYNCOBJ |
+@@ -1464,7 +1465,7 @@ static const struct drm_driver panthor_drm_driver = {
+ 	.desc = "Panthor DRM driver",
+ 	.date = "20230801",
+ 	.major = 1,
+-	.minor = 2,
++	.minor = 3,
+ 
+ 	.gem_create_object = panthor_gem_create_object,
+ 	.gem_prime_import_sg_table = drm_gem_shmem_prime_import_sg_table,
+diff --git a/drivers/gpu/drm/panthor/panthor_sched.c b/drivers/gpu/drm/panthor/panthor_sched.c
+index e45b167bcfa3..a00c89db6bc0 100644
+--- a/drivers/gpu/drm/panthor/panthor_sched.c
++++ b/drivers/gpu/drm/panthor/panthor_sched.c
+@@ -610,6 +610,16 @@ struct panthor_group {
+ 	 */
+ 	bool timedout;
+ 
++	/**
++	 * @innocent: True when the group becomes unusable because the group suspension
++	 * failed during a reset.
++	 *
++	 * Sometimes the FW was put in a bad state by other groups, causing the group
++	 * suspension happening in the reset path to fail. In that case, we consider the
++	 * group innocent.
++	 */
++	bool innocent;
++
+ 	/**
+ 	 * @syncobjs: Pool of per-queue synchronization objects.
+ 	 *
+@@ -2676,6 +2686,12 @@ void panthor_sched_suspend(struct panthor_device *ptdev)
+ 			u32 csg_id = ffs(slot_mask) - 1;
+ 			struct panthor_csg_slot *csg_slot = &sched->csg_slots[csg_id];
+ 
++			/* If the group was still usable before that point, we consider
++			 * it innocent.
++			 */
++			if (group_can_run(csg_slot->group))
++				csg_slot->group->innocent = true;
++
+ 			/* We consider group suspension failures as fatal and flag the
+ 			 * group as unusable by setting timedout=true.
+ 			 */
+@@ -3517,6 +3533,8 @@ int panthor_group_get_state(struct panthor_file *pfile,
+ 		get_state->state |= DRM_PANTHOR_GROUP_STATE_FATAL_FAULT;
+ 		get_state->fatal_queues = group->fatal_queues;
+ 	}
++	if (group->innocent)
++		get_state->state |= DRM_PANTHOR_GROUP_STATE_INNOCENT;
+ 	mutex_unlock(&sched->lock);
+ 
+ 	group_put(group);
+diff --git a/include/uapi/drm/panthor_drm.h b/include/uapi/drm/panthor_drm.h
+index 5cc0c3b9658b..b42ae0c27b4d 100644
+--- a/include/uapi/drm/panthor_drm.h
++++ b/include/uapi/drm/panthor_drm.h
+@@ -918,6 +918,15 @@ enum drm_panthor_group_state_flags {
+ 	 * When a group ends up with this flag set, no jobs can be submitted to its queues.
+ 	 */
+ 	DRM_PANTHOR_GROUP_STATE_FATAL_FAULT = 1 << 1,
++
++	/**
++	 * @DRM_PANTHOR_GROUP_STATE_INNOCENT: Group was killed during a reset caused by other
++	 * groups.
++	 *
++	 * This flag can only be set if DRM_PANTHOR_GROUP_STATE_TIMEDOUT is set and
++	 * DRM_PANTHOR_GROUP_STATE_FATAL_FAULT is not.
++	 */
++	DRM_PANTHOR_GROUP_STATE_INNOCENT = 1 << 2,
+ };
+ 
+ /**
+
+From 768ca5f54a439c49643a14b35c363b3c20dfdce1 Mon Sep 17 00:00:00 2001
+From: Florent Tomasin <florent.tomasin@arm.com>
+Date: Tue, 7 Jan 2025 17:33:09 +0000
+Subject: [PATCH 07/13] drm/panthor: Remove dead code
+
+Remove unused function declaration in panthor_gem.h:
+- `panthor_gem_prime_import_sg_table()`
+
+Remove duplicate macro definitions:
+- `MAX_CSG_PRIO`
+- `MIN_CS_PER_CSG`
+- `MIN_CSGS`
+
+Signed-off-by: Florent Tomasin <florent.tomasin@arm.com>
+Reviewed-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Signed-off-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20250107173310.88329-1-florent.tomasin@arm.com
+---
+ drivers/gpu/drm/panthor/panthor_fw.c    | 1 -
+ drivers/gpu/drm/panthor/panthor_gem.h   | 5 -----
+ drivers/gpu/drm/panthor/panthor_sched.c | 3 ---
+ 3 files changed, 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_fw.c b/drivers/gpu/drm/panthor/panthor_fw.c
+index 68eb4fb4d3a8..4a9c4afa9ad7 100644
+--- a/drivers/gpu/drm/panthor/panthor_fw.c
++++ b/drivers/gpu/drm/panthor/panthor_fw.c
+@@ -201,7 +201,6 @@ struct panthor_fw_section {
+ 
+ #define MIN_CS_PER_CSG				8
+ #define MIN_CSGS				3
+-#define MAX_CSG_PRIO				0xf
+ 
+ #define CSF_IFACE_VERSION(major, minor, patch)	\
+ 	(((major) << 24) | ((minor) << 16) | (patch))
+diff --git a/drivers/gpu/drm/panthor/panthor_gem.h b/drivers/gpu/drm/panthor/panthor_gem.h
+index e43021cf6d45..5749ef2ebe03 100644
+--- a/drivers/gpu/drm/panthor/panthor_gem.h
++++ b/drivers/gpu/drm/panthor/panthor_gem.h
+@@ -85,11 +85,6 @@ struct panthor_gem_object *to_panthor_bo(struct drm_gem_object *obj)
+ 
+ struct drm_gem_object *panthor_gem_create_object(struct drm_device *ddev, size_t size);
+ 
+-struct drm_gem_object *
+-panthor_gem_prime_import_sg_table(struct drm_device *ddev,
+-				  struct dma_buf_attachment *attach,
+-				  struct sg_table *sgt);
+-
+ int
+ panthor_gem_create_with_handle(struct drm_file *file,
+ 			       struct drm_device *ddev,
+diff --git a/drivers/gpu/drm/panthor/panthor_sched.c b/drivers/gpu/drm/panthor/panthor_sched.c
+index a00c89db6bc0..913bab8dc7ad 100644
+--- a/drivers/gpu/drm/panthor/panthor_sched.c
++++ b/drivers/gpu/drm/panthor/panthor_sched.c
+@@ -88,9 +88,6 @@
+ 
+ #define JOB_TIMEOUT_MS				5000
+ 
+-#define MIN_CS_PER_CSG				8
+-
+-#define MIN_CSGS				3
+ #define MAX_CSG_PRIO				0xf
+ 
+ #define NUM_INSTRS_PER_CACHE_LINE		(64 / sizeof(u64))
+
+From eda1c039e54209312ac7cd27972ee2d969e2c6d9 Mon Sep 17 00:00:00 2001
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Fri, 10 Jan 2025 22:28:32 -0800
+Subject: [PATCH 08/13] drm/panthor: fix all mmu kernel-doc comments
+
+Use the correct format for all kernel-doc comments.
+Use structname.membername for named structs.
+Don't precede function names in kernel-doc with '@' sign.
+Use the correct function parameter names in kernel-doc comments.
+
+This fixes around 80 kernel-doc warnings.
+
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: Boris Brezillon <boris.brezillon@collabora.com>
+Cc: Steven Price <steven.price@arm.com>
+Cc: Liviu Dudau <liviu.dudau@arm.com>
+Cc: Maarten Lankhorst <maarten.lankhorst@linux.intel.com>
+Cc: Maxime Ripard <mripard@kernel.org>
+Cc: Thomas Zimmermann <tzimmermann@suse.de>
+Cc: David Airlie <airlied@gmail.com>
+Cc: Simona Vetter <simona@ffwll.ch>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Signed-off-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20250111062832.910495-1-rdunlap@infradead.org
+---
+ drivers/gpu/drm/panthor/panthor_mmu.c | 71 ++++++++++++++-------------
+ 1 file changed, 37 insertions(+), 34 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_mmu.c b/drivers/gpu/drm/panthor/panthor_mmu.c
+index 9d31536d6a7a..107fe1625ddb 100644
+--- a/drivers/gpu/drm/panthor/panthor_mmu.c
++++ b/drivers/gpu/drm/panthor/panthor_mmu.c
+@@ -52,26 +52,27 @@ struct panthor_mmu {
+ 	/** @irq: The MMU irq. */
+ 	struct panthor_irq irq;
+ 
+-	/** @as: Address space related fields.
++	/**
++	 * @as: Address space related fields.
+ 	 *
+ 	 * The GPU has a limited number of address spaces (AS) slots, forcing
+ 	 * us to re-assign them to re-assign slots on-demand.
+ 	 */
+ 	struct {
+-		/** @slots_lock: Lock protecting access to all other AS fields. */
++		/** @as.slots_lock: Lock protecting access to all other AS fields. */
+ 		struct mutex slots_lock;
+ 
+-		/** @alloc_mask: Bitmask encoding the allocated slots. */
++		/** @as.alloc_mask: Bitmask encoding the allocated slots. */
+ 		unsigned long alloc_mask;
+ 
+-		/** @faulty_mask: Bitmask encoding the faulty slots. */
++		/** @as.faulty_mask: Bitmask encoding the faulty slots. */
+ 		unsigned long faulty_mask;
+ 
+-		/** @slots: VMs currently bound to the AS slots. */
++		/** @as.slots: VMs currently bound to the AS slots. */
+ 		struct panthor_as_slot slots[MAX_AS_SLOTS];
+ 
+ 		/**
+-		 * @lru_list: List of least recently used VMs.
++		 * @as.lru_list: List of least recently used VMs.
+ 		 *
+ 		 * We use this list to pick a VM to evict when all slots are
+ 		 * used.
+@@ -86,16 +87,16 @@ struct panthor_mmu {
+ 
+ 	/** @vm: VMs management fields */
+ 	struct {
+-		/** @lock: Lock protecting access to list. */
++		/** @vm.lock: Lock protecting access to list. */
+ 		struct mutex lock;
+ 
+-		/** @list: List containing all VMs. */
++		/** @vm.list: List containing all VMs. */
+ 		struct list_head list;
+ 
+-		/** @reset_in_progress: True if a reset is in progress. */
++		/** @vm.reset_in_progress: True if a reset is in progress. */
+ 		bool reset_in_progress;
+ 
+-		/** @wq: Workqueue used for the VM_BIND queues. */
++		/** @vm.wq: Workqueue used for the VM_BIND queues. */
+ 		struct workqueue_struct *wq;
+ 	} vm;
+ };
+@@ -142,14 +143,14 @@ struct panthor_vma {
+ struct panthor_vm_op_ctx {
+ 	/** @rsvd_page_tables: Pages reserved for the MMU page table update. */
+ 	struct {
+-		/** @count: Number of pages reserved. */
++		/** @rsvd_page_tables.count: Number of pages reserved. */
+ 		u32 count;
+ 
+-		/** @ptr: Point to the first unused page in the @pages table. */
++		/** @rsvd_page_tables.ptr: Point to the first unused page in the @pages table. */
+ 		u32 ptr;
+ 
+ 		/**
+-		 * @page: Array of pages that can be used for an MMU page table update.
++		 * @rsvd_page_tables.pages: Array of pages to be used for an MMU page table update.
+ 		 *
+ 		 * After an VM operation, there might be free pages left in this array.
+ 		 * They should be returned to the pt_cache as part of the op_ctx cleanup.
+@@ -171,10 +172,10 @@ struct panthor_vm_op_ctx {
+ 
+ 	/** @va: Virtual range targeted by the VM operation. */
+ 	struct {
+-		/** @addr: Start address. */
++		/** @va.addr: Start address. */
+ 		u64 addr;
+ 
+-		/** @range: Range size. */
++		/** @va.range: Range size. */
+ 		u64 range;
+ 	} va;
+ 
+@@ -194,14 +195,14 @@ struct panthor_vm_op_ctx {
+ 
+ 	/** @map: Fields specific to a map operation. */
+ 	struct {
+-		/** @vm_bo: Buffer object to map. */
++		/** @map.vm_bo: Buffer object to map. */
+ 		struct drm_gpuvm_bo *vm_bo;
+ 
+-		/** @bo_offset: Offset in the buffer object. */
++		/** @map.bo_offset: Offset in the buffer object. */
+ 		u64 bo_offset;
+ 
+ 		/**
+-		 * @sgt: sg-table pointing to pages backing the GEM object.
++		 * @map.sgt: sg-table pointing to pages backing the GEM object.
+ 		 *
+ 		 * This is gathered at job creation time, such that we don't have
+ 		 * to allocate in ::run_job().
+@@ -209,7 +210,7 @@ struct panthor_vm_op_ctx {
+ 		struct sg_table *sgt;
+ 
+ 		/**
+-		 * @new_vma: The new VMA object that will be inserted to the VA tree.
++		 * @map.new_vma: The new VMA object that will be inserted to the VA tree.
+ 		 */
+ 		struct panthor_vma *new_vma;
+ 	} map;
+@@ -303,27 +304,27 @@ struct panthor_vm {
+ 
+ 	/** @kernel_auto_va: Automatic VA-range for kernel BOs. */
+ 	struct {
+-		/** @start: Start of the automatic VA-range for kernel BOs. */
++		/** @kernel_auto_va.start: Start of the automatic VA-range for kernel BOs. */
+ 		u64 start;
+ 
+-		/** @size: Size of the automatic VA-range for kernel BOs. */
++		/** @kernel_auto_va.size: Size of the automatic VA-range for kernel BOs. */
+ 		u64 end;
+ 	} kernel_auto_va;
+ 
+ 	/** @as: Address space related fields. */
+ 	struct {
+ 		/**
+-		 * @id: ID of the address space this VM is bound to.
++		 * @as.id: ID of the address space this VM is bound to.
+ 		 *
+ 		 * A value of -1 means the VM is inactive/not bound.
+ 		 */
+ 		int id;
+ 
+-		/** @active_cnt: Number of active users of this VM. */
++		/** @as.active_cnt: Number of active users of this VM. */
+ 		refcount_t active_cnt;
+ 
+ 		/**
+-		 * @lru_node: Used to instead the VM in the panthor_mmu::as::lru_list.
++		 * @as.lru_node: Used to instead the VM in the panthor_mmu::as::lru_list.
+ 		 *
+ 		 * Active VMs should not be inserted in the LRU list.
+ 		 */
+@@ -335,13 +336,13 @@ struct panthor_vm {
+ 	 */
+ 	struct {
+ 		/**
+-		 * @pool: The heap pool attached to this VM.
++		 * @heaps.pool: The heap pool attached to this VM.
+ 		 *
+ 		 * Will stay NULL until someone creates a heap context on this VM.
+ 		 */
+ 		struct panthor_heap_pool *pool;
+ 
+-		/** @lock: Lock used to protect access to @pool. */
++		/** @heaps.lock: Lock used to protect access to @pool. */
+ 		struct mutex lock;
+ 	} heaps;
+ 
+@@ -407,7 +408,7 @@ struct panthor_vm_bind_job {
+ 	struct panthor_vm_op_ctx ctx;
+ };
+ 
+-/**
++/*
+  * @pt_cache: Cache used to allocate MMU page tables.
+  *
+  * The pre-allocation pattern forces us to over-allocate to plan for
+@@ -477,7 +478,7 @@ static void *alloc_pt(void *cookie, size_t size, gfp_t gfp)
+ }
+ 
+ /**
+- * @free_pt() - Custom page table free function
++ * free_pt() - Custom page table free function
+  * @cookie: Cookie passed at page table allocation time.
+  * @data: Page table to free.
+  * @size: Size of the page table. This size should be fixed,
+@@ -696,7 +697,7 @@ static void panthor_vm_release_as_locked(struct panthor_vm *vm)
+ 
+ /**
+  * panthor_vm_active() - Flag a VM as active
+- * @VM: VM to flag as active.
++ * @vm: VM to flag as active.
+  *
+  * Assigns an address space to a VM so it can be used by the GPU/MCU.
+  *
+@@ -800,7 +801,7 @@ int panthor_vm_active(struct panthor_vm *vm)
+ 
+ /**
+  * panthor_vm_idle() - Flag a VM idle
+- * @VM: VM to flag as idle.
++ * @vm: VM to flag as idle.
+  *
+  * When we know the GPU is done with the VM (no more jobs to process),
+  * we can relinquish the AS slot attached to this VM, if any.
+@@ -1016,7 +1017,7 @@ static int flags_to_prot(u32 flags)
+ 
+ /**
+  * panthor_vm_alloc_va() - Allocate a region in the auto-va space
+- * @VM: VM to allocate a region on.
++ * @vm: VM to allocate a region on.
+  * @va: start of the VA range. Can be PANTHOR_VM_KERNEL_AUTO_VA if the user
+  * wants the VA to be automatically allocated from the auto-VA range.
+  * @size: size of the VA range.
+@@ -1062,7 +1063,7 @@ panthor_vm_alloc_va(struct panthor_vm *vm, u64 va, u64 size,
+ 
+ /**
+  * panthor_vm_free_va() - Free a region allocated with panthor_vm_alloc_va()
+- * @VM: VM to free the region on.
++ * @vm: VM to free the region on.
+  * @va_node: Memory node representing the region to free.
+  */
+ void panthor_vm_free_va(struct panthor_vm *vm, struct drm_mm_node *va_node)
+@@ -1491,9 +1492,9 @@ panthor_vm_create_check_args(const struct panthor_device *ptdev,
+ 
+ /**
+  * panthor_vm_pool_create_vm() - Create a VM
++ * @ptdev: The panthor device
+  * @pool: The VM to create this VM on.
+- * @kernel_va_start: Start of the region reserved for kernel objects.
+- * @kernel_va_range: Size of the region reserved for kernel objects.
++ * @args: VM creation args.
+  *
+  * Return: a positive VM ID on success, a negative error code otherwise.
+  */
+@@ -1557,6 +1558,8 @@ static void panthor_vm_destroy(struct panthor_vm *vm)
+  *
+  * The VM resources are freed when the last reference on the VM object is
+  * dropped.
++ *
++ * Return: %0 for success, negative errno value for failure
+  */
+ int panthor_vm_pool_destroy_vm(struct panthor_vm_pool *pool, u32 handle)
+ {
+
+From 0fc982c2c6dbea7984b24752d88c60c662116505 Mon Sep 17 00:00:00 2001
+From: Boris Brezillon <boris.brezillon@collabora.com>
+Date: Tue, 17 Dec 2024 10:24:57 +0100
+Subject: [PATCH 09/13] drm/panthor: Fix a race between the reset and suspend
+ path
+
+If a reset is scheduled when the suspend happens, we drop the
+reset-pending info on the floor assuming the resume will fix things,
+but the resume logic might try a fast reset. If we're lucky, the
+fast reset fails and we fallback to a slow reset, but if the FW was
+corrupted in a way that makes it partially functional (it boots but
+doesn't quite do what it's expected to do), we won't notice immediately
+that things are not working correctly, leading to a new reset further
+down the road.
+
+Fixes: 5fe909cae118 ("drm/panthor: Add the device logical block")
+Signed-off-by: Boris Brezillon <boris.brezillon@collabora.com>
+Reviewed-by: Liviu Dudau <liviu.dudau@arm.com>
+Reviewed-by: Steven Price <steven.price@arm.com>
+Signed-off-by: Steven Price <steven.price@arm.com>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241217092457.1582053-1-boris.brezillon@collabora.com
+---
+ drivers/gpu/drm/panthor/panthor_device.c | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/panthor/panthor_device.c b/drivers/gpu/drm/panthor/panthor_device.c
+index 5094cf8f7246..4f9a071c65e4 100644
+--- a/drivers/gpu/drm/panthor/panthor_device.c
++++ b/drivers/gpu/drm/panthor/panthor_device.c
+@@ -128,14 +128,11 @@ static void panthor_device_reset_work(struct work_struct *work)
+ 	struct panthor_device *ptdev = container_of(work, struct panthor_device, reset.work);
+ 	int ret = 0, cookie;
+ 
+-	if (atomic_read(&ptdev->pm.state) != PANTHOR_DEVICE_PM_STATE_ACTIVE) {
+-		/*
+-		 * No need for a reset as the device has been (or will be)
+-		 * powered down
+-		 */
+-		atomic_set(&ptdev->reset.pending, 0);
++	/* If the device is entering suspend, we don't reset. A slow reset will
++	 * be forced at resume time instead.
++	 */
++	if (atomic_read(&ptdev->pm.state) != PANTHOR_DEVICE_PM_STATE_ACTIVE)
+ 		return;
+-	}
+ 
+ 	if (!drm_dev_enter(&ptdev->base, &cookie))
+ 		return;
+@@ -476,6 +473,14 @@ int panthor_device_resume(struct device *dev)
+ 
+ 	if (panthor_device_is_initialized(ptdev) &&
+ 	    drm_dev_enter(&ptdev->base, &cookie)) {
++		/* If there was a reset pending at the time we suspended the
++		 * device, we force a slow reset.
++		 */
++		if (atomic_read(&ptdev->reset.pending)) {
++			ptdev->reset.fast = false;
++			atomic_set(&ptdev->reset.pending, 0);
++		}
++
+ 		ret = panthor_device_resume_hw_components(ptdev);
+ 		if (ret && ptdev->reset.fast) {
+ 			drm_err(&ptdev->base, "Fast reset failed, trying a slow reset");
+@@ -492,9 +497,6 @@ int panthor_device_resume(struct device *dev)
+ 			goto err_suspend_devfreq;
+ 	}
+ 
+-	if (atomic_read(&ptdev->reset.pending))
+-		queue_work(ptdev->reset.wq, &ptdev->reset.work);
+-
+ 	/* Clear all IOMEM mappings pointing to this device after we've
+ 	 * resumed. This way the fake mappings pointing to the dummy pages
+ 	 * are removed and the real iomem mapping will be restored on next
+
+From fe909947bd0d23a266a812f4142f4087f605c150 Mon Sep 17 00:00:00 2001
+From: Bagas Sanjaya <bagasdotme@gmail.com>
+Date: Tue, 17 Dec 2024 10:49:15 +0700
+Subject: [PATCH 10/13] drm/sched: Fix drm_sched_fini() docu generation
+
+Commit baf4afc5831438 ("drm/sched: Improve teardown documentation")
+documents problems of drm_sched_fini() in form of a list. The checklist
+triggers htmldocs warning (but renders correctly in htmldocs output):
+
+Documentation/gpu/drm-mm:571: ./drivers/gpu/drm/scheduler/sched_main.c:1359: ERROR: Unexpected indentation.
+
+Separate the list from the preceding paragraph by a blank line to fix
+the warning. While at it, also end the aforementioned paragraph by a
+colon.
+
+Fixes: baf4afc58314 ("drm/sched: Improve teardown documentation")
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Closes: https://lore.kernel.org/r/20241108175655.6d3fcfb7@canb.auug.org.au/
+Signed-off-by: Bagas Sanjaya <bagasdotme@gmail.com>
+[phasta: Adjust commit message]
+Signed-off-by: Philipp Stanner <phasta@kernel.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20241217034915.62594-1-bagasdotme@gmail.com
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 7ce25281c74c..57da84908752 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -1355,7 +1355,8 @@ EXPORT_SYMBOL(drm_sched_init);
+  * drm_sched_backend_ops.run_job(). Consequently, drm_sched_backend_ops.free_job()
+  * will not be called for all jobs still in drm_gpu_scheduler.pending_list.
+  * There is no solution for this currently. Thus, it is up to the driver to make
+- * sure that
++ * sure that:
++ *
+  *  a) drm_sched_fini() is only called after for all submitted jobs
+  *     drm_sched_backend_ops.free_job() has been called or that
+  *  b) the jobs for which drm_sched_backend_ops.free_job() has not been called
+
+From 1e99f6b769d8ea98f45e20b40f02c32cab7d6233 Mon Sep 17 00:00:00 2001
+From: Tvrtko Ursulin <tvrtko.ursulin@igalia.com>
+Date: Fri, 10 Jan 2025 11:13:01 +0000
+Subject: [PATCH 11/13] drm/sched: Delete unused update_job_credits
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+No driver is using the update_job_credits() schduler vfunc
+so lets remove it.
+
+Signed-off-by: Tvrtko Ursulin <tvrtko.ursulin@igalia.com>
+Cc: Christian König <christian.koenig@amd.com>
+Cc: Danilo Krummrich <dakr@redhat.com>
+Cc: Matthew Brost <matthew.brost@intel.com>
+Cc: Philipp Stanner <pstanner@redhat.com>
+Acked-by: Danilo Krummrich <dakr@kernel.org>
+Acked-by: Boris Brezillon <boris.brezillon@collabora.com>
+Acked-by: Matt Coster <matt.coster@imgtec.com>
+Signed-off-by: Philipp Stanner <phasta@kernel.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20250110111301.76909-1-tvrtko.ursulin@igalia.com
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 13 -------------
+ include/drm/gpu_scheduler.h            | 13 -------------
+ 2 files changed, 26 deletions(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 57da84908752..81d69c2ff6ab 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -64,12 +64,6 @@
+  * credit limit, the job won't be executed. Instead, the scheduler will wait
+  * until the credit count has decreased enough to not overflow its credit limit.
+  * This implies waiting for previously executed jobs.
+- *
+- * Optionally, drivers may register a callback (update_job_credits) provided by
+- * struct drm_sched_backend_ops to update the job's credits dynamically. The
+- * scheduler executes this callback every time the scheduler considers a job for
+- * execution and subsequently checks whether the job fits the scheduler's credit
+- * limit.
+  */
+ 
+ #include <linux/wait.h>
+@@ -133,13 +127,6 @@ static bool drm_sched_can_queue(struct drm_gpu_scheduler *sched,
+ 	if (!s_job)
+ 		return false;
+ 
+-	if (sched->ops->update_job_credits) {
+-		s_job->credits = sched->ops->update_job_credits(s_job);
+-
+-		drm_WARN(sched, !s_job->credits,
+-			 "Jobs with zero credits bypass job-flow control.\n");
+-	}
+-
+ 	/* If a job exceeds the credit limit, truncate it to the credit limit
+ 	 * itself to guarantee forward progress.
+ 	 */
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index 772a08135177..86b1814191a2 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -474,19 +474,6 @@ struct drm_sched_backend_ops {
+          * and it's time to clean it up.
+ 	 */
+ 	void (*free_job)(struct drm_sched_job *sched_job);
+-
+-	/**
+-	 * @update_job_credits: Called when the scheduler is considering this
+-	 * job for execution.
+-	 *
+-	 * This callback returns the number of credits the job would take if
+-	 * pushed to the hardware. Drivers may use this to dynamically update
+-	 * the job's credit count. For instance, deduct the number of credits
+-	 * for already signalled native fences.
+-	 *
+-	 * This callback is optional.
+-	 */
+-	u32 (*update_job_credits)(struct drm_sched_job *sched_job);
+ };
+ 
+ /**
+
+From 7ed662f42b6def44a52153eed253a80b39e958d7 Mon Sep 17 00:00:00 2001
+From: Tvrtko Ursulin <tvrtko.ursulin@igalia.com>
+Date: Tue, 14 Jan 2025 10:59:42 +0000
+Subject: [PATCH 12/13] drm/sched: Remove weak paused submission checks
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There is no need to check the boolean in the work item's prologues since
+the boolean can be set at any later time anyway.
+
+The helper which pauses submission sets it and synchronously cancels the
+work and helpers which queue the work check for the flag so all should be
+good.
+
+Signed-off-by: Tvrtko Ursulin <tvrtko.ursulin@igalia.com>
+Cc: Christian König <christian.koenig@amd.com>
+Cc: Danilo Krummrich <dakr@redhat.com>
+Cc: Matthew Brost <matthew.brost@intel.com>
+Cc: Philipp Stanner <pstanner@redhat.com>
+Signed-off-by: Philipp Stanner <phasta@kernel.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20250114105942.64832-1-tvrtko.ursulin@igalia.com
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index 81d69c2ff6ab..d172e3158880 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -1153,9 +1153,6 @@ static void drm_sched_free_job_work(struct work_struct *w)
+ 		container_of(w, struct drm_gpu_scheduler, work_free_job);
+ 	struct drm_sched_job *job;
+ 
+-	if (READ_ONCE(sched->pause_submit))
+-		return;
+-
+ 	job = drm_sched_get_finished_job(sched);
+ 	if (job)
+ 		sched->ops->free_job(job);
+@@ -1179,9 +1176,6 @@ static void drm_sched_run_job_work(struct work_struct *w)
+ 	struct drm_sched_job *sched_job;
+ 	int r;
+ 
+-	if (READ_ONCE(sched->pause_submit))
+-		return;
+-
+ 	/* Find entity with a ready job */
+ 	entity = drm_sched_select_entity(sched);
+ 	if (!entity)
+
+From ac1f3f718376c24a9d4ceeb98d4af6d28361b6e4 Mon Sep 17 00:00:00 2001
+From: Tvrtko Ursulin <tvrtko.ursulin@igalia.com>
+Date: Mon, 13 Jan 2025 10:33:40 +0000
+Subject: [PATCH 13/13] drm/sched: Add helper to check job dependencies
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Lets isolate scheduler internals from drivers such as pvr which currently
+walks the dependency array to look for fences.
+
+Signed-off-by: Tvrtko Ursulin <tvrtko.ursulin@igalia.com>
+Cc: Christian König <christian.koenig@amd.com>
+Cc: Danilo Krummrich <dakr@redhat.com>
+Cc: Matthew Brost <matthew.brost@intel.com>
+Cc: Philipp Stanner <pstanner@redhat.com>
+Reviewed-by: Matt Coster <matt.coster@imgtec.com>
+Acked-by: Danilo Krummrich <dakr@kernel.org>
+Signed-off-by: Philipp Stanner <phasta@kernel.org>
+Link: https://patchwork.freedesktop.org/patch/msgid/20250113103341.43914-1-tvrtko.ursulin@igalia.com
+---
+ drivers/gpu/drm/scheduler/sched_main.c | 23 +++++++++++++++++++++++
+ include/drm/gpu_scheduler.h            |  3 ++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/scheduler/sched_main.c b/drivers/gpu/drm/scheduler/sched_main.c
+index d172e3158880..a48be16ab84f 100644
+--- a/drivers/gpu/drm/scheduler/sched_main.c
++++ b/drivers/gpu/drm/scheduler/sched_main.c
+@@ -984,6 +984,29 @@ int drm_sched_job_add_implicit_dependencies(struct drm_sched_job *job,
+ }
+ EXPORT_SYMBOL(drm_sched_job_add_implicit_dependencies);
+ 
++/**
++ * drm_sched_job_has_dependency - check whether fence is the job's dependency
++ * @job: scheduler job to check
++ * @fence: fence to look for
++ *
++ * Returns:
++ * True if @fence is found within the job's dependencies, or otherwise false.
++ */
++bool drm_sched_job_has_dependency(struct drm_sched_job *job,
++				  struct dma_fence *fence)
++{
++	struct dma_fence *f;
++	unsigned long index;
++
++	xa_for_each(&job->dependencies, index, f) {
++		if (f == fence)
++			return true;
++	}
++
++	return false;
++}
++EXPORT_SYMBOL(drm_sched_job_has_dependency);
++
+ /**
+  * drm_sched_job_cleanup - clean up scheduler job resources
+  * @job: scheduler job to clean up
+diff --git a/include/drm/gpu_scheduler.h b/include/drm/gpu_scheduler.h
+index 86b1814191a2..9a4f63469de5 100644
+--- a/include/drm/gpu_scheduler.h
++++ b/include/drm/gpu_scheduler.h
+@@ -562,7 +562,8 @@ int drm_sched_job_add_resv_dependencies(struct drm_sched_job *job,
+ int drm_sched_job_add_implicit_dependencies(struct drm_sched_job *job,
+ 					    struct drm_gem_object *obj,
+ 					    bool write);
+-
++bool drm_sched_job_has_dependency(struct drm_sched_job *job,
++				  struct dma_fence *fence);
+ 
+ void drm_sched_entity_modify_sched(struct drm_sched_entity *entity,
+ 				    struct drm_gpu_scheduler **sched_list,
+

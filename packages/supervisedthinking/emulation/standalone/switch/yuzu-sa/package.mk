@@ -2,10 +2,11 @@
 # Copyright (C) 2022-present JELOS (https://github.com/JustEnoughLinuxOS)
 
 PKG_NAME="yuzu-sa"
-PKG_VERSION="ad4ae399033853e6fe45a5e2a0009c614ab199fc"
+PKG_VERSION="f64b7c0a7f141ffab80d29386a13177f0f71b2e5"
 PKG_ARCH="x86_64 aarch64"
+https://git.suyu.dev/yuzu-emu/yuzu.git
 PKG_LICENSE="GPLv3"
-PKG_SITE="https://git.zaroz.cloud/nintendo-back-up/yuzu/yuzu"
+PKG_SITE="https://git.suyu.dev/yuzu-emu/yuzu"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain libfmt boost ffmpeg zstd zlib libzip lz4 opus libusb nlohmann-json qt5"
 PKG_SHORTDESC="Nintendo Switch emulator"

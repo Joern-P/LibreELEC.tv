@@ -47,6 +47,7 @@ makeinstall_target() {
                       --prefix=${SYSROOT_PREFIX}/usr \
                       --toolset=gcc link=static \
                       --with-chrono \
+                      --with-context \
                       --with-date_time \
                       --with-filesystem \
                       --with-iostreams \
