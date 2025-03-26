@@ -3,7 +3,7 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rga"
-PKG_VERSION="d7a0a485ed6c201f882c20b3a8881e801f131385"
+PKG_VERSION="ca16a702c76eb784e870772c948012c4c27076da"
 PKG_SHA256=""
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/rockchip-linux/linux-rga"

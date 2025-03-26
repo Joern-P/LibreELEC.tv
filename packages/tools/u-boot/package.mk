@@ -3,12 +3,14 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="u-boot"
-PKG_VERSION="2025.01"
+#PKG_VERSION="2025.01"
+PKG_VERSION="228e9e5b3502ec0e3aac3fae38d9d99f77e9ede1"
 PKG_SHA256=""
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="GPL"
-PKG_SITE="https://www.denx.de/wiki/U-Boot"
-PKG_URL="https://ftp.denx.de/pub/u-boot/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_SITE="https://www.denx.de/wiki/U-Boot" 
+#PKG_URL="https://ftp.denx.de/pub/u-boot/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+PKG_URL="https://github.com/Kwiboo/u-boot-rockchip/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain openssl:host pkg-config:host Python3:host swig:host pyelftools:host gnutls:host"
 PKG_LONGDESC="Das U-Boot is a cross-platform bootloader for embedded systems."
 
