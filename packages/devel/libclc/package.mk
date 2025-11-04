@@ -5,7 +5,7 @@ PKG_NAME="libclc"
 PKG_VERSION="$(get_pkg_version llvm)"
 PKG_LICENSE="Apache-2.0"
 PKG_URL=""
-PKG_DEPENDS_HOST="toolchain:host llvm:host"
+PKG_DEPENDS_HOST="toolchain:host llvm:host llvm"
 PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."
 PKG_DEPENDS_UNPACK+=" llvm"
 PKG_PATCH_DIRS+=" $(get_pkg_directory llvm)/patches"
@@ -27,4 +27,5 @@ pre_configure_host() {
   cd ${PKG_BUILD}/.${HOST_NAME}
   PKG_CMAKE_OPTS_HOST="-DLIBCLC_TARGETS_TO_BUILD=${LIBCLC_TARGETS_TO_BUILD}"
 }
+
 

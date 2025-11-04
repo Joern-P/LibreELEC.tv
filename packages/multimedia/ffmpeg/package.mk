@@ -3,7 +3,7 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="ffmpeg"
-PKG_VERSION="04f5eaa11c713577e41f201552ff8183af6508bf"
+PKG_VERSION="cc5de845d52265dd25cea3738952d331708c2374"
 PKG_SHA256=""
 PKG_LICENSE="GPL-3.0-only"
 PKG_SITE="https://ffmpeg.org"
@@ -120,6 +120,7 @@ configure_target() {
               --disable-static \
               --enable-shared \
               --enable-gpl \
+              --enable-nonfree \
               --enable-version3 \
               --enable-logging \
               --disable-doc \

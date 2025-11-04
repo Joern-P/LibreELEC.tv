@@ -2,10 +2,10 @@
 # Copyright (C) 2023-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libdisplay-info"
-PKG_VERSION="0.1.1"
-PKG_SHA256="0d8731588e9f82a9cac96324a3d7c82e2ba5b1b5e006143fefe692c74069fb60"
+PKG_VERSION="1a2b4b37aa6e596c03798be5b3132e3d9bbed762"
+PKG_SHA256="e021cd8b0258abff1c6a766a66f63bd9aea0c3fe2f97763b90b2509410a5db81"
 PKG_LICENSE="MIT"
 PKG_SITE="https://gitlab.freedesktop.org/emersion/libdisplay-info"
-PKG_URL="https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/${PKG_VERSION}/downloads/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="https://gitlab.freedesktop.org/emersion/libdisplay-info/-/archive/main/${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain hwdata"
 PKG_LONGDESC="EDID and DisplayID library"

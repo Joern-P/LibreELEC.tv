@@ -3,11 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="25.0.2"
+PKG_VERSION="25.2.6"
 PKG_SHA256=""
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
+PKG_DEPENDS_HOST="toolchain:host expat:host libclc:host libdrm:host Mako:host PyYAML:host spirv-tools:host"
 PKG_DEPENDS_TARGET="toolchain expat libdrm Mako:host PyYAML:host"
 PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 
@@ -18,11 +19,16 @@ if [ "${DEVICE}" = "Dragonboard" ]; then
   PKG_DEPENDS_TARGET+=" libarchive libxml2 lua54"
 fi
 
+PKG_MESON_OPTS_HOST="-Dglvnd=disabled \
+                     -Dgallium-drivers=iris \
+                     -Dgallium-vdpau=disabled \
+                     -Dplatforms= \
+                     -Dglx=disabled \
+                     -Dvulkan-drivers="
+
 PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-rusticl=false \
-                       -Dgallium-nine=false \
-                       -Dgallium-opencl=disabled \
                        -Dshader-cache=enabled \
                        -Dshared-glapi=enabled \
                        -Dopengl=true \
@@ -33,8 +39,7 @@ PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dlmsensors=disabled \
                        -Dbuild-tests=false \
                        -Ddraw-use-llvm=false \
-                       -Dmicrosoft-clc=disabled \
-                       -Dosmesa=false"
+                       -Dmicrosoft-clc=disabled"
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET+=" xorgproto libXext libXdamage libXfixes libXxf86vm libxcb libX11 libxshmfence libXrandr"
@@ -51,7 +56,14 @@ else
 fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "iris"; then
-  PKG_MESON_OPTS_TARGET+=" -Dintel-xe-kmd=enabled"
+  PKG_DEPENDS_TARGET+=" mesa:host"
+  PKG_MESON_OPTS_TARGET+=" -Dmesa-clc=system"
+fi
+
+if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
+  PKG_DEPENDS_TARGET+=" mesa:host"
+  PKG_MESON_OPTS_HOST+=" -Dtools=panfrost"
+  PKG_MESON_OPTS_TARGET+=" -Dprecomp-compiler=system -Dmesa-clc=system"
 fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "(nvidia|nvidia-ng)"; then
@@ -83,12 +95,6 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dgallium-va=disabled"
 fi
 
-if listcontains "${GRAPHIC_DRIVERS}" "vmware"; then
-  PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=enabled"
-else
-  PKG_MESON_OPTS_TARGET+=" -Dgallium-xa=disabled"
-fi
-
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_MESON_OPTS_TARGET+=" -Dgles1=disabled -Dgles2=enabled"
 else
@@ -102,3 +108,12 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
 fi
 
+makeinstall_host() {
+  mkdir -p "${TOOLCHAIN}/bin"
+    cp -a src/compiler/clc/mesa_clc "${TOOLCHAIN}/bin"
+    cp -a src/compiler/spirv/vtn_bindgen2 "${TOOLCHAIN}/bin"
+
+    if listcontains "${GRAPHIC_DRIVERS}" "panfrost"; then
+      cp -a src/panfrost/clc/panfrost_compile "${TOOLCHAIN}/bin"
+    fi
+}

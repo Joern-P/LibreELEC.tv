@@ -2,13 +2,15 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="rkbin"
-PKG_VERSION="7c4df34de3d1bf2e4f411c4e2837b845a0f9c1a8"
+PKG_VERSION="9ab19cc4adfad92d415e0660ae95c60eac45c2eb"
+#PKG_VERSION="7c4df34de3d1bf2e4f411c4e2837b845a0f9c1a8"
 #PKG_VERSION="7c35e21a8529b3758d1f051d1a5dc62aae934b2b"
 #PKG_SHA256="18bde6ce71df308197db0e1d95fd73a19b6a32f4f0b6f5567333ef3c5b617452"
 PKG_ARCH="arm aarch64"
 PKG_LICENSE="nonfree"
 PKG_SITE="https://github.com/rockchip-linux/rkbin"
-PKG_URL="https://github.com/Kwiboo/rkbin-2/archive/${PKG_VERSION}.tar.gz"
+PKG_URL="https://github.com/nyanmisaka/rkbin/archive/${PKG_VERSION}.tar.gz"
+#PKG_URL="https://github.com/Kwiboo/rkbin-2/archive/${PKG_VERSION}.tar.gz"
 #PKG_URL="https://github.com/rockchip-linux/rkbin/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="rkbin: Rockchip Firmware and Tool Binaries"
 PKG_TOOLCHAIN="manual"
