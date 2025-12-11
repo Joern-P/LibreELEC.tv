@@ -1,0 +1,37 @@
+From d56960ef13a32540f62a82ac8fa0d6638af74370 Mon Sep 17 00:00:00 2001
+From: mglae <mglmail@arcor.de>
+Date: Sat, 9 Aug 2025 23:59:27 +0200
+Subject: [PATCH] Linux meminfo: use MemAvailable when possible
+
+---
+ xbmc/platform/linux/MemUtils.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/platform/linux/MemUtils.cpp b/xbmc/platform/linux/MemUtils.cpp
+index ba9a83e26e046..1d8249f0067e7 100644
+--- a/xbmc/platform/linux/MemUtils.cpp
++++ b/xbmc/platform/linux/MemUtils.cpp
+@@ -44,6 +44,7 @@ void GetMemoryStatus(MemoryStatus* buffer)
+   uint64_t free;
+   uint64_t total;
+   uint64_t reclaimable;
++  uint64_t available = 0;
+ 
+   std::string token;
+ 
+@@ -59,10 +60,13 @@ void GetMemoryStatus(MemoryStatus* buffer)
+       file >> total;
+     if (token == "SReclaimable:")
+       file >> reclaimable;
++    if (token == "MemAvailable:")
++      file >> available;
+   }
+ 
+   buffer->totalPhys = total * 1024;
+-  buffer->availPhys = (free + cached + reclaimable + buffers) * 1024;
++  buffer->availPhys =
++      available > 0 ? available * 1024 : (free + cached + reclaimable + buffers) * 1024;
+ }
+ 
+ }
+

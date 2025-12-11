@@ -1,7 +1,7 @@
-From e6b33c857b67000e072ef18ff2f0d6a7b3e24157 Mon Sep 17 00:00:00 2001
+From 54bdc53b69b108a33961ea11cc5903882e4615c2 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Wed, 12 Jun 2024 17:23:34 +0800
-Subject: [PATCH 01/13] Revert "fix[drm]: Fix permission check issue on GKI
+Subject: [PATCH 01/12] Revert "fix[drm]: Fix permission check issue on GKI
  kernel"
 
 Create drm dumb failed on renderD128.
@@ -32,14 +32,14 @@ Create drm dumb failed on renderD128.
 This reverts commit 9c92ab9e20ba33bc9a663ec3b69d3be7c3ed558c.
 ---
  osal/allocator/allocator_drm.c | 21 ++++-----------------
- osal/mpp_runtime.cpp           |  4 +---
+ osal/mpp_runtime.c             |  4 +---
  2 files changed, 5 insertions(+), 20 deletions(-)
 
 diff --git a/osal/allocator/allocator_drm.c b/osal/allocator/allocator_drm.c
-index 6b1a07902..2e8566c9b 100644
+index 014df3e2..e4d17a6d 100644
 --- a/osal/allocator/allocator_drm.c
 +++ b/osal/allocator/allocator_drm.c
-@@ -69,11 +69,7 @@ typedef struct {
+@@ -58,11 +58,7 @@ typedef struct {
      RK_U32  flags;
  } allocator_ctx_drm;
  
@@ -52,7 +52,7 @@ index 6b1a07902..2e8566c9b 100644
  
  static RK_U32 to_rockchip_gem_mem_flag(RK_U32 flags)
  {
-@@ -168,9 +164,8 @@ static int drm_free(int fd, RK_U32 handle)
+@@ -157,9 +153,8 @@ static int drm_free(int fd, RK_U32 handle)
  
  static MPP_RET os_allocator_drm_open(void **ctx, size_t alignment, MppAllocFlagType flags)
  {
@@ -63,7 +63,7 @@ index 6b1a07902..2e8566c9b 100644
  
      if (NULL == ctx) {
          mpp_err_f("does not accept NULL input\n");
-@@ -181,17 +176,9 @@ static MPP_RET os_allocator_drm_open(void **ctx, size_t alignment, MppAllocFlagT
+@@ -170,17 +165,9 @@ static MPP_RET os_allocator_drm_open(void **ctx, size_t alignment, MppAllocFlagT
  
      mpp_env_get_u32("drm_debug", &drm_debug, 0);
  
@@ -83,11 +83,37 @@ index 6b1a07902..2e8566c9b 100644
          return MPP_ERR_UNKNOW;
      } else {
          /* drop master by default to avoid becoming the drm master */
-diff --git a/mpp/mpp.cpp b/mpp/mpp.cpp
-index 32c14b848..eedeca7fa 100644
---- a/mpp/mpp.cpp
-+++ b/mpp/mpp.cpp
-@@ -50,18 +50,6 @@ static void mpp_notify_by_buffer_group(void *arg, void *group)
+diff --git a/osal/mpp_runtime.c b/osal/mpp_runtime.c
+index ce088626..72b1a8a8 100644
+--- a/osal/mpp_runtime.c
++++ b/osal/mpp_runtime.c
+@@ -85,9 +85,7 @@ static void mpp_rt_srv_init()
+ 
+     srv->allocator_valid[MPP_BUFFER_TYPE_NORMAL] = 1;
+     srv->allocator_valid[MPP_BUFFER_TYPE_ION] = !access("/dev/ion", F_OK | R_OK | W_OK);
+-    srv->allocator_valid[MPP_BUFFER_TYPE_DRM] =
+-        !access("/dev/dri/renderD128", F_OK | R_OK | W_OK) ||
+-        !access("/dev/dri/card0", F_OK | R_OK | W_OK);
++    srv->allocator_valid[MPP_BUFFER_TYPE_DRM] = !access("/dev/dri/card0", F_OK | R_OK | W_OK);
+     srv->allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap", F_OK | R_OK);
+ 
+     if (!srv->allocator_valid[MPP_BUFFER_TYPE_ION] &&
+
+From 1657afa00fd93e25d6488ad6b8b8ec9cd0a07be3 Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Thu, 12 Dec 2024 18:06:16 +0800
+Subject: [PATCH 02/12] Revert "fix[mpp]: fix mpp frame leak when async enc"
+
+This reverts commit 822324101cb81507d6aeef9275390a30e6509e1d.
+---
+ mpp/mpp.c | 16 +++-------------
+ 1 file changed, 3 insertions(+), 13 deletions(-)
+
+diff --git a/mpp/mpp.c b/mpp/mpp.c
+index bc411a45..43adf9c2 100644
+--- a/mpp/mpp.c
++++ b/mpp/mpp.c
+@@ -38,18 +38,6 @@ static void mpp_notify_by_buffer_group(void *arg, void *group)
  
  static void *list_wraper_packet(void *arg)
  {
@@ -106,23 +132,23 @@ index 32c14b848..eedeca7fa 100644
      mpp_packet_deinit((MppPacket *)arg);
      return NULL;
  }
-@@ -229,8 +217,10 @@ MPP_RET Mpp::init(MppCtxType type, MppCodingType coding)
-         mInitDone = 1;
+@@ -240,8 +228,10 @@ MPP_RET mpp_ctx_init(Mpp *mpp, MppCtxType type, MppCodingType coding)
+         mpp->mInitDone = 1;
      } break;
      case MPP_CTX_ENC : {
-+        mPktIn  = new mpp_list(list_wraper_packet);
-         mPktOut = new mpp_list(list_wraper_packet);
--        mFrmIn  = new mpp_list(list_wraper_frame);
-+        mFrmIn  = new mpp_list(NULL);
-+        mFrmOut = new mpp_list(NULL);
++        mpp->mPktIn  = mpp_list_create(list_wraper_packet);
+         mpp->mPktOut = mpp_list_create(list_wraper_packet);
+-        mpp->mFrmIn = mpp_list_create(list_wraper_frame);
++        mpp->mFrmIn  = mpp_list_create(NULL);
++        mpp->mFrmOut = mpp_list_create(NULL);
  
-         if (mInputTimeout == MPP_POLL_BUTT)
-             mInputTimeout = MPP_POLL_BLOCK;
+         if (mpp->mInputTimeout == MPP_POLL_BUTT)
+             mpp->mInputTimeout = MPP_POLL_BLOCK;
 
-From 697ad616175fbc6f0f0f24e0bba8a6d66aab3520 Mon Sep 17 00:00:00 2001
+From 10c14ab410d3594516080a67201e9f86e48cbc31 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Tue, 9 Apr 2024 18:22:19 +0800
-Subject: [PATCH 03/13] fix[h264d]: Update hor align to 64 for high10 and rga3
+Subject: [PATCH 03/12] fix[h264d]: Update hor align to 64 for high10 and rga3
  use case
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
@@ -133,7 +159,7 @@ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
  3 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
-index 519008cd4..4e36bd473 100644
+index 519008cd..4e36bd47 100644
 --- a/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
 +++ b/mpp/hal/rkdec/h264d/hal_h264d_rkv_reg.c
 @@ -229,7 +229,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
@@ -146,7 +172,7 @@ index 519008cd4..4e36bd473 100644
  
  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
 diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
-index d780bd786..3de838c76 100644
+index d780bd78..3de838c7 100644
 --- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
 +++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu34x.c
 @@ -329,7 +329,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
@@ -159,7 +185,7 @@ index d780bd786..3de838c76 100644
  
  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
 diff --git a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
-index bbc7f1673..79e1f5d02 100644
+index bbc7f167..79e1f5d0 100644
 --- a/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
 +++ b/mpp/hal/rkdec/h264d/hal_h264d_vdpu382.c
 @@ -335,7 +335,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
@@ -172,10 +198,10 @@ index bbc7f1673..79e1f5d02 100644
  
  static RK_U32 rkv_hor_align_256_odds(RK_U32 val)
 
-From 06a3e44a285657c0e61d7e3daf17064508fa40ca Mon Sep 17 00:00:00 2001
+From 9ae886b03adafcd0522114fbb98f672418e24b2b Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Tue, 9 Apr 2024 18:24:53 +0800
-Subject: [PATCH 04/13] fix[av1d]: Update hor align to 64 for main 10bit and
+Subject: [PATCH 04/12] fix[av1d]: Update hor align to 64 for main 10bit and
  rga3 use case
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
@@ -184,7 +210,7 @@ Signed-off-by: nyanmisaka <nst799610810@gmail.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
-index 5b6e1f9ad..c1e6edb11 100644
+index 1c2d019f..f872d8e7 100644
 --- a/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
 +++ b/mpp/hal/vpu/av1d/hal_av1d_vdpu.c
 @@ -115,7 +115,7 @@ static RK_U32 rkv_ver_align(RK_U32 val)
@@ -197,22 +223,22 @@ index 5b6e1f9ad..c1e6edb11 100644
  
  static RK_U32 rkv_len_align(RK_U32 val)
 
-From 221c911f37c8a148fef1e544204d3134a9604b76 Mon Sep 17 00:00:00 2001
+From baab0ade23336b711439e0fd2582ed4a28a4a2b5 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Fri, 23 May 2025 22:56:05 +0800
-Subject: [PATCH 05/13] fix[sys_cfg]: Update hor align to 64 for 10bit and rga3
+Subject: [PATCH 05/12] fix[sys_cfg]: Update hor align to 64 for 10bit and rga3
  use case
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
- mpp/base/mpp_sys_cfg.cpp | 7 ++++---
+ mpp/base/mpp_sys_cfg.c | 7 ++++---
  1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/mpp/base/mpp_sys_cfg.cpp b/mpp/base/mpp_sys_cfg.cpp
-index fe8725ce0..3fc1b1484 100644
---- a/mpp/base/mpp_sys_cfg.cpp
-+++ b/mpp/base/mpp_sys_cfg.cpp
-@@ -446,6 +446,7 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
+diff --git a/mpp/base/mpp_sys_cfg.c b/mpp/base/mpp_sys_cfg.c
+index 58b2e422..36fc79c2 100644
+--- a/mpp/base/mpp_sys_cfg.c
++++ b/mpp/base/mpp_sys_cfg.c
+@@ -467,6 +467,7 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
          aligned_height = cfg->v_stride ? cfg->v_stride : aligned_height;
  
          switch (type) {
@@ -220,7 +246,7 @@ index fe8725ce0..3fc1b1484 100644
          case MPP_VIDEO_CodingHEVC : {
              aligned_byte = mpp_sys_cfg_align(SYS_CFG_ALIGN_64, aligned_pixel_byte);
          } break;
-@@ -457,8 +458,8 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
+@@ -478,8 +479,8 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
                  aligned_byte = mpp_sys_cfg_align(SYS_CFG_ALIGN_256_ODD, aligned_pixel_byte);
          } break;
          case MPP_VIDEO_CodingAV1 : {
@@ -231,20 +257,20 @@ index fe8725ce0..3fc1b1484 100644
              else
                  aligned_byte = mpp_sys_cfg_align(SYS_CFG_ALIGN_128, aligned_pixel_byte);
          } break;
-@@ -472,7 +473,7 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
+@@ -493,7 +494,7 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
           * NOTE: rk3576 use 128 odd plus 64 for all non jpeg format
           * all the other socs use 256 odd on larger than 1080p
           */
--        if ((aligned_byte > 1920 || soc_type == ROCKCHIP_SOC_RK3576 || soc_type == ROCKCHIP_SOC_RK3399)
+-        if ((aligned_byte > 1920 || soc_type == ROCKCHIP_SOC_RK3576)
 +        if (((aligned_byte * 8 / depth) > 1920 || soc_type == ROCKCHIP_SOC_RK3576)
              && type != MPP_VIDEO_CodingMJPEG) {
              rk_s32 update = 0;
  
 
-From 6e83db78f0078d37e10239776ab8d50b0e77c836 Mon Sep 17 00:00:00 2001
+From 15c29e0fac4583a7c6a2fd9885f8c7114f521c9b Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Tue, 26 Sep 2023 23:21:26 +0800
-Subject: [PATCH 06/13] Revert "fix[hal_vp9d]: not support fast mode for
+Subject: [PATCH 06/12] Revert "fix[hal_vp9d]: not support fast mode for
  rk3588"
 
 This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
@@ -253,7 +279,7 @@ This reverts commit 0d6cc57d44e79f8521ac2fc117571edb3224564b.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
-index e02039d78..2233a06ea 100644
+index e02039d7..2233a06e 100644
 --- a/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
 +++ b/mpp/hal/rkdec/vp9d/hal_vp9d_api.c
 @@ -59,7 +59,7 @@ MPP_RET hal_vp9d_init(void *ctx, MppHalCfg *cfg)
@@ -266,45 +292,37 @@ index e02039d78..2233a06ea 100644
          p->api = &hal_vp9d_rkv;
          cfg->support_fast_mode = 0;
 
-From 092b0e33bde15467503bb582a856c5853cd2575b Mon Sep 17 00:00:00 2001
+From 20aca11890902ec6ac65f7916f07b96a0756c85a Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Fri, 17 Jan 2025 11:28:56 +0800
-Subject: [PATCH 07/13] fix[allocator]: Fix validating dma_heap drivers
+Subject: [PATCH 07/12] fix[allocator]: Fix validating dma_heap drivers
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
- osal/mpp_runtime.cpp | 5 ++++-
+ osal/mpp_runtime.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/mpp/mpp.cpp b/mpp/mpp.cpp
-index eedeca7fa..e6a9702dd 100644
---- a/mpp/mpp.cpp
-+++ b/mpp/mpp.cpp
-@@ -825,7 +825,8 @@ MPP_RET Mpp::get_packet(MppPacket *packet)
-         MppBuffer buf = impl->buffer;
-         RK_U32 offset = (RK_U32)((char *)impl->pos - (char *)impl->data);
+diff --git a/osal/mpp_runtime.c b/osal/mpp_runtime.c
+index 72b1a8a8..c0320fd6 100644
+--- a/osal/mpp_runtime.c
++++ b/osal/mpp_runtime.c
+@@ -86,7 +86,10 @@ static void mpp_rt_srv_init()
+     srv->allocator_valid[MPP_BUFFER_TYPE_NORMAL] = 1;
+     srv->allocator_valid[MPP_BUFFER_TYPE_ION] = !access("/dev/ion", F_OK | R_OK | W_OK);
+     srv->allocator_valid[MPP_BUFFER_TYPE_DRM] = !access("/dev/dri/card0", F_OK | R_OK | W_OK);
+-    srv->allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap", F_OK | R_OK);
++    srv->allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap/system", F_OK | R_OK) &&
++                                                     !access("/dev/dma_heap/system-dma32", F_OK | R_OK) &&
++                                                     !access("/dev/dma_heap/system-uncached", F_OK | R_OK) &&
++                                                     !access("/dev/dma_heap/system-uncached-dma32", F_OK | R_OK);
  
--        mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
-+        if (buf)
-+            mpp_buffer_sync_ro_partial_begin(buf, offset, impl->length);
- 
-         mpp_dbg_pts("%p output packet pts %lld\n", this, impl->pts);
-     }
-@@ -902,7 +903,8 @@ MPP_RET Mpp::get_packet_async(MppPacket *packet)
- 
-         impl = (MppPacketImpl *)pkt;
-         offset = (RK_U32)((char *)impl->pos - (char *)impl->data);
--        mpp_buffer_sync_ro_partial_begin(impl->buffer, offset, impl->length);
-+        if (impl->buffer)
-+            mpp_buffer_sync_ro_partial_begin(impl->buffer, offset, impl->length);
-     } else {
-         AutoMutex autoFrameLock(mFrmIn->mutex());
- 
+     if (!srv->allocator_valid[MPP_BUFFER_TYPE_ION] &&
+         !srv->allocator_valid[MPP_BUFFER_TYPE_DRM] &&
 
-From ff1c2c01a344016841d1cdb581b93d4d4067fef8 Mon Sep 17 00:00:00 2001
+From b557309f02e258bc66775b31033d849f09e6292e Mon Sep 17 00:00:00 2001
 From: Brett Jia <dev.bjia56@gmail.com>
 Date: Wed, 19 Jun 2024 11:44:23 -0400
-Subject: [PATCH 09/13] fix[vp9d]: namespace vars that conflict with vpx
+Subject: [PATCH 08/12] fix[vp9d]: namespace vars that conflict with vpx
 
 ---
  mpp/hal/rkdec/vp9d/hal_vp9d_com.c | 30 +++++++++++++++---------------
@@ -312,7 +330,7 @@ Subject: [PATCH 09/13] fix[vp9d]: namespace vars that conflict with vpx
  2 files changed, 18 insertions(+), 18 deletions(-)
 
 diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_com.c b/mpp/hal/rkdec/vp9d/hal_vp9d_com.c
-index 340fb0f1e..3ef67bf62 100644
+index 340fb0f1..3ef67bf6 100644
 --- a/mpp/hal/rkdec/vp9d/hal_vp9d_com.c
 +++ b/mpp/hal/rkdec/vp9d/hal_vp9d_com.c
 @@ -838,7 +838,7 @@ static const RK_U8 vp9_default_coef_probs[4][2][2][6][6][3] = {
@@ -436,7 +454,7 @@ index 340fb0f1e..3ef67bf62 100644
              }
              for (; m < 23; m++)
 diff --git a/mpp/hal/rkdec/vp9d/hal_vp9d_com.h b/mpp/hal/rkdec/vp9d/hal_vp9d_com.h
-index 8dee8e569..3c41a9357 100644
+index 8dee8e56..3c41a935 100644
 --- a/mpp/hal/rkdec/vp9d/hal_vp9d_com.h
 +++ b/mpp/hal/rkdec/vp9d/hal_vp9d_com.h
 @@ -77,9 +77,9 @@ do{\
@@ -453,21 +471,21 @@ index 8dee8e569..3c41a9357 100644
  #ifdef __cplusplus
  extern "C" {
 
-From 22bf13b5f290542458e3b3128afdb7e6cf223536 Mon Sep 17 00:00:00 2001
+From 7603094d7a65e16a3051460c5edc2638b3b69b28 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Fri, 23 May 2025 23:11:14 +0800
-Subject: [PATCH 10/13] fix[buf_slot]: Disable sys_cfg_info warnings for now
+Subject: [PATCH 09/12] fix[buf_slot]: Disable sys_cfg_info warnings for now
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
- mpp/base/mpp_buf_slot.cpp | 2 ++
+ mpp/base/mpp_buf_slot.c | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/mpp/base/mpp_buf_slot.cpp b/mpp/base/mpp_buf_slot.cpp
-index 7a0d17a21..1683e05fc 100644
---- a/mpp/base/mpp_buf_slot.cpp
-+++ b/mpp/base/mpp_buf_slot.cpp
-@@ -493,6 +493,7 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+diff --git a/mpp/base/mpp_buf_slot.c b/mpp/base/mpp_buf_slot.c
+index 3ca80509..cb3bb033 100644
+--- a/mpp/base/mpp_buf_slot.c
++++ b/mpp/base/mpp_buf_slot.c
+@@ -480,6 +480,7 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
  
      if (impl->align_chk_log_en) {
          impl->align_chk_log_en = 0;
@@ -475,7 +493,7 @@ index 7a0d17a21..1683e05fc 100644
          if (legacy_info_set.h_stride_by_pixel != sys_cfg_info_set.h_stride_by_pixel)
              mpp_logi("mismatch h_stride_by_pixel %d - %d\n",
                       legacy_info_set.h_stride_by_pixel,
-@@ -509,6 +510,7 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
+@@ -496,6 +497,7 @@ static void generate_info_set(MppBufSlotsImpl *impl, MppFrame frame, RK_U32 forc
              mpp_logi("mismatch size_total %d - %d\n",
                       legacy_info_set.size_total,
                       sys_cfg_info_set.size_total);
@@ -484,19 +502,57 @@ index 7a0d17a21..1683e05fc 100644
  }
  
 
-From 7333dec7c04efbe27687268bea981d06586bebc0 Mon Sep 17 00:00:00 2001
+From f78335bab50a39160f045f7cff37777e39ab7e77 Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
 Date: Fri, 14 Mar 2025 00:54:30 +0800
-Subject: [PATCH 11/13] Revert "fix[os_log]: Modify default log option for
+Subject: [PATCH 10/12] Revert "fix[os_log]: Modify default log option for
  linux"
 
 This reverts commit 4ed4105a3c4502d9e63fbe8c6c138c8356329958.
 ---
- osal/linux/os_log.cpp | 11 +++--------
+ osal/linux/os_log.c | 11 +++--------
  1 file changed, 3 insertions(+), 8 deletions(-)
 
+diff --git a/osal/linux/os_log.c b/osal/linux/os_log.c
+index e39359e7..927842dd 100644
+--- a/osal/linux/os_log.c
++++ b/osal/linux/os_log.c
+@@ -19,18 +19,13 @@
+ 
+ void syslog_wrapper_init()
+ {
+-    int option = LOG_PID;
+-    RK_U32 syslog_perror = 1;
+-    RK_U32 syslog_cons = 0;
++    int option = LOG_PID | LOG_CONS;
++    RK_U32 syslog_perror = 0;
+ 
+-    os_get_env_u32("mpp_syslog_perror", &syslog_perror, 1);
++    os_get_env_u32("mpp_syslog_perror", &syslog_perror, 0);
+     if (syslog_perror)
+         option |= LOG_PERROR;
+ 
+-    os_get_env_u32("mpp_syslog_cons", &syslog_cons, 0);
+-    if (syslog_cons)
+-        option |= LOG_CONS;
+-
+     openlog("mpp", option, LOG_USER);
+ }
+ 
+
+From da4daa872ed6b3c39ee9842157b60f7287810d2a Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Fri, 4 Jul 2025 13:42:12 +0800
+Subject: [PATCH 11/12] Revert "chore[cmake]: compile both dynamic and static
+ libraries"
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ mpp/CMakeLists.txt | 48 ++++++++++++++++++++++------------------------
+ 1 file changed, 23 insertions(+), 25 deletions(-)
+
 diff --git a/mpp/CMakeLists.txt b/mpp/CMakeLists.txt
-index 7cbfecc14..d796ec30e 100644
+index 8e9c07e0..cf6b164b 100644
 --- a/mpp/CMakeLists.txt
 +++ b/mpp/CMakeLists.txt
 @@ -49,15 +49,19 @@ set (MPP_SRC
@@ -527,9 +583,9 @@ index 7cbfecc14..d796ec30e 100644
  endif()
  
  set_target_properties(${MPP_SHARED} PROPERTIES FOLDER "mpp")
-@@ -65,22 +69,17 @@ set_target_properties(${MPP_SHARED} PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+@@ -65,23 +69,17 @@ set_target_properties(${MPP_SHARED} PROPERTIES CLEAN_DIRECT_OUTPUT 1)
  target_link_libraries(${MPP_SHARED} mpp_codec mpp_hal mpp_vproc kmpp
-                       ${BEGIN_WHOLE_ARCHIVE} mpp_base kmpp_base osal ${END_WHOLE_ARCHIVE})
+     ${BEGIN_WHOLE_ARCHIVE} mpp_base kmpp_base osal ${END_WHOLE_ARCHIVE} ${LIBM})
  
 -# build static library
 -add_library(${MPP_STATIC} STATIC ${MPP_SRC})
@@ -541,6 +597,7 @@ index 7cbfecc14..d796ec30e 100644
 -add_custom_command(TARGET ${MPP_STATIC} POST_BUILD
 -    COMMAND ${CMAKE_AR} x $<TARGET_FILE:${MPP_STATIC}>
 -    COMMAND ${CMAKE_AR} rcs lib${MPP_SHARED}.a *.o
+-    COMMAND ${CMAKE_SOURCE_DIR}/merge_static_lib.sh ${CMAKE_BINARY_DIR} ${MPP_SHARED}
 -    COMMAND ${CMAKE_STRIP} --strip-debug lib${MPP_SHARED}.a
 -    COMMAND pwd
 -    COMMAND rm *.o
@@ -562,104 +619,36 @@ index 7cbfecc14..d796ec30e 100644
 +    install(FILES ${CMAKE_BINARY_DIR}/mpp/lib${MPP_SHARED}_merged.a TYPE LIB RENAME lib${MPP_SHARED}.a)
 +endif()
 
-From 48fb6aa79c8b48e1ca98ced18233fcd8a6ac68c5 Mon Sep 17 00:00:00 2001
+From 4e5b4cfe7fa30394c5d5c37b67229f148865ccbd Mon Sep 17 00:00:00 2001
 From: nyanmisaka <nst799610810@gmail.com>
-Date: Sat, 24 May 2025 01:23:51 +0800
-Subject: [PATCH 13/13] fix[vproc]: Fix unit tests cannot be disabled
+Date: Fri, 28 Nov 2025 19:30:13 +0800
+Subject: [PATCH 12/12] fix[sys_cfg]: Do not align FBC hor_stride
 
 Signed-off-by: nyanmisaka <nst799610810@gmail.com>
 ---
- mpp/vproc/iep/test/CMakeLists.txt  | 10 ++++++----
- mpp/vproc/iep2/test/CMakeLists.txt | 12 +++++++-----
- mpp/vproc/rga/test/CMakeLists.txt  | 10 ++++++----
- mpp/vproc/vdpp/test/CMakeLists.txt | 22 ++++++++++++----------
- 4 files changed, 31 insertions(+), 23 deletions(-)
+ mpp/base/mpp_sys_cfg.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/mpp/vproc/iep/test/CMakeLists.txt b/mpp/vproc/iep/test/CMakeLists.txt
-index 5f3069f55..ceb55f943 100644
---- a/mpp/vproc/iep/test/CMakeLists.txt
-+++ b/mpp/vproc/iep/test/CMakeLists.txt
-@@ -4,7 +4,9 @@
- # ----------------------------------------------------------------------------
- # iep unit test
- option(IEP_TEST "Build base iep unit test" ${BUILD_TEST})
--add_executable(iep_test iep_test.cpp)
--target_link_libraries(iep_test ${MPP_SHARED} utils)
--set_target_properties(iep_test PROPERTIES FOLDER "mpp/vproc/iep")
--add_test(NAME iep_test COMMAND iep_test)
-+if (IEP_TEST)
-+    add_executable(iep_test iep_test.cpp)
-+    target_link_libraries(iep_test ${MPP_SHARED} utils)
-+    set_target_properties(iep_test PROPERTIES FOLDER "mpp/vproc/iep")
-+    add_test(NAME iep_test COMMAND iep_test)
-+endif()
-diff --git a/mpp/vproc/iep2/test/CMakeLists.txt b/mpp/vproc/iep2/test/CMakeLists.txt
-index e54298bc4..437738a42 100644
---- a/mpp/vproc/iep2/test/CMakeLists.txt
-+++ b/mpp/vproc/iep2/test/CMakeLists.txt
-@@ -3,8 +3,10 @@
- # mpp/vproc/iep2 built-in unit test case
- # ----------------------------------------------------------------------------
- # iep2 unit test
--option(IEP2_TEST "Build base iep2 unit test" ON)
--add_executable(iep2_test iep2_test.c)
--target_link_libraries(iep2_test ${MPP_SHARED} utils)
--set_target_properties(iep2_test PROPERTIES FOLDER "mpp/vproc/iep2")
--add_test(NAME iep2_test COMMAND iep2_test)
-+option(IEP2_TEST "Build base iep2 unit test" ${BUILD_TEST})
-+if (IEP2_TEST)
-+    add_executable(iep2_test iep2_test.c)
-+    target_link_libraries(iep2_test ${MPP_SHARED} utils)
-+    set_target_properties(iep2_test PROPERTIES FOLDER "mpp/vproc/iep2")
-+    add_test(NAME iep2_test COMMAND iep2_test)
-+endif()
-diff --git a/mpp/vproc/rga/test/CMakeLists.txt b/mpp/vproc/rga/test/CMakeLists.txt
-index af0ee4360..a6ea356f5 100644
---- a/mpp/vproc/rga/test/CMakeLists.txt
-+++ b/mpp/vproc/rga/test/CMakeLists.txt
-@@ -4,7 +4,9 @@
- # ----------------------------------------------------------------------------
- # rga unit test
- option(RGA_TEST "Build base rga unit test" ${BUILD_TEST})
--add_executable(rga_test rga_test.cpp)
--target_link_libraries(rga_test ${MPP_SHARED} utils)
--set_target_properties(rga_test PROPERTIES FOLDER "mpp/vproc/rga")
--add_test(NAME rga_test COMMAND rga_test)
-+if (RGA_TEST)
-+    add_executable(rga_test rga_test.cpp)
-+    target_link_libraries(rga_test ${MPP_SHARED} utils)
-+    set_target_properties(rga_test PROPERTIES FOLDER "mpp/vproc/rga")
-+    add_test(NAME rga_test COMMAND rga_test)
-+endif()
-diff --git a/mpp/vproc/vdpp/test/CMakeLists.txt b/mpp/vproc/vdpp/test/CMakeLists.txt
-index a88935d6a..87c389881 100644
---- a/mpp/vproc/vdpp/test/CMakeLists.txt
-+++ b/mpp/vproc/vdpp/test/CMakeLists.txt
-@@ -3,14 +3,16 @@
- # mpp/vproc/vdpp built-in unit test case
- # ----------------------------------------------------------------------------
- # vdpp unit test
--option(VDPP_TEST "Build base vdpp unit test" ON)
--add_executable(vdpp_test vdpp_test.c)
--target_link_libraries(vdpp_test ${MPP_SHARED} utils vproc_vdpp)
--set_target_properties(vdpp_test PROPERTIES FOLDER "mpp/vproc/vdpp")
--add_test(NAME vdpp_test COMMAND vdpp_test)
-+option(VDPP_TEST "Build base vdpp unit test" ${BUILD_TEST})
-+if (VDPP_TEST)
-+    add_executable(vdpp_test vdpp_test.c)
-+    target_link_libraries(vdpp_test ${MPP_SHARED} utils vproc_vdpp)
-+    set_target_properties(vdpp_test PROPERTIES FOLDER "mpp/vproc/vdpp")
-+    add_test(NAME vdpp_test COMMAND vdpp_test)
+diff --git a/mpp/base/mpp_sys_cfg.c b/mpp/base/mpp_sys_cfg.c
+index 36fc79c2..b4c7e2e8 100644
+--- a/mpp/base/mpp_sys_cfg.c
++++ b/mpp/base/mpp_sys_cfg.c
+@@ -359,6 +359,7 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
+             aligned_pixel_byte = MPP_ALIGN(aligned_pixel, 64) * depth >> 3;
+         sys_cfg_dbg_dec_buf("need 256 odd align: %d\n", *compat_ext_fbc_hdr_256_odd);
  
--# hwpq test (call libvdpp.so)
--add_executable(hwpq_test hwpq_test.cpp)
--target_link_libraries(hwpq_test vdpp)
--set_target_properties(hwpq_test PROPERTIES FOLDER "mpp/vproc/vdpp")
--add_test(NAME hwpq_test COMMAND hwpq_test)
-+    # hwpq test (call libvdpp.so)
-+    add_executable(hwpq_test hwpq_test.cpp)
-+    target_link_libraries(hwpq_test vdpp)
-+    set_target_properties(hwpq_test PROPERTIES FOLDER "mpp/vproc/vdpp")
-+    add_test(NAME hwpq_test COMMAND hwpq_test)
-+endif()
++#if 0
+         switch (type) {
+         case MPP_VIDEO_CodingAVC :
+         case MPP_VIDEO_CodingAVSPLUS :
+@@ -380,6 +381,9 @@ MPP_RET mpp_sys_dec_buf_chk_proc(MppSysDecBufChkCfg *cfg)
+         } break;
+         }
+         sys_cfg_dbg_dec_buf("dec hw aligned hor_byte: [%d]\n", aligned_byte);
++#else
++        aligned_byte = aligned_pixel_byte;
++#endif
+ 
+         cfg->h_stride_by_byte = aligned_byte;
+         cfg->h_stride_by_pixel = aligned_pixel;
 

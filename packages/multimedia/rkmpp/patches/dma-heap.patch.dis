@@ -1,0 +1,26 @@
+From 20aca11890902ec6ac65f7916f07b96a0756c85a Mon Sep 17 00:00:00 2001
+From: nyanmisaka <nst799610810@gmail.com>
+Date: Fri, 17 Jan 2025 11:28:56 +0800
+Subject: [PATCH] fix[allocator]: Fix validating dma_heap drivers
+
+Signed-off-by: nyanmisaka <nst799610810@gmail.com>
+---
+ osal/mpp_runtime.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/osal/mpp_runtime.c b/osal/mpp_runtime.c
+index 72b1a8a8..c0320fd6 100644
+--- a/osal/mpp_runtime.c
++++ b/osal/mpp_runtime.c
+@@ -88,7 +88,10 @@
+     srv->allocator_valid[MPP_BUFFER_TYPE_DRM] =
+         !access("/dev/dri/renderD128", F_OK | R_OK | W_OK) ||
+         !access("/dev/dri/card0", F_OK | R_OK | W_OK);
+-    srv->allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap", F_OK | R_OK);
++    srv->allocator_valid[MPP_BUFFER_TYPE_DMA_HEAP] = !access("/dev/dma_heap/system", F_OK | R_OK) &&
++                                                     !access("/dev/dma_heap/system-dma32", F_OK | R_OK) &&
++                                                     !access("/dev/dma_heap/system-uncached", F_OK | R_OK) &&
++                                                     !access("/dev/dma_heap/system-uncached-dma32", F_OK | R_OK);
+ 
+     if (!srv->allocator_valid[MPP_BUFFER_TYPE_ION] &&
+         !srv->allocator_valid[MPP_BUFFER_TYPE_DRM] &&
